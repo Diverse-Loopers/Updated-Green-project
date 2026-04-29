@@ -1,5 +1,6 @@
-/* Live Class Styles — Daily.co Integration */
+/* Live Class Page — Meeting Link Approach */
 
+/* Loading & Error */
 .lc-loading, .lc-error {
   min-height: 100vh;
   display: flex;
@@ -13,20 +14,18 @@
 }
 
 .lc-spinner {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border: 4px solid rgba(255,255,255,0.1);
   border-top-color: #4f46e5;
   border-radius: 50%;
   animation: lc-spin 0.7s linear infinite;
 }
-
 @keyframes lc-spin { to { transform: rotate(360deg); } }
 
 .lc-loading p { color: #94a3b8; font-weight: 600; }
-
 .lc-error-icon { margin-bottom: 8px; }
-.lc-error h2 { font-size: 28px; font-weight: 800; margin: 0 0 8px; }
+.lc-error h2 { font-size: 26px; font-weight: 800; margin: 0 0 8px; }
 .lc-error p { color: #94a3b8; max-width: 420px; text-align: center; line-height: 1.6; }
 
 .lc-back-btn {
@@ -43,131 +42,284 @@
 }
 .lc-back-btn:hover { background: #4338ca; }
 
-/* Main Container */
-.lc-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Page Layout */
+.lc-page {
+  min-height: 100vh;
   background: #0f172a;
   font-family: 'Inter', sans-serif;
-  overflow: hidden;
+  color: #fff;
 }
 
-/* Top Bar */
-.lc-topbar {
+/* Nav */
+.lc-nav {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
+  justify-content: space-between;
+  padding: 16px 24px;
   background: rgba(15,23,42,0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  z-index: 100;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
-.lc-topbar-left { display: flex; align-items: center; gap: 16px; }
-
-.lc-topbar-back {
+.lc-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
-  background: rgba(239,68,68,0.15);
-  border: 1px solid rgba(239,68,68,0.3);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 10px;
-  color: #f87171;
-  font-weight: 700;
-  cursor: pointer;
+  color: #94a3b8;
+  font-weight: 600;
   font-size: 13px;
+  cursor: pointer;
   transition: all 0.15s;
 }
-.lc-topbar-back:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+.lc-nav-back:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-.lc-topbar-info { display: flex; align-items: center; gap: 12px; }
-
-.lc-live-badge {
-  padding: 4px 12px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #fff;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  animation: lc-pulse 2s ease-in-out infinite;
-}
-
-.lc-live-badge.lc-connecting {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  animation: none;
-}
-
-@keyframes lc-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.lc-topbar-title {
-  color: #fff;
+.lc-nav-title {
   font-size: 16px;
   font-weight: 700;
+  color: #f1f5f9;
   margin: 0;
 }
 
-.lc-topbar-right { display: flex; gap: 8px; align-items: center; }
-
-.lc-role-badge {
+.lc-status-badge {
   padding: 5px 14px;
-  background: rgba(79,70,229,0.2);
-  border: 1px solid rgba(79,70,229,0.3);
-  border-radius: 8px;
-  color: #a5b4fc;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.lc-status-live {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.3);
+}
+.lc-status-offline {
+  background: rgba(100,116,139,0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100,116,139,0.2);
+}
+
+/* Trainer Panel */
+.lc-trainer-panel {
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Card */
+.lc-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 32px;
+}
+
+.lc-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.lc-card-header svg { color: #4f46e5; flex-shrink: 0; }
+.lc-card-header h3 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: #f1f5f9;
+}
+
+.lc-card-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+/* Input */
+.lc-input-group {
+  margin-bottom: 24px;
+}
+.lc-input-group label {
+  display: block;
   font-size: 12px;
   font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.lc-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  color: #f1f5f9;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.lc-input:focus {
+  border-color: #4f46e5;
+}
+.lc-input::placeholder { color: #475569; }
+
+/* Buttons */
+.lc-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+.lc-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lc-btn-start {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  flex: 1;
+}
+.lc-btn-start:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(34,197,94,0.3);
+}
+
+.lc-btn-join {
+  background: #4f46e5;
+  color: #fff;
+  flex: 1;
+}
+.lc-btn-join:hover { background: #4338ca; }
+
+.lc-btn-copy {
+  background: rgba(255,255,255,0.06);
+  color: #94a3b8;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.lc-btn-copy:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.lc-btn-end {
+  background: rgba(239,68,68,0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+.lc-btn-end:hover { background: rgba(239,68,68,0.2); }
+
+/* Info Card */
+.lc-card-info h4 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #94a3b8;
+  margin: 0 0 16px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* Body Layout */
-.lc-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.lc-jitsi-wrap {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  background: #0f172a;
-}
-
-.lc-jitsi-wrap iframe {
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-
-.lc-jitsi-loading {
+.lc-steps {
+  margin: 0;
+  padding-left: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  color: #94a3b8;
-  font-weight: 600;
+  gap: 10px;
+}
+.lc-steps li {
   font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+}
+.lc-steps li::marker { color: #4f46e5; font-weight: 700; }
+
+/* Student Panel */
+.lc-student-panel {
+  max-width: 520px;
+  margin: 80px auto;
+  padding: 0 24px;
+}
+
+.lc-card-join {
+  text-align: center;
+  padding: 48px 32px;
+}
+
+.lc-join-icon {
+  margin-bottom: 24px;
+}
+
+.lc-card-join h2 {
+  font-size: 28px;
+  font-weight: 900;
+  margin: 0 0 12px;
+  color: #f1f5f9;
+}
+
+.lc-card-join > p {
+  font-size: 15px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+
+.lc-btn-student-join {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 40px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+  margin-bottom: 20px;
+}
+.lc-btn-student-join:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(34,197,94,0.35);
+}
+
+.lc-join-note {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  .lc-topbar-title { display: none; }
-  .lc-topbar { padding: 8px 12px; }
-  .lc-topbar-back { font-size: 12px; padding: 6px 12px; }
-  .lc-role-badge { font-size: 10px; padding: 4px 10px; }
+@media (max-width: 640px) {
+  .lc-nav-title { display: none; }
+  .lc-trainer-panel { margin: 24px auto; }
+  .lc-card { padding: 24px 20px; }
+  .lc-card-join { padding: 32px 20px; }
+  .lc-card-join h2 { font-size: 22px; }
+  .lc-actions { flex-direction: column; }
+  .lc-student-panel { margin: 40px auto; }
 }
