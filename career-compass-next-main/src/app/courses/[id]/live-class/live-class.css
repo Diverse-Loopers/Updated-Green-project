@@ -1,0 +1,173 @@
+/* Live Class Styles — Daily.co Integration */
+
+.lc-loading, .lc-error {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  gap: 16px;
+}
+
+.lc-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255,255,255,0.1);
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: lc-spin 0.7s linear infinite;
+}
+
+@keyframes lc-spin { to { transform: rotate(360deg); } }
+
+.lc-loading p { color: #94a3b8; font-weight: 600; }
+
+.lc-error-icon { margin-bottom: 8px; }
+.lc-error h2 { font-size: 28px; font-weight: 800; margin: 0 0 8px; }
+.lc-error p { color: #94a3b8; max-width: 420px; text-align: center; line-height: 1.6; }
+
+.lc-back-btn {
+  margin-top: 24px;
+  padding: 12px 28px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background 0.2s;
+}
+.lc-back-btn:hover { background: #4338ca; }
+
+/* Main Container */
+.lc-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+}
+
+/* Top Bar */
+.lc-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background: rgba(15,23,42,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.lc-topbar-left { display: flex; align-items: center; gap: 16px; }
+
+.lc-topbar-back {
+  padding: 8px 16px;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 10px;
+  color: #f87171;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.lc-topbar-back:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+.lc-topbar-info { display: flex; align-items: center; gap: 12px; }
+
+.lc-live-badge {
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  animation: lc-pulse 2s ease-in-out infinite;
+}
+
+.lc-live-badge.lc-connecting {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  animation: none;
+}
+
+@keyframes lc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.lc-topbar-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lc-topbar-right { display: flex; gap: 8px; align-items: center; }
+
+.lc-role-badge {
+  padding: 5px 14px;
+  background: rgba(79,70,229,0.2);
+  border: 1px solid rgba(79,70,229,0.3);
+  border-radius: 8px;
+  color: #a5b4fc;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Body Layout */
+.lc-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.lc-jitsi-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #0f172a;
+}
+
+.lc-jitsi-wrap iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.lc-jitsi-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lc-topbar-title { display: none; }
+  .lc-topbar { padding: 8px 12px; }
+  .lc-topbar-back { font-size: 12px; padding: 6px 12px; }
+  .lc-role-badge { font-size: 10px; padding: 4px 10px; }
+}

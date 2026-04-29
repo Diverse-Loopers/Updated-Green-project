@@ -1,0 +1,67 @@
+/* business.css */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+
+.glass-nav {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.hero-gradient {
+    background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent),
+        radial-gradient(circle at bottom left, rgba(219, 39, 119, 0.05), transparent);
+}
+
+.bento-card {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bento-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+    border-color: #2563eb40;
+}
+
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease-out;
+    /* height: 100%; */
+    /* box-sizing: border-box; */
+}
+
+.fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+details>summary {
+    list-style: none;
+}
+
+details>summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Sticky positioning */
+.sticky {
+    position: sticky;
+}
+
+.top-32 {
+    top: 8rem;
+}
+
+/* Hero canvas positioning */
+#hero-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+}

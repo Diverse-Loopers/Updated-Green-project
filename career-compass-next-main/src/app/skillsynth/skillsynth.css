@@ -1,0 +1,168 @@
+/* skillsynth.css — GUVI green design system */
+
+/* ── Global primary color override for Tailwind classes ── */
+:root {
+  --primary: #00c851;
+  --secondary: #00a844;
+}
+
+.glass-nav {
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.hero-gradient {
+    background: radial-gradient(circle at top right, rgba(0, 200, 81, 0.08), transparent),
+                radial-gradient(circle at bottom left, rgba(0, 168, 68, 0.05), transparent);
+}
+
+.bento-card {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease-out;
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Achiever Card Hover Effects */
+.achiever-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 2.5rem;
+    height: 480px;
+    background: #f1f5f9;
+}
+
+.achiever-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s ease;
+}
+
+.achiever-card:hover .achiever-img {
+    transform: scale(1.05);
+}
+
+.achiever-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(17, 17, 17, 0.95) 15%, rgba(17, 17, 17, 0.3) 50%, transparent);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 2rem;
+    transition: all 0.5s ease;
+}
+
+.achiever-details {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.achiever-card:hover .achiever-overlay {
+    background: linear-gradient(to top, rgba(17, 17, 17, 1) 40%, rgba(17, 17, 17, 0.7));
+}
+
+.achiever-card:hover .achiever-details {
+    max-height: 350px;
+    opacity: 1;
+    margin-top: 1rem;
+}
+
+/* Form Visibility Fixes */
+.input-field {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background-color: #ffffff; 
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    outline: none;
+    transition: all 0.2s;
+    font-size: 16px;
+    color: #111 !important; 
+}
+
+.input-field::placeholder { 
+    color: #999; 
+}
+
+.input-field:focus { 
+    border-color: #00c851; 
+    box-shadow: 0 0 0 3px rgba(0, 200, 81, 0.12); 
+}
+
+select.input-field option { 
+    background-color: white; 
+    color: #111; 
+}
+
+.no-scrollbar::-webkit-scrollbar { 
+    display: none; 
+}
+
+.no-scrollbar { 
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
+}
+
+.fade-in {
+    animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Override Tailwind bg-primary and text-primary to green */
+.text-primary { color: #00c851 !important; }
+.bg-primary { background-color: #00c851 !important; }
+.hover\:bg-primary:hover { background-color: #00c851 !important; }
+.hover\:text-primary:hover { color: #00c851 !important; }
+.border-primary { border-color: #00c851 !important; }
+.hover\:border-primary:hover { border-color: #00c851 !important; }
+.shadow-indigo-100 { box-shadow: 0 4px 14px rgba(0,200,81,0.2) !important; }
+.shadow-indigo-900\/50 { box-shadow: 0 8px 24px rgba(0,100,40,0.4) !important; }
+
+/* Request Consultation Button */
+a[href="#hiring-form"].px-6 {
+    background: #00c851 !important;
+    color: #fff !important;
+}
+
+/* Events "Get Details" link */
+.text-primary.hover\:gap-3 {
+    color: #00c851 !important;
+}
+
+/* Slider / grid overrides */
+.text-secondary { color: #00a844 !important; }
+.bg-dark { background-color: #111 !important; }
+.bg-primary\/20 { background-color: rgba(0,200,81,0.2) !important; }
+.from-primary { --tw-gradient-from: #00c851 !important; }
+.to-secondary { --tw-gradient-to: #00a844 !important; }
+.from-indigo-400 { --tw-gradient-from: #00c851 !important; }
+.to-pink-400 { --tw-gradient-to: #00a844 !important; }
+
+/* Form submission button on skillsynth */
+button[type="submit"] {
+    transition: all 0.2s;
+}
