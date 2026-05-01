@@ -234,9 +234,15 @@ body {
   transform: translateX(-100%);
   border-radius: 24px 0 0 24px;
 }
-.auth-wrapper.panel-active .slide-panel { transform: translateX(50%); }
-.auth-wrapper.panel-active .login-form-box  { transform: translateX(100%); }
-.auth-wrapper.panel-active .register-form-box { transform: translateX(100%); }
+.auth-wrapper.panel-active .slide-panel { transform: translateX(-50%); }
+/* No need to translate the form boxes since they are flex children side-by-side */
+.auth-wrapper.panel-active .login-form-box  { transform: translateX(0); opacity: 0; pointer-events: none; }
+.auth-wrapper.panel-active .register-form-box { transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+/* Initial states for opacity */
+.login-form-box { opacity: 1; transition: opacity 0.3s; }
+.register-form-box { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+
 
 /* ─── OVERLAYS (Forgot + OTP) ─────────────────────────────────── */
 #forgot-overlay,
@@ -477,10 +483,10 @@ body {
   .auth-form-box { width: 100%; padding: 40px 24px; }
   .slide-panel-wrapper { display: none; }
   .mobile-switch { display: flex; }
-  .login-form-box  { order: 1; }
-  .register-form-box { display: none; order: 2; }
-  .auth-wrapper.panel-active .login-form-box    { display: none; }
-  .auth-wrapper.panel-active .register-form-box { display: flex; }
+  .login-form-box  { order: 1; opacity: 1; pointer-events: auto; }
+  .register-form-box { display: none; order: 2; opacity: 1; pointer-events: auto; }
+  .auth-wrapper.panel-active .login-form-box    { display: none; opacity: 0; }
+  .auth-wrapper.panel-active .register-form-box { display: flex; opacity: 1; pointer-events: auto; }
   .auth-wrapper.panel-active .login-form-box,
   .auth-wrapper.panel-active .register-form-box { transform: none; }
 

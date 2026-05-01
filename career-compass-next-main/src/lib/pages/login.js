@@ -24,7 +24,7 @@ export async function handleRegister(e) {
     const password = document.getElementById('register-password').value;
     const username = document.getElementById('register-username').value;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { username } }
@@ -32,6 +32,10 @@ export async function handleRegister(e) {
 
     if (error) {
         showMessage(error.message, true);
+    } else if (data && data.session) {
+        // If email confirmation is disabled, session is returned immediately.
+        showMessage('Account created successfully!');
+        setTimeout(() => window.location.href = '/settings', 1500);
     } else {
         showMessage('Check your email for the code!');
         tempEmailForOtp = email;
@@ -51,7 +55,7 @@ export async function handleLogin(e) {
         showMessage(error.message, true);
     } else {
         showMessage('Welcome back!');
-        setTimeout(() => window.location.href = '/profile', 1500);
+        setTimeout(() => window.location.href = '/', 1500);
     }
 }
 
@@ -84,7 +88,7 @@ export async function handleOtpVerify(e) {
         showMessage(error.message, true);
     } else {
         showMessage('Verified!');
-        setTimeout(() => window.location.href = '/profile', 1500);
+        setTimeout(() => window.location.href = '/settings', 1500);
     }
 }
 
@@ -94,16 +98,12 @@ export function showForgotPasswordOverlay() {
 }
 
 export function initAuthListeners() {
-    const registerBtn = document.getElementById('registerBtn');
-    const loginBtn = document.getElementById('loginBtn');
     const forgotPasswordTrigger = document.getElementById('forgot-password-trigger');
     const registerForm = document.getElementById('register-form');
     const loginForm = document.getElementById('login-form');
     const forgotForm = document.getElementById('forgot-form');
     const otpForm = document.getElementById('otp-form');
 
-    if (registerBtn) registerBtn.onclick = () => togglePanel(true);
-    if (loginBtn) loginBtn.onclick = () => togglePanel(false);
     if (forgotPasswordTrigger) forgotPasswordTrigger.onclick = showForgotPasswordOverlay;
     if (registerForm) registerForm.onsubmit = handleRegister;
     if (loginForm) loginForm.onsubmit = handleLogin;
