@@ -63,6 +63,9 @@ export default function AdminDashboard() {
             <button onClick={() => window.showSection && window.showSection('applicants')}>
               Job Applicants
             </button>
+            <button onClick={() => window.showSection && window.showSection('executives')}>
+              Executives
+            </button>
             <button onClick={() => window.logoutAdmin && window.logoutAdmin()} style={{ marginTop: "auto", color: "#ef4444" }}>
               Logout
             </button>
@@ -408,6 +411,218 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* EXECUTIVES SECTION */}
+      <section id="executives-section" style={{ display: 'none' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: '1.5rem' }}>
+          <h2>Executive Management</h2>
+          <button className="btn-primary" style={{ width: 'auto' }} onClick={() => {
+            document.getElementById('exec-modal').style.display = 'flex';
+            document.getElementById('exec-modal-title').textContent = 'Add New Executive';
+            document.getElementById('exec-form').reset();
+            document.getElementById('exec-edit-id').value = '';
+          }}>+ Add Executive</button>
+        </div>
+
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="executives-table-body">
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#9ca3af' }}>Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Executive Modal */}
+      <div id="exec-modal" className="modal" style={{ display: 'none' }}>
+        <div className="modal-content" style={{ maxWidth: '480px' }}>
+          <h3 id="exec-modal-title">Add New Executive</h3>
+          <form id="exec-form" onSubmit={(e) => {
+            e.preventDefault();
+            window.saveExecutive && window.saveExecutive();
+          }}>
+            <input type="hidden" id="exec-edit-id" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Full Name *</label>
+                <input type="text" id="exec-name" required className="form-input" style={{ width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Email *</label>
+                <input type="email" id="exec-email" required className="form-input" style={{ width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Role *</label>
+                <select id="exec-role" required className="form-input" style={{ width: '100%' }}>
+                  <option value="sales">Sales Executive</option>
+                  <option value="cfo">Chief Finance Officer</option>
+                  <option value="cso">Chief Staffing Officer</option>
+                  <option value="cmo">Chief Managing Officer</option>
+                  <option value="coo">Chief Operations Officer</option>
+                  <option value="strategic_advisor">Strategic Advisor</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Phone</label>
+                <input type="text" id="exec-phone" className="form-input" style={{ width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Password {'{'}new exec only{'}'}</label>
+                <input type="password" id="exec-password" className="form-input" style={{ width: '100%' }} placeholder="Set password" />
+              </div>
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button type="submit" className="btn-primary">Save</button>
+              <button type="button" className="btn-secondary" onClick={() => {
+                document.getElementById('exec-modal').style.display = 'none';
+              }}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Executive management script */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        (function() {
+          const ROLE_LABELS = {
+            sales: 'Sales Executive',
+            cfo: 'Chief Finance Officer',
+            cso: 'Chief Staffing Officer',
+            cmo: 'Chief Managing Officer',
+            coo: 'Chief Operations Officer',
+            strategic_advisor: 'Strategic Advisor'
+          };
+
+          let executivesData = [];
+
+          async function loadExecutives() {
+            try {
+              const res = await fetch('/api/executives/manage');
+              const data = await res.json();
+              if (data.success) {
+                executivesData = data.executives;
+                renderExecutives();
+              }
+            } catch(e) { console.error(e); }
+          }
+
+          function renderExecutives() {
+            const tbody = document.getElementById('executives-table-body');
+            if (!tbody) return;
+            if (!executivesData.length) {
+              tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af">No executives found</td></tr>';
+              return;
+            }
+            tbody.innerHTML = executivesData.map(ex => {
+              return '<tr>' +
+                '<td><strong>' + (ex.name || '-') + '</strong></td>' +
+                '<td>' + (ex.email || '-') + '</td>' +
+                '<td>' + (ROLE_LABELS[ex.role] || ex.role) + '</td>' +
+                '<td>' + (ex.phone || '-') + '</td>' +
+                '<td><span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' +
+                  (ex.is_active ? 'background:#d1fae5;color:#059669' : 'background:#fee2e2;color:#dc2626') +
+                  '">' + (ex.is_active ? 'Active' : 'Inactive') + '</span></td>' +
+                '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+                  '<button onclick="window.editExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:11px;font-weight:600">Edit</button>' +
+                  '<button onclick="window.toggleExecStatus(\'' + ex.id + '\', ' + !ex.is_active + ')" style="padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;' +
+                    (ex.is_active ? 'background:#fee2e2;color:#dc2626' : 'background:#d1fae5;color:#059669') +
+                  '">' + (ex.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+                  '<button onclick="window.changeExecPass(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#dbeafe;color:#2563eb;cursor:pointer;font-size:11px;font-weight:600">Reset Pass</button>' +
+                  '<button onclick="window.deleteExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600">Delete</button>' +
+                '</td>' +
+              '</tr>';
+            }).join('');
+          }
+
+          window.saveExecutive = async function() {
+            const editId = document.getElementById('exec-edit-id').value;
+            const name = document.getElementById('exec-name').value;
+            const email = document.getElementById('exec-email').value;
+            const role = document.getElementById('exec-role').value;
+            const phone = document.getElementById('exec-phone').value;
+            const password = document.getElementById('exec-password').value;
+
+            const body = editId
+              ? { action: 'update', id: editId, name, role, phone }
+              : { action: 'create', name, email, role, phone, password };
+
+            try {
+              const res = await fetch('/api/executives/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+              });
+              const data = await res.json();
+              if (data.success) {
+                document.getElementById('exec-modal').style.display = 'none';
+                loadExecutives();
+              } else {
+                alert(data.error || 'Failed to save');
+              }
+            } catch(e) { alert('Error: ' + e.message); }
+          };
+
+          window.editExec = function(id) {
+            const ex = executivesData.find(e => e.id === id);
+            if (!ex) return;
+            document.getElementById('exec-edit-id').value = ex.id;
+            document.getElementById('exec-name').value = ex.name || '';
+            document.getElementById('exec-email').value = ex.email || '';
+            document.getElementById('exec-role').value = ex.role || 'sales';
+            document.getElementById('exec-phone').value = ex.phone || '';
+            document.getElementById('exec-password').value = '';
+            document.getElementById('exec-modal-title').textContent = 'Edit Executive';
+            document.getElementById('exec-modal').style.display = 'flex';
+          };
+
+          window.toggleExecStatus = async function(id, newStatus) {
+            await fetch('/api/executives/manage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'update', id, is_active: newStatus })
+            });
+            loadExecutives();
+          };
+
+          window.changeExecPass = async function(id) {
+            const newPass = prompt('Enter new password:');
+            if (!newPass) return;
+            await fetch('/api/executives/manage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'update-password', id, password: newPass })
+            });
+            alert('Password updated.');
+          };
+
+          window.deleteExec = async function(id) {
+            if (!confirm('Delete this executive?')) return;
+            await fetch('/api/executives/manage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'delete', id })
+            });
+            loadExecutives();
+          };
+
+          // Auto-load when section becomes visible
+          const origShowSection = window.showSection;
+          window.showSection = function(section) {
+            if (origShowSection) origShowSection(section);
+            if (section === 'executives') loadExecutives();
+          };
+        })();
+      `}} />
     </>
   );
 }

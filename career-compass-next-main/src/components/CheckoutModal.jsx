@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function CheckoutModal({ course, userId, onClose, onSuccess }) {
+export default function CheckoutModal({ course, userId, userEmail, userName, userPhone, onClose, onSuccess }) {
   const [couponCode, setCouponCode] = useState('');
   const [couponStatus, setCouponStatus] = useState(null);
   const [discount, setDiscount] = useState(0);
@@ -37,52 +37,127 @@ export default function CheckoutModal({ course, userId, onClose, onSuccess }) {
     }
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (document.getElementById('razorpay-checkout-script')) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'razorpay-checkout-script';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handlePayment = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/paytm/initiate', {
+      // Step 1: Create order on backend
+      const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId: course.id,
-          couponCode: discount > 0 ? couponCode.trim() : null,
           userId,
+          userName: userName || 'Student',
+          userEmail: userEmail || '',
+          userPhone: userPhone || '',
+          couponCode: discount > 0 ? couponCode.trim() : null,
         }),
       });
       const data = await res.json();
 
-      if (data.error) {
-        setPaymentResult({ type: 'error', message: data.error });
+      if (!data.success) {
+        setPaymentResult({ type: 'error', message: data.error || 'Failed to create order' });
         setLoading(false);
         return;
       }
 
-      if (data.free || data.demo) {
-        setPaymentResult({ type: 'success', message: data.message || 'Enrolled successfully!' });
+      // Free enrollment
+      if (data.free) {
+        setPaymentResult({ type: 'success', message: 'Enrolled successfully!' });
         setLoading(false);
         setTimeout(() => onSuccess && onSuccess(), 2000);
         return;
       }
 
-      // Real Paytm checkout
-      if (data.txnToken && window.Paytm) {
-        window.Paytm.CheckoutJS.init({
-          transactionToken: data.txnToken,
-          orderId: data.orderId,
-          tokenType: 'TXN_TOKEN',
-          amount: data.amount,
-        }).then(() => {
-          window.Paytm.CheckoutJS.invoke();
+      // Step 2: Load Razorpay script and open checkout modal
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !window.Razorpay) {
+        setPaymentResult({ type: 'error', message: 'Failed to load payment gateway. Please try again.' });
+        setLoading(false);
+        return;
+      }
+
+      const options = {
+        key: data.keyId,
+        amount: data.amountInPaise,
+        currency: data.currency,
+        name: 'Diverse Loopers',
+        description: data.courseTitle,
+        order_id: data.orderId,
+        image: '/images/logo.png',
+        prefill: {
+          name: userName || '',
+          email: userEmail || '',
+          contact: userPhone || '',
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+        handler: async function (response) {
+          // Step 3: Verify payment on backend
+          try {
+            const verifyRes = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                courseId: course.id,
+                userId,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              setPaymentResult({ type: 'success', message: 'Payment successful! You are now enrolled.' });
+              setTimeout(() => onSuccess && onSuccess(), 2000);
+            } else {
+              setPaymentResult({ type: 'error', message: verifyData.error || 'Payment verification failed.' });
+            }
+          } catch {
+            setPaymentResult({ type: 'error', message: 'Verification error. Contact support.' });
+          }
+          setLoading(false);
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on('payment.failed', function (response) {
+        setPaymentResult({
+          type: 'error',
+          message: response.error?.description || 'Payment failed. Please try again.',
         });
-      } else {
-        // Demo fallback
-        setPaymentResult({ type: 'success', message: 'Payment simulated successfully! You are now enrolled.' });
-        setTimeout(() => onSuccess && onSuccess(), 2000);
-      }
-    } catch {
-      setPaymentResult({ type: 'error', message: 'Payment failed. Please try again.' });
+        setLoading(false);
+      });
+
+      rzp.open();
+
+    } catch (err) {
+      setPaymentResult({ type: 'error', message: 'Payment error. Please try again.' });
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -162,18 +237,18 @@ export default function CheckoutModal({ course, userId, onClose, onSuccess }) {
             <div style={styles.priceSection}>
               <div style={styles.priceRow}>
                 <span>Course Price</span>
-                <span>₹{price.toLocaleString('en-IN')}</span>
+                <span>Rs. {price.toLocaleString('en-IN')}</span>
               </div>
               {discount > 0 && (
                 <div style={{ ...styles.priceRow, color: '#10b981' }}>
                   <span>Discount ({discount}%)</span>
-                  <span>- ₹{discountAmount.toLocaleString('en-IN')}</span>
+                  <span>- Rs. {discountAmount.toLocaleString('en-IN')}</span>
                 </div>
               )}
               <div style={styles.divider}></div>
               <div style={{ ...styles.priceRow, fontWeight: 800, fontSize: 20 }}>
                 <span>Total</span>
-                <span style={{ color: '#4f46e5' }}>₹{finalPrice.toLocaleString('en-IN')}</span>
+                <span style={{ color: '#4f46e5' }}>Rs. {finalPrice.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
@@ -191,14 +266,14 @@ export default function CheckoutModal({ course, userId, onClose, onSuccess }) {
                 <span style={styles.spinner}></span>
               ) : (
                 <>
-                  {finalPrice === 0 ? 'Enroll for Free' : `Pay ₹${finalPrice.toLocaleString('en-IN')}`}
+                  {finalPrice === 0 ? 'Enroll for Free' : `Pay Rs. ${finalPrice.toLocaleString('en-IN')}`}
                   <span style={{ marginLeft: 8 }}>→</span>
                 </>
               )}
             </button>
 
             <p style={styles.secureText}>
-              Secured by Paytm Payment Gateway
+              Secured by Razorpay Payment Gateway
             </p>
           </>
         )}
