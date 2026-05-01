@@ -682,6 +682,20 @@ export default function AdminDashboard() {
                   <textarea id="course-what-learn" rows={4} placeholder="Build ML models from scratch&#10;Deploy AI apps to production" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
                 </div>
 
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Curriculum Unit</label>
+                    <select id="course-curriculum-unit" defaultValue="Week" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <option value="Session">Session</option>
+                      <option value="Hour">Hour</option>
+                      <option value="Day">Day</option>
+                      <option value="Week">Week</option>
+                      <option value="Month">Month</option>
+                      <option value="Year">Year</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Syllabus / Curriculum (one topic per line)</label>
                   <textarea id="course-syllabus" rows={6} placeholder="Introduction to Python & Data Science&#10;Data Visualization with Matplotlib&#10;Supervised Learning Models&#10;..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>

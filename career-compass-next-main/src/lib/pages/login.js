@@ -32,6 +32,8 @@ export async function handleRegister(e) {
 
     if (error) {
         showMessage(error.message, true);
+    } else if (data?.user?.identities?.length === 0) {
+        showMessage('Already have account try login', true);
     } else if (data && data.session) {
         // If email confirmation is disabled, session is returned immediately.
         showMessage('Account created successfully!');

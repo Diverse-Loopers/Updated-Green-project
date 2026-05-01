@@ -706,6 +706,20 @@ export function editCourse(id) {
     const isLiveEl = document.getElementById('course-is-live');
     if (isLiveEl) isLiveEl.value = c.is_live ? 'true' : 'false';
 
+    let unit = 'Week';
+    if (Array.isArray(c.syllabus) && c.syllabus.length > 0 && c.syllabus[0].week) {
+        const parts = c.syllabus[0].week.split(' ');
+        if (parts.length > 0) {
+            const possibleUnit = parts[0];
+            const allowedUnits = ['Session', 'Hour', 'Day', 'Week', 'Month', 'Year'];
+            if (allowedUnits.includes(possibleUnit)) {
+                unit = possibleUnit;
+            }
+        }
+    }
+    const unitEl = document.getElementById('course-curriculum-unit');
+    if (unitEl) unitEl.value = unit;
+
     const formTitle = document.getElementById('course-form-title');
     const saveBtn = document.getElementById('course-save-btn');
     if (formTitle) formTitle.textContent = 'Update Course Details';
@@ -734,6 +748,9 @@ export function resetCourseForm() {
         'course-highlights', 'course-what-learn', 'course-syllabus', 'course-who-join', 'course-gallery-urls'];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
+    const unitEl = document.getElementById('course-curriculum-unit');
+    if (unitEl) unitEl.value = 'Week';
+
     const formTitle = document.getElementById('course-form-title');
     const saveBtn = document.getElementById('course-save-btn');
     if (formTitle) formTitle.textContent = 'Configure New Course';
@@ -761,7 +778,8 @@ export async function handleCourseFormSubmit(e) {
 
     // Syllabus: plain text lines → [{week, topic}]
     const syllabusLines = toArr('course-syllabus');
-    const syllabusArr = syllabusLines.map((t, i) => ({ week: `Week ${i + 1}`, topic: t }));
+    const unitType = document.getElementById('course-curriculum-unit')?.value || 'Week';
+    const syllabusArr = syllabusLines.map((t, i) => ({ week: `${unitType} ${i + 1}`, topic: t }));
 
     const payload = {
         title:            document.getElementById('course-title')?.value?.trim(),
