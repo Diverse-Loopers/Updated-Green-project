@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import './about.css';
 import { initScrollReveal, registerHybridHustler } from '@/lib/pages/about';
 import NavAuthButtons from '@/components/NavAuthButtons';
+import Footer from '@/components/ui/Footer';
 
 export default function AboutPage() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -348,39 +349,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="ab-footer">
-        <div className="ab-footer__inner">
-          <div className="ab-footer__grid">
-            <div className="ab-footer__brand">
-              <img src="/DIVERSE LOOPERS (1) bg.png" alt="Diverse Loopers" />
-              <p>To help students convert skills into experience, experience into earnings, and earnings into sustainable careers.</p>
-            </div>
-            <div className="ab-footer__col">
-              <h5>Quick Links</h5>
-              <ul>
-                <li><a href="#mission">Mission</a></li>
-                <li><a href="#hybrid-hustle">Hybrid Hustle</a></li>
-                <li><a href="#join-hustle">Register</a></li>
-                <li><a href="/">Home</a></li>
-              </ul>
-            </div>
-            <div className="ab-footer__col">
-              <h5>Our Tools</h5>
-              <ul>
-                <li><a href="/analyzer">Path Analyzer</a></li>
-                <li><a href="/career-analyzer">Career Analyzer</a></li>
-                <li><a href="/courses">Courses</a></li>
-                <li><a href="/events">Events</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="ab-footer__bottom">
-            <p>&copy; 2024 Diverse Loopers. All rights reserved.</p>
-            <p>Diverse Loopers — where students grow into industry-ready professionals.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </>
   );
 }

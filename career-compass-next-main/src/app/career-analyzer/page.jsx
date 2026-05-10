@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import './career-analyzer.css';
 import NavAuthButtons from '@/components/NavAuthButtons';
+import Footer from '@/components/ui/Footer';
 
 export default function CareerAnalyzerPage() {
   const [view, setView] = useState('landing');
@@ -518,55 +519,7 @@ export default function CareerAnalyzerPage() {
         </div>
       )}
 
-      {/* FOOTER */}
-      <footer className="ca-footer">
-        <div className="ca-footer__inner">
-          <div className="ca-footer__grid">
-            <div className="ca-footer__brand">
-              <img src="/DIVERSE LOOPERS (1) bg.png" alt="Diverse Loopers" />
-              <p>Guiding Talents to their perfect career path through data-driven insights and personalized roadmaps.</p>
-              <div className="ca-footer__socials">
-                <a href="https://www.linkedin.com/company/105277450" aria-label="LinkedIn"><i className="fa-brands fa-linkedin-in"></i></a>
-                <a href="https://www.instagram.com/diverseloopers/" aria-label="Instagram"><i className="fa-brands fa-instagram"></i></a>
-              </div>
-            </div>
-            <div className="ca-footer__col">
-              <h5>Quick Links</h5>
-              <ul>
-                <li><a href="/">Home</a></li>
-                <li><a href="/courses">Courses</a></li>
-                <li><a href="/events">Events</a></li>
-                <li><a href="/skillsynth">Community</a></li>
-              </ul>
-            </div>
-            <div className="ca-footer__col">
-              <h5>Tools</h5>
-              <ul>
-                <li><a href="/career-analyzer">Career Analyzer</a></li>
-                <li><a href="/analyzer">Path Analyzer</a></li>
-              </ul>
-            </div>
-            <div className="ca-footer__col">
-              <h5>Get In Touch</h5>
-              <div className="ca-footer__contact-item">
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                contact@diverseloopers.com
-              </div>
-              <div className="ca-footer__contact-item">
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012.18 1h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 8.09a16 16 0 006 6l1.45-1.45a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92z"/></svg>
-                +91 98393 50961
-              </div>
-            </div>
-          </div>
-          <div className="ca-footer__bottom">
-            <p>© 2024 Diverse Loopers. All rights reserved.</p>
-            <div>
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms & Conditions</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </>
   );
 }

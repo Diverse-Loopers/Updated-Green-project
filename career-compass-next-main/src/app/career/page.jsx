@@ -478,7 +478,7 @@ import GrowthTimelineSection from '@/components/career/GrowthTimelineSection'
 import TestimonialsSection from '@/components/career/TestimonialsSection'
 import OpenRolesSection from '@/components/career/OpenRolesSection'
 import FinalCTASection from '@/components/career/FinalCTASection'
-import Footer from '@/components/career/Footer'
+import Footer from '@/components/ui/Footer'
 
 export default function CareersPage() {
   return (

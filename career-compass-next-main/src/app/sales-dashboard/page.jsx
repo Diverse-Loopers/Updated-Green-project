@@ -8,7 +8,7 @@ const ROLE_LABELS = {
   sales: 'Sales Executive',
   cfo: 'Chief Finance Officer',
   cso: 'Chief Staffing Officer',
-  cmo: 'Chief Managing Officer',
+  cmo: 'Chief Marketing Officer',
   coo: 'Chief Operations Officer',
   strategic_advisor: 'Strategic Advisor',
 };
@@ -25,6 +25,8 @@ export default function SalesDashboardPage() {
   const [chart, setChart] = useState([]);
   const [settings, setSettings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [courseAnalytics, setCourseAnalytics] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState('All Courses');
 
   // Settings form
   const [gwName, setGwName] = useState('razorpay');
@@ -58,6 +60,7 @@ export default function SalesDashboardPage() {
         setPayments(payRes.payments);
         setStats(payRes.stats);
         setChart(payRes.chart);
+        setCourseAnalytics(payRes.courseAnalytics || []);
       }
       if (settingsRes.success) {
         setSettings(settingsRes.settings);
@@ -158,6 +161,10 @@ export default function SalesDashboardPage() {
           <button className={`sd-nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
             Transactions
+          </button>
+          <button className={`sd-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            Course Analytics
           </button>
           <button className={`sd-nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m8.66-13.5l-5.2 3m-5.2 3l-5.2 3m0-12l5.2 3m5.2 3l5.2 3"/></svg>
@@ -301,6 +308,98 @@ export default function SalesDashboardPage() {
                     ))}
                     {filteredPayments.length === 0 && (
                       <tr><td colSpan={8} className="sd-empty">No transactions found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* COURSE ANALYTICS TAB */}
+        {activeTab === 'analytics' && (
+          <div className="sd-content">
+            <h1 className="sd-page-title">Course Analytics & Enrollments</h1>
+            
+            {/* Course Summary Table */}
+            <div className="sd-card" style={{ marginBottom: '2rem' }}>
+              <h3 className="sd-card-title">Course Performance Summary</h3>
+              <div className="sd-table-wrap">
+                <table className="sd-table">
+                  <thead>
+                    <tr>
+                      <th>Course Title</th>
+                      <th>Total Enrollments</th>
+                      <th>Revenue Generated</th>
+                      <th>Coupons Applied</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courseAnalytics.map((c, i) => (
+                      <tr key={i}>
+                        <td>
+                          <div className="sd-cell-name">{c.course_title}</div>
+                        </td>
+                        <td>{c.enrollments}</td>
+                        <td style={{ color: '#10b981', fontWeight: 'bold' }}>Rs. {c.revenue.toLocaleString('en-IN')}</td>
+                        <td>{c.coupons}</td>
+                      </tr>
+                    ))}
+                    {courseAnalytics.length === 0 && (
+                      <tr><td colSpan={4} className="sd-empty">No course data available</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Course Wise Enrollments */}
+            <div className="sd-content-header" style={{ marginTop: '2rem' }}>
+              <h2 className="sd-card-title" style={{ margin: 0 }}>Course-wise Enrollments</h2>
+              <select 
+                value={selectedCourse} 
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="sd-search"
+                style={{ width: 'auto', minWidth: '250px', cursor: 'pointer' }}
+              >
+                <option value="All Courses">All Courses</option>
+                {courseAnalytics.map((c, i) => (
+                  <option key={i} value={c.course_title}>{c.course_title}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="sd-card">
+              <div className="sd-table-wrap">
+                <table className="sd-table">
+                  <thead>
+                    <tr>
+                      <th>Student Details</th>
+                      <th>Contact Info</th>
+                      <th>Course Name</th>
+                      <th>Payment Status</th>
+                      <th>Coupon</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments
+                      .filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse)
+                      .map(p => (
+                      <tr key={p.id}>
+                        <td>
+                          <div className="sd-cell-name">{p.user_name || '-'}</div>
+                        </td>
+                        <td>
+                          <div className="sd-cell-sub">{p.user_email || '-'}</div>
+                          <div className="sd-cell-sub">{p.user_phone || '-'}</div>
+                        </td>
+                        <td><div className="sd-cell-name" style={{ fontSize: '0.8rem' }}>{p.course_title}</div></td>
+                        <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
+                        <td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td>
+                      </tr>
+                    ))}
+                    {payments.filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse).length === 0 && (
+                      <tr><td colSpan={5} className="sd-empty">No enrollments found</td></tr>
                     )}
                   </tbody>
                 </table>

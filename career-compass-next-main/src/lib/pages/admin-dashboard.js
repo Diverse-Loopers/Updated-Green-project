@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { formatDate, showToast, generateEmployeeID } from './utils';
 
 let employeesCache = [];
+let applicantsCache = [];
 let notificationIntervalId = null;
 
 /* ==========================
@@ -14,13 +15,13 @@ export function showSection(sectionId) {
     document.querySelectorAll('.nav-links button')?.forEach(btn => btn.classList.remove('active'));
     
     const navBtns = document.querySelectorAll('.nav-links button');
-    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4 };
+    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4, executives: 5 };
     if (navBtns[indexMap[sectionId]]) {
         navBtns[indexMap[sectionId]].classList.add('active');
     }
 
     // Show Section
-    ['employees', 'tasks', 'attendance', 'leaves', 'applicants'].forEach(id => {
+    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'executives'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
@@ -203,11 +204,25 @@ async function loadAdminStats() {
 
     const uniquePresent = new Set(presentData?.map(d => d.employee_id) || []).size;
 
+    const { count: pendingLeaves } = await supabase
+        .from('leaves')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Pending');
+
+    const { count: activeTasks } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['Pending', 'Submitted']);
+
     const totalEl = document.getElementById('stat-total-employees');
     const presentEl = document.getElementById('stat-present-today');
+    const leavesEl = document.getElementById('stat-pending-leaves');
+    const tasksEl = document.getElementById('stat-active-tasks');
 
     if (totalEl) totalEl.textContent = totalEmp || 0;
     if (presentEl) presentEl.textContent = uniquePresent || 0;
+    if (leavesEl) leavesEl.textContent = pendingLeaves || 0;
+    if (tasksEl) tasksEl.textContent = activeTasks || 0;
 }
 
 /* ==========================
@@ -647,80 +662,197 @@ export function logoutAdmin() {
 //     });
 // }
 
-async function loadJobApplicants() {
-    console.log('Loading job applicants...');
-    
+async function loadJobApplicants(filterStatus = 'all') {
     const { data, error } = await supabase
         .from('applications')
         .select('*')
         .order('submitted_at', { ascending: false });
 
-    if (error) {
-        console.error('Error loading applications:', error);
-        return showToast('Error loading applications', 'error');
-    }
+    if (error) return showToast('Error loading applications', 'error');
 
-    console.log('Loaded applications:', data);
+    applicantsCache = data || [];
+    renderApplicantCards(applicantsCache, filterStatus);
+}
 
-    const tbody = document.querySelector('#applicants-table tbody');
-    if (!tbody) return;
+function renderApplicantCards(apps, filterStatus = 'all') {
+    const container = document.getElementById('applicants-cards-container');
+    if (!container) return;
+    container.innerHTML = '';
 
-    tbody.innerHTML = '';
+    const filtered = filterStatus === 'all' ? apps : apps.filter(a => (a.status || 'new') === filterStatus);
 
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No applications yet</td></tr>';
+    if (!filtered || filtered.length === 0) {
+        container.innerHTML = '<p style="color:#94a3b8;grid-column:1/-1;text-align:center;padding:2rem">No applications found</p>';
         return;
     }
 
-    data.forEach(app => {
-        console.log('Application ID:', app.id, 'Type:', typeof app.id);
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${app.applicant_name}</td>
-            <td>${app.job_title}</td>
-            <td>${app.applicant_email}</td>
-            <td>${app.applicant_phone}</td>
-            <td>${app.experience_years || app.experince_years || 'N/A'}</td>
-            <td>${formatDate(app.submitted_at)}</td>
-            <td>
-                <button 
-                    class="btn-primary view-btn" 
-                    data-app-id="${app.id}" 
-                    style="font-size: 0.8rem; padding: 0.25rem 0.5rem;"
-                >
-                    View
-                </button>
-                <button 
-                    class="btn-secondary delete-btn" 
-                    data-app-id="${app.id}" 
-                    style="font-size: 0.8rem; padding: 0.25rem 0.5rem;"
-                >
-                    Delete
-                </button>
-            </td>
+    const statusColors = {
+        new: 'status-submitted', reviewed: 'status-pending',
+        shortlisted: 'status-approved', rejected: 'status-rejected', interviewed: 'status-present'
+    };
+
+    filtered.forEach(app => {
+        const initials = (app.applicant_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const dateStr = app.submitted_at ? new Date(app.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+        const status = app.status || 'new';
+
+        const card = document.createElement('div');
+        card.className = 'applicant-card';
+        card.setAttribute('data-card-id', app.id);
+        card.innerHTML = `
+            <div class="applicant-card-header">
+                <div class="applicant-avatar">${initials}</div>
+                <div style="flex:1">
+                    <h4>${app.applicant_name}</h4>
+                    <p>${app.job_title}</p>
+                </div>
+                <span class="status-badge ${statusColors[status] || ''}">${status}</span>
+            </div>
+            <div class="applicant-card-meta">
+                <span class="meta-tag">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    ${app.applicant_email}
+                </span>
+                <span class="meta-tag">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    ${dateStr}
+                </span>
+                ${(app.experience_years || app.experince_years) ? `<span class="meta-tag">Exp: ${app.experience_years || app.experince_years} yrs</span>` : ''}
+            </div>
+            <div class="applicant-card-actions" style="flex-wrap:wrap;">
+                <button class="view-btn" data-app-id="${app.id}" style="background:linear-gradient(135deg,#6C5CE7,#a855f7);color:#fff;">View</button>
+                <button class="email-btn" data-app-id="${app.id}" style="background:#0ea5e9;color:#fff;">Email</button>
+                ${status !== 'shortlisted' ? `<button class="status-btn" data-app-id="${app.id}" data-status="shortlisted" style="background:#d1fae5;color:#065f46;">Shortlist</button>` : ''}
+                ${status !== 'rejected' ? `<button class="status-btn" data-app-id="${app.id}" data-status="rejected" style="background:#fee2e2;color:#991b1b;">Reject</button>` : ''}
+                <button class="delete-btn btn-danger" data-app-id="${app.id}">Delete</button>
+            </div>
         `;
-        tbody.appendChild(tr);
+        container.appendChild(card);
     });
 
-    // Attach event listeners after DOM is updated
     setTimeout(() => {
         document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const appId = this.getAttribute('data-app-id');
-                console.log('View clicked, ID:', appId, 'Type:', typeof appId);
-                viewApplicantDetails(appId);
-            });
+            btn.addEventListener('click', function() { viewApplicantDetails(this.getAttribute('data-app-id')); });
         });
-
         document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() { deleteApplicant(this.getAttribute('data-app-id')); });
+        });
+        document.querySelectorAll('.email-btn').forEach(btn => {
+            btn.addEventListener('click', function() { openEmailCompose(this.getAttribute('data-app-id')); });
+        });
+        document.querySelectorAll('.status-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const appId = this.getAttribute('data-app-id');
-                console.log('Delete clicked, ID:', appId, 'Type:', typeof appId);
-                deleteApplicant(appId);
+                updateAppStatus(this.getAttribute('data-app-id'), this.getAttribute('data-status'));
             });
         });
     }, 100);
+}
+
+async function updateAppStatus(appId, newStatus) {
+    try {
+        const res = await fetch('/api/applications/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: appId, status: newStatus })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(`Application marked as ${newStatus}`, 'success');
+            loadJobApplicants(document.getElementById('status-filter')?.value || 'all');
+        } else {
+            showToast(result.error || 'Failed to update status', 'error');
+        }
+    } catch (err) {
+        showToast('Error updating status', 'error');
+    }
+}
+
+function openEmailCompose(appId) {
+    const app = applicantsCache.find(a => String(a.id) === String(appId));
+    if (!app) return;
+    
+    const modal = document.getElementById('email-compose-modal');
+    if (!modal) return;
+    
+    document.getElementById('email-to').value = app.applicant_email;
+    document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} — Diverse Loopers`;
+    document.getElementById('email-body').value = `Dear ${app.applicant_name},\n\nThank you for applying for the ${app.job_title} position at Diverse Loopers.\n\n\n\nBest regards,\nHR Team\nDiverse Loopers`;
+    
+    modal.classList.remove('hidden');
+}
+
+async function sendEmailFromDashboard() {
+    const to = document.getElementById('email-to').value;
+    const subject = document.getElementById('email-subject').value;
+    const body = document.getElementById('email-body').value.replace(/\n/g, '<br>');
+    const sendBtn = document.getElementById('send-email-btn');
+    
+    if (!to || !subject || !body) return showToast('Fill all fields', 'error');
+    
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    
+    try {
+        const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, subject, body })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast('Email sent successfully!', 'success');
+            document.getElementById('email-compose-modal').classList.add('hidden');
+        } else {
+            showToast(result.error || 'Failed to send email', 'error');
+        }
+    } catch (err) {
+        showToast('Error sending email', 'error');
+    }
+    
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send Email';
+}
+
+function searchDashboard(query) {
+    const q = query.toLowerCase().trim();
+    const activeSection = document.querySelector('section:not(.hidden)');
+    if (!activeSection) return;
+
+    if (activeSection.id === 'employees-section') {
+        const rows = document.querySelectorAll('#employees-section table tbody tr');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(q) ? '' : 'none';
+        });
+    } else if (activeSection.id === 'applicants-section') {
+        const filtered = applicantsCache.filter(a => 
+            a.applicant_name?.toLowerCase().includes(q) || 
+            a.job_title?.toLowerCase().includes(q) || 
+            a.applicant_email?.toLowerCase().includes(q)
+        );
+        renderApplicantCards(filtered, document.getElementById('status-filter')?.value || 'all');
+    }
+}
+
+function startDateTime() {
+    const el = document.getElementById('header-datetime');
+    if (!el) return;
+    const update = () => {
+        const now = new Date();
+        el.textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + '  •  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    };
+    update();
+    setInterval(update, 30000);
+}
+
+function loadAdminProfile() {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.user) return;
+        const el = document.getElementById('admin-sidebar-name');
+        const emailEl = document.getElementById('admin-sidebar-email');
+        if (el) el.textContent = session.user.user_metadata?.full_name || 'Admin';
+        if (emailEl) emailEl.textContent = session.user.email || '';
+    });
 }
 
 // export async function viewApplicantDetails(appId) {
@@ -1005,6 +1137,8 @@ function initDashboardCore() {
         // Auth passed - proceed with dashboard init
         showSection('employees');
         loadEmployees();
+        startDateTime();
+        loadAdminProfile();
         
         setTimeout(() => {
             loadFaceModels();
@@ -1035,6 +1169,18 @@ function initDashboardCore() {
             }
         });
 
+        // Search bar
+        const searchInput = document.getElementById('dashboard-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => searchDashboard(e.target.value));
+        }
+
+        // Status filter
+        const statusFilter = document.getElementById('status-filter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => renderApplicantCards(applicantsCache, e.target.value));
+        }
+
         if (typeof window !== 'undefined') {
             window.showSection = showSection;
             window.toggleNotifications = toggleNotifications;
@@ -1053,6 +1199,9 @@ function initDashboardCore() {
             window.updateLeave = updateLeave;
             window.viewApplicantDetails = viewApplicantDetails;
             window.deleteApplicant = deleteApplicant;
+            window.sendEmailFromDashboard = sendEmailFromDashboard;
+            window.updateAppStatus = updateAppStatus;
+            window.searchDashboard = searchDashboard;
         }
     })();
 }

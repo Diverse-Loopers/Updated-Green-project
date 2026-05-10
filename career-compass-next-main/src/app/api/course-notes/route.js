@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(req) {
   try {
@@ -14,60 +21,70 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     const fileUrls = [];
     const fileNames = [];
 
+    // Save files to public/uploads/course-notes/{courseId}/
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'course-notes', courseId);
+    await mkdir(uploadDir, { recursive: true });
+
     for (const file of files) {
       const ext = file.name.split('.').pop();
-      const fileName = `${courseId}/${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${ext}`;
+      const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${ext}`;
+      const filePath = path.join(uploadDir, uniqueName);
 
       const buffer = Buffer.from(await file.arrayBuffer());
+      await writeFile(filePath, buffer);
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('course-notes')
-        .upload(fileName, buffer, {
-          contentType: file.type,
-          upsert: false,
-        });
-
-      if (uploadErr) {
-        console.error('Upload error:', uploadErr);
-        // Fallback: store as placeholder URL
-        fileUrls.push(`/uploads/${fileName}`);
-      } else {
-        const { data: urlData } = supabase.storage
-          .from('course-notes')
-          .getPublicUrl(fileName);
-        fileUrls.push(urlData?.publicUrl || `/uploads/${fileName}`);
-      }
-
+      // URL served by Next.js static file serving from /public
+      const publicUrl = `/uploads/course-notes/${courseId}/${uniqueName}`;
+      fileUrls.push(publicUrl);
       fileNames.push(file.name);
     }
 
-    // Save metadata to database
-    const { data, error } = await supabase.from('course_notes').insert({
+    // Save metadata to database (skip uploaded_by FK if it causes issues)
+    const insertPayload = {
       course_id: courseId,
       title,
       description,
       file_urls: fileUrls,
       file_names: fileNames,
-      uploaded_by: uploadedBy,
-    }).select().single();
+    };
+
+    // Only set uploaded_by if it's a valid UUID
+    if (uploadedBy && uploadedBy.length > 10) {
+      insertPayload.uploaded_by = uploadedBy;
+    }
+
+    const { data, error } = await supabase
+      .from('course_notes')
+      .insert(insertPayload)
+      .select()
+      .single();
 
     if (error) {
       console.error('DB insert error:', error);
-      return NextResponse.json({ error: 'Failed to save note metadata' }, { status: 500 });
+      // If FK error on uploaded_by, retry without it
+      if (error.message?.includes('foreign key') || error.message?.includes('violates')) {
+        delete insertPayload.uploaded_by;
+        const { data: retryData, error: retryErr } = await supabase
+          .from('course_notes')
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (retryErr) {
+          return NextResponse.json({ error: 'Failed to save note: ' + retryErr.message }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, note: retryData });
+      }
+      return NextResponse.json({ error: 'Failed to save note: ' + error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, note: data });
   } catch (err) {
     console.error('Course notes upload error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
   }
 }
 
@@ -80,11 +97,6 @@ export async function GET(req) {
       return NextResponse.json({ error: 'courseId required' }, { status: 400 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     const { data, error } = await supabase
       .from('course_notes')
       .select('*')
@@ -92,7 +104,8 @@ export async function GET(req) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch notes' }, { status: 500 });
+      console.error('Notes fetch error:', error);
+      return NextResponse.json({ error: 'Failed to fetch notes: ' + error.message }, { status: 500 });
     }
 
     return NextResponse.json({ notes: data || [] });

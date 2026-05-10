@@ -957,6 +957,7 @@ export default function HomePage() {
                 <li><a href="/skillsynth">SkillSynth</a></li>
                 <li><a href="/analyzer">Path Analyzer</a></li>
                 <li><a href="/career-analyzer">Career Analyzer</a></li>
+                <li><a href="/career">Careers</a></li>
               </ul>
             </div>
 

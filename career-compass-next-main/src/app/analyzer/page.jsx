@@ -5,7 +5,7 @@ import Script from "next/script";
 import "./analyzer.css";
 import { initAnalyzerPage } from "@/lib/pages/analyzer";
 import NavAuthButtons from "@/components/NavAuthButtons";
-import FooterAuthSection from "@/components/FooterAuthSection";
+import Footer from "@/components/ui/Footer";
 
 
 
@@ -568,100 +568,7 @@ export default function AnalyzerPage() {
           </section>
         </main>
 
-        {/* Footer */}
-        <footer className="bg-slate-900 text-white pt-20 pb-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-              {/* Branding */}
-              <div className="col-span-1 lg:col-span-1">
-                <img src="/Diverse Loopers Black BG (2).png" alt="Diverse Loopers" className="h-12 w-auto mb-6" />
-                <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                  Empowering talents for tomorrow through structured, future-ready career pathways and real industry exposure.
-                </p>
-                {/* Social Media Links */}
-              </div>
-
-              {/* Navigation */}
-              <div>
-                <h4 className="font-bold mb-6 text-white uppercase tracking-wider text-xs">Quick Navigation</h4>
-                <ul className="space-y-4 text-slate-400 text-sm font-medium">
-                  <li>
-                    <a href="/courses" className="hover:text-white transition">
-                      Courses
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/comming-soon" className="hover:text-white transition">
-                      New Upcomming
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/events" className="hover:text-white transition">
-                      Events
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/career-analyzer" className="hover:text-white transition">
-                      Career Analyzer
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Specializations */}
-              <div>
-                <h4 className="font-bold mb-6 text-white uppercase tracking-wider text-xs">Specializations</h4>
-                <ul className="space-y-4 text-slate-400 text-sm font-medium">
-                  <li>
-                    <a href="/" className="hover:text-white transition">
-                      For Students
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/institute" className="hover:text-white transition">
-                      For Universities
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/business" className="hover:text-white transition">
-                      For Businesses
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Contact Info */}
-              <div>
-                <h4 className="font-bold mb-6 text-white uppercase tracking-wider text-xs">Get In Touch</h4>
-                <ul className="space-y-4 text-slate-400 text-sm">
-                  <li className="flex gap-3">
-                    <i data-lucide="mail" className="w-4 h-4 text-primary"></i>
-                    contact@diverseloopers.com
-                  </li>
-                  <li className="flex gap-3">
-                    <i data-lucide="phone" className="w-4 h-4 text-primary"></i> +91 98393 50961
-                  </li>
-                </ul>
-
-                {/* Auth Section in Footer — React-driven logout */}
-                <FooterAuthSection />
-              </div>
-            </div>
-
-            <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] md:text-xs text-slate-500 font-medium">
-              <p>&copy; 2024 Diverse Loopers. All Rights Reserved.</p>
-              <div className="flex gap-8">
-                <a href="#" className="hover:text-white transition">
-                  Privacy Policy
-                </a>
-                <a href="#" className="hover:text-white transition">
-                  Terms & Conditions
-                </a>
-              </div>
-              <p className="text-slate-600">Hybrid Hustle&reg; is a registered program concept.</p>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   );

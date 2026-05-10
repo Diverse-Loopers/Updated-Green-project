@@ -8,7 +8,7 @@ const ROLE_ROUTES = {
   sales: '/sales-dashboard',
   cfo: '/sales-dashboard',
   cso: '/sales-dashboard',
-  cmo: '/sales-dashboard',
+  cmo: '/cmo-dashboard',
   coo: '/sales-dashboard',
   strategic_advisor: '/sales-dashboard',
 };

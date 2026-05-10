@@ -24,6 +24,7 @@ export default function CourseDetailPage() {
   const [lightbox, setLightbox] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -56,6 +57,16 @@ export default function CourseDetailPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
+
+      // Fetch user profile for name/phone
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', session.user.id)
+        .single();
+      if (profile) {
+        setUserProfile(profile);
+      }
 
       // Check enrollment — try with payment_status first, fallback without
       const { data: enrollment } = await supabase
@@ -470,6 +481,9 @@ export default function CourseDetailPage() {
         <CheckoutModal
           course={course}
           userId={user?.id}
+          userEmail={user?.email || ''}
+          userName={userProfile?.full_name || user?.user_metadata?.full_name || 'Student'}
+          userPhone={userProfile?.phone || user?.phone || ''}
           onClose={() => setShowCheckout(false)}
           onSuccess={() => {
             setShowCheckout(false);

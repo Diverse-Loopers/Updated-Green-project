@@ -7,7 +7,7 @@ export async function POST(req) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
     // Fetch course
@@ -73,7 +73,21 @@ export async function POST(req) {
     // If free after discount, mark as paid immediately
     if (finalAmount === 0) {
       if (couponCode) {
-        await supabase.rpc('increment_coupon_usage', { coupon_code: couponCode.toUpperCase() });
+        try {
+          const { data: cpn } = await supabase
+            .from('coupons')
+            .select('used_count')
+            .eq('code', couponCode.toUpperCase())
+            .single();
+          if (cpn) {
+            await supabase
+              .from('coupons')
+              .update({ used_count: (cpn.used_count || 0) + 1 })
+              .eq('code', couponCode.toUpperCase());
+          }
+        } catch (e) {
+          console.error('Coupon usage increment error (paytm free):', e);
+        }
       }
       return NextResponse.json({
         success: true,

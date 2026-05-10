@@ -86,9 +86,23 @@ export async function POST(req) {
           .maybeSingle();
 
         if (payment?.coupon_code) {
-          await supabase.rpc('increment_coupon_usage', { coupon_code_param: payment.coupon_code });
+          // Fetch current count and increment directly using the correct column
+          const { data: coupon } = await supabase
+            .from('coupons')
+            .select('used_count')
+            .eq('code', payment.coupon_code)
+            .single();
+
+          if (coupon) {
+            await supabase
+              .from('coupons')
+              .update({ used_count: (coupon.used_count || 0) + 1 })
+              .eq('code', payment.coupon_code);
+          }
         }
-      } catch {}
+      } catch (e) {
+        console.error('Coupon usage increment error:', e);
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Payment verified and enrollment complete' });

@@ -436,7 +436,7 @@ export default function TrainerDashboardPage() {
                         type="file"
                         multiple
                         onChange={e => setNoteFiles(Array.from(e.target.files))}
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.jpg,.jpeg,.png,.gif,.txt,.mp4"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.jpg,.jpeg,.png,.gif,.txt,.mp4,.html,.htm"
                       />
                       <div className="td-dropzone-label">
                         <span style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8' }}>Select files</span>

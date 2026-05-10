@@ -27,6 +27,23 @@ export async function GET(req) {
     const avgOrderValue = totalTransactions > 0 ? Math.round(totalRevenue / totalTransactions) : 0;
     const couponsUsed = successful.filter(p => p.coupon_code).length;
 
+    // Course Analytics
+    const courseMap = {};
+    successful.forEach(p => {
+      const title = p.course_title || 'Unknown Course';
+      if (!courseMap[title]) {
+        courseMap[title] = { revenue: 0, enrollments: 0, coupons: 0 };
+      }
+      courseMap[title].revenue += (p.amount || 0);
+      courseMap[title].enrollments += 1;
+      if (p.coupon_code) courseMap[title].coupons += 1;
+    });
+
+    const courseAnalytics = Object.keys(courseMap).map(title => ({
+      course_title: title,
+      ...courseMap[title]
+    })).sort((a, b) => b.revenue - a.revenue);
+
     // Last 7 days revenue
     const last7Days = [];
     for (let i = 6; i >= 0; i--) {
@@ -48,6 +65,7 @@ export async function GET(req) {
       payments: data || [],
       stats: { totalRevenue, totalTransactions, avgOrderValue, couponsUsed },
       chart: last7Days,
+      courseAnalytics,
     });
 
   } catch (err) {

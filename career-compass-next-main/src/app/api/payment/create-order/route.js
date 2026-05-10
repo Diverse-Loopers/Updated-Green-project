@@ -39,20 +39,35 @@ export async function POST(req) {
           .eq('is_active', true)
           .maybeSingle();
 
-        if (coupon) {
-          const validForCourse = !coupon.course_id || coupon.course_id === courseId;
-          const withinDate = (!coupon.valid_from || new Date(coupon.valid_from) <= new Date()) &&
-                            (!coupon.valid_until || new Date(coupon.valid_until) >= new Date());
-          const withinUsage = !coupon.max_uses || (coupon.times_used || 0) < coupon.max_uses;
-
-          if (validForCourse && withinDate && withinUsage) {
-            discountAmount = Math.round((finalAmount * coupon.discount_percent) / 100);
-            finalAmount = Math.max(0, finalAmount - discountAmount);
-            appliedCoupon = coupon.code;
-          }
+        if (!coupon) {
+          return NextResponse.json({ success: false, error: 'Invalid or inactive coupon code' }, { status: 400 });
         }
-      } catch {
-        // Coupons table might not exist — skip
+
+        // Check course-specific coupon
+        if (coupon.course_id && coupon.course_id !== courseId) {
+          return NextResponse.json({ success: false, error: 'This coupon is not valid for this course' }, { status: 400 });
+        }
+
+        // Check date validity
+        const now = new Date();
+        if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+          return NextResponse.json({ success: false, error: 'Coupon is not yet active' }, { status: 400 });
+        }
+        if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+          return NextResponse.json({ success: false, error: 'Coupon has expired' }, { status: 400 });
+        }
+
+        // Check usage limit
+        if (coupon.max_uses && (coupon.used_count || 0) >= coupon.max_uses) {
+          return NextResponse.json({ success: false, error: 'Coupon usage limit has been reached' }, { status: 400 });
+        }
+
+        discountAmount = Math.round((finalAmount * coupon.discount_percent) / 100);
+        finalAmount = Math.max(0, finalAmount - discountAmount);
+        appliedCoupon = coupon.code;
+      } catch (couponErr) {
+        console.error('Coupon validation error:', couponErr);
+        return NextResponse.json({ success: false, error: 'Error validating coupon' }, { status: 500 });
       }
     }
 
@@ -81,6 +96,25 @@ export async function POST(req) {
           paid_at: new Date().toISOString(),
         });
       } catch {}
+
+      // Increment coupon usage for free enrollments
+      if (appliedCoupon) {
+        try {
+          const { data: currentCoupon } = await supabase
+            .from('coupons')
+            .select('used_count')
+            .eq('code', appliedCoupon)
+            .single();
+          if (currentCoupon) {
+            await supabase
+              .from('coupons')
+              .update({ used_count: (currentCoupon.used_count || 0) + 1 })
+              .eq('code', appliedCoupon);
+          }
+        } catch (e) {
+          console.error('Coupon usage increment error (free):', e);
+        }
+      }
 
       return NextResponse.json({ success: true, free: true });
     }

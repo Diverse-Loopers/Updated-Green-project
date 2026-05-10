@@ -7,11 +7,17 @@ const FILE_ICONS = {
   xls: 'XLS', xlsx: 'XLS', zip: 'ZIP', rar: 'ZIP',
   jpg: 'IMG', jpeg: 'IMG', png: 'IMG', gif: 'IMG', svg: 'IMG',
   mp4: 'VID', mov: 'VID', avi: 'VID', txt: 'TXT',
+  html: 'WEB', htm: 'WEB',
 };
 
 function getFileIcon(filename) {
   const ext = (filename || '').split('.').pop().toLowerCase();
   return FILE_ICONS[ext] || 'FILE';
+}
+
+function isHtmlFile(filename) {
+  const ext = (filename || '').split('.').pop().toLowerCase();
+  return ext === 'html' || ext === 'htm';
 }
 
 function formatDate(dateStr) {
@@ -92,19 +98,31 @@ export default function CourseNotes({ courseId, isEnrolled = false }) {
               <p style={styles.noteDesc}>{note.description}</p>
             )}
             <div style={styles.filesList}>
-              {(note.file_names || []).map((name, idx) => (
-                <a
-                  key={idx}
-                  href={note.file_urls?.[idx] || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={styles.fileItem}
-                >
-                  <span style={styles.fileIcon}>{getFileIcon(name)}</span>
-                  <span style={styles.fileName}>{name}</span>
-                  <span style={styles.downloadIcon}>Download</span>
-                </a>
-              ))}
+              {(note.file_names || []).map((name, idx) => {
+                const url = note.file_urls?.[idx] || '#';
+                const isHtml = isHtmlFile(name);
+                return (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      ...styles.fileItem,
+                      ...(isHtml ? { borderColor: '#c7d2fe', background: '#eef2ff' } : {})
+                    }}
+                  >
+                    <span style={{
+                      ...styles.fileIcon,
+                      ...(isHtml ? { background: '#4f46e5', color: '#fff' } : {})
+                    }}>{getFileIcon(name)}</span>
+                    <span style={styles.fileName}>{name}</span>
+                    <span style={styles.downloadIcon}>
+                      {isHtml ? '🌐 View as Page' : 'Download'}
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </div>
         ))}

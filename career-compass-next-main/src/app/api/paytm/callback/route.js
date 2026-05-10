@@ -8,7 +8,7 @@ export async function POST(req) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
     // Verify checksum
@@ -53,23 +53,21 @@ export async function POST(req) {
         .single();
 
       if (enrollment?.coupon_code) {
-        await supabase
-          .from('coupons')
-          .update({ used_count: supabase.rpc ? undefined : 0 })
-          .eq('code', enrollment.coupon_code);
-
-        // Increment used_count
-        const { data: coupon } = await supabase
-          .from('coupons')
-          .select('used_count')
-          .eq('code', enrollment.coupon_code)
-          .single();
-
-        if (coupon) {
-          await supabase
+        try {
+          const { data: coupon } = await supabase
             .from('coupons')
-            .update({ used_count: (coupon.used_count || 0) + 1 })
-            .eq('code', enrollment.coupon_code);
+            .select('used_count')
+            .eq('code', enrollment.coupon_code)
+            .single();
+
+          if (coupon) {
+            await supabase
+              .from('coupons')
+              .update({ used_count: (coupon.used_count || 0) + 1 })
+              .eq('code', enrollment.coupon_code);
+          }
+        } catch (e) {
+          console.error('Coupon usage increment error (paytm callback):', e);
         }
       }
     }

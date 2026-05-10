@@ -781,6 +781,10 @@ export async function handleCourseFormSubmit(e) {
     const unitType = document.getElementById('course-curriculum-unit')?.value || 'Week';
     const syllabusArr = syllabusLines.map((t, i) => ({ week: `${unitType} ${i + 1}`, topic: t }));
 
+    // Get trainer_id — ensure empty string becomes null
+    const rawTrainerId = document.getElementById('course-trainer-id')?.value;
+    const trainerId = rawTrainerId && rawTrainerId.trim() !== '' ? rawTrainerId.trim() : null;
+
     const payload = {
         title:            document.getElementById('course-title')?.value?.trim(),
         tagline:          document.getElementById('course-tagline')?.value?.trim() || null,
@@ -803,15 +807,29 @@ export async function handleCourseFormSubmit(e) {
         gallery_urls:     toArr('course-gallery-urls'),
         price:            Number(document.getElementById('course-price')?.value) || 0,
         has_live_class:   document.getElementById('course-has-live-class')?.value === 'true',
-        trainer_id:       document.getElementById('course-trainer-id')?.value || null,
+        trainer_id:       trainerId,
     };
 
-    const { error } = id
-        ? await supabase.from('courses').update(payload).eq('id', id)
-        : await supabase.from('courses').insert([payload]);
+    console.log('📡 Saving course payload:', JSON.stringify({ id, trainer_id: trainerId }));
+
+    let result;
+    if (id) {
+        result = await supabase.from('courses').update(payload).eq('id', id).select();
+    } else {
+        result = await supabase.from('courses').insert([payload]).select();
+    }
+
+    const { data: savedData, error } = result;
+
+    console.log('📡 Save result:', { savedData, error });
 
     if (error) {
+        console.error('❌ Course save error:', error);
         showMessageBox('Database Error: ' + error.message);
+    } else if (savedData && savedData.length > 0 && savedData[0].trainer_id !== trainerId) {
+        // FK constraint silently rejected the trainer_id
+        console.error('⚠️ trainer_id was rejected by FK constraint. Sent:', trainerId, 'Got:', savedData[0].trainer_id);
+        showMessageBox('Warning: The selected trainer could not be assigned. The trainer may not have a valid login account. Please ensure the trainer has signed up first.');
     } else {
         showMessageBox(id ? 'Course updated successfully!' : 'New course published!');
         resetCourseForm();

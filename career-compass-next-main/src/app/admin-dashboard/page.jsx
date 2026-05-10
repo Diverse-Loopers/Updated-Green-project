@@ -10,7 +10,129 @@ export default function AdminDashboard() {
     initAdminDashboard();
   }, []);
 
-  return (
+  // Executive management logic — runs after mount
+  useEffect(() => {
+    const ROLE_LABELS = {
+      sales: 'Sales Executive', cfo: 'Chief Finance Officer',
+      cso: 'Chief Staffing Officer', cmo: 'Chief Marketing Officer',
+      coo: 'Chief Operations Officer', strategic_advisor: 'Strategic Advisor'
+    };
+    let executivesData = [];
+
+    async function loadExecutives() {
+      try {
+        const res = await fetch('/api/executives/manage');
+        const data = await res.json();
+        if (data.success) { executivesData = data.executives; renderExecutives(); }
+      } catch(e) { console.error(e); }
+    }
+
+    function renderExecutives() {
+      const tbody = document.getElementById('executives-table-body');
+      if (!tbody) return;
+      if (!executivesData.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af">No executives found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = executivesData.map(ex => {
+        return '<tr>' +
+          '<td><strong>' + (ex.name || '-') + '</strong></td>' +
+          '<td>' + (ex.email || '-') + '</td>' +
+          '<td>' + (ROLE_LABELS[ex.role] || ex.role) + '</td>' +
+          '<td>' + (ex.phone || '-') + '</td>' +
+          '<td><span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' +
+            (ex.is_active ? 'background:#d1fae5;color:#059669' : 'background:#fee2e2;color:#dc2626') +
+            '">' + (ex.is_active ? 'Active' : 'Inactive') + '</span></td>' +
+          '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<button onclick="window.editExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:11px;font-weight:600">Edit</button>' +
+            '<button onclick="window.toggleExecStatus(\'' + ex.id + '\', ' + !ex.is_active + ')" style="padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;' +
+              (ex.is_active ? 'background:#fee2e2;color:#dc2626' : 'background:#d1fae5;color:#059669') +
+            '">' + (ex.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+            '<button onclick="window.changeExecPass(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#dbeafe;color:#2563eb;cursor:pointer;font-size:11px;font-weight:600">Reset Pass</button>' +
+            '<button onclick="window.deleteExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600">Delete</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    window.saveExecutive = async function() {
+      const editId = document.getElementById('exec-edit-id').value;
+      const name = document.getElementById('exec-name').value;
+      const email = document.getElementById('exec-email').value;
+      const role = document.getElementById('exec-role').value;
+      const phone = document.getElementById('exec-phone').value;
+      const password = document.getElementById('exec-password').value;
+
+      const body = editId
+        ? { action: 'update', id: editId, name, role, phone }
+        : { action: 'create', name, email, role, phone, password };
+
+      try {
+        const res = await fetch('/api/executives/manage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('exec-modal').style.display = 'none';
+          loadExecutives();
+        } else {
+          alert(data.error || 'Failed to save');
+        }
+      } catch(e) { alert('Error: ' + e.message); }
+    };
+
+    window.editExec = function(id) {
+      const ex = executivesData.find(e => e.id === id);
+      if (!ex) return;
+      document.getElementById('exec-edit-id').value = ex.id;
+      document.getElementById('exec-name').value = ex.name || '';
+      document.getElementById('exec-email').value = ex.email || '';
+      document.getElementById('exec-role').value = ex.role || 'sales';
+      document.getElementById('exec-phone').value = ex.phone || '';
+      document.getElementById('exec-password').value = '';
+      document.getElementById('exec-modal-title').textContent = 'Edit Executive';
+      document.getElementById('exec-modal').style.display = 'flex';
+    };
+
+    window.toggleExecStatus = async function(id, newStatus) {
+      await fetch('/api/executives/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', id, is_active: newStatus })
+      });
+      loadExecutives();
+    };
+
+    window.changeExecPass = async function(id) {
+      const newPass = prompt('Enter new password:');
+      if (!newPass) return;
+      await fetch('/api/executives/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update-password', id, password: newPass })
+      });
+      alert('Password updated.');
+    };
+
+    window.deleteExec = async function(id) {
+      if (!confirm('Delete this executive?')) return;
+      await fetch('/api/executives/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      loadExecutives();
+    };
+
+    // Hook into showSection to auto-load executives
+    const origShow = window.showSection;
+    window.showSection = function(section) {
+      if (origShow) origShow(section);
+      if (section === 'executives') loadExecutives();
+    };
+  }, []);  return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -26,96 +148,134 @@ export default function AdminDashboard() {
 
       <div className="dashboard-container">
         {/* Mobile Menu Button */}
-        <button id="mobile-menu-btn" style={{ display: "none" }}>
-          ☰
-        </button>
+        <button id="mobile-menu-btn" style={{ display: "none" }}>☰</button>
 
         {/* Sidebar */}
         <aside className="sidebar" id="sidebar">
           <div className="logo">
-            <img
-              src="/images/logo.png"
-              alt="Logo"
-              style={{
-                width: "80%",
-                marginBottom: "1rem",
-                borderRadius: "8px",
-                background: "white",
-                padding: "5px",
-              }}
-            />
-            <br />
+            <img src="/images/logo.png" alt="Logo" />
             HRMS Admin
           </div>
           <nav className="nav-links">
             <button className="active" onClick={() => window.showSection && window.showSection('employees')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               Employees
             </button>
             <button onClick={() => window.showSection && window.showSection('tasks')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
               Task Management
             </button>
             <button onClick={() => window.showSection && window.showSection('attendance')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               Attendance
             </button>
             <button onClick={() => window.showSection && window.showSection('leaves')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               Leave Requests
             </button>
             <button onClick={() => window.showSection && window.showSection('applicants')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
               Job Applicants
             </button>
             <button onClick={() => window.showSection && window.showSection('executives')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
               Executives
             </button>
             <button onClick={() => window.logoutAdmin && window.logoutAdmin()} style={{ marginTop: "auto", color: "#ef4444" }}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               Logout
             </button>
           </nav>
+          <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6C5CE7,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.85rem' }}>A</div>
+              <div>
+                <div id="admin-sidebar-name" style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 600 }}>Admin</div>
+                <div id="admin-sidebar-email" style={{ color: '#8b8ba7', fontSize: '0.7rem' }}>admin@diverseloopers.com</div>
+              </div>
+            </div>
+          </div>
         </aside>
 
         {/* Main Content */}
         <main className="main-content">
-          {/* SECTION: EMPLOYEES */}
-          <section id="employees-section">
-            <div className="card-grid" style={{ marginBottom: "2rem" }}>
-              <div className="card">
-                <h3>Total Employees</h3>
-                <div className="stat-value" id="stat-total-employees">
-                  Loading...
+          {/* Top Header */}
+          <div className="top-header">
+            <div>
+              <div className="page-title">Dashboard</div>
+              <div className="page-subtitle" id="header-datetime">Welcome back, Admin</div>
+            </div>
+            <div className="header-actions">
+              <div className="search-box">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input id="dashboard-search" type="text" placeholder="Search employees, applicants..." />
+              </div>
+              <div className="notification-wrapper">
+                <button id="notif-btn" onClick={() => window.toggleNotifications && window.toggleNotifications()}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                  <span id="notif-count" className="badge hidden">0</span>
+                </button>
+                <div id="notif-dropdown" className="dropdown-content hidden">
+                  <div className="dropdown-header">
+                    <span>Notifications</span>
+                    <button onClick={() => window.markAllRead && window.markAllRead()} className="mark-read-btn">Mark all read</button>
+                  </div>
+                  <ul id="notif-list">
+                    <li className="empty-notif">No new notifications</li>
+                  </ul>
                 </div>
               </div>
-              <div className="card">
-                <h3>Present Today</h3>
-                <div className="stat-value" id="stat-present-today">
-                  Loading...
+            </div>
+          </div>
+
+          <div className="content-area">
+          {/* SECTION: EMPLOYEES */}
+          <section id="employees-section">
+            <div className="card-grid" style={{ marginBottom: "1.75rem" }}>
+              <div className="stat-card">
+                <div className="stat-icon purple">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+                <div className="stat-info">
+                  <h3>Total Employees</h3>
+                  <div className="stat-value" id="stat-total-employees">0</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon green">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div className="stat-info">
+                  <h3>Present Today</h3>
+                  <div className="stat-value" id="stat-present-today">0</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon orange">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div className="stat-info">
+                  <h3>Pending Leaves</h3>
+                  <div className="stat-value" id="stat-pending-leaves">0</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon blue">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </div>
+                <div className="stat-info">
+                  <h3>Active Tasks</h3>
+                  <div className="stat-value" id="stat-active-tasks">0</div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between" style={{ marginBottom: "1.5rem" }}>
+            <div className="section-header">
               <h2>Employee Management</h2>
-
-              <div className="flex items-center" style={{ gap: "15px" }}>
-                <div className="notification-wrapper">
-                  <button id="notif-btn" onClick={() => window.toggleNotifications && window.toggleNotifications()}>
-                    Notifications <span id="notif-count" className="badge hidden">0</span>
-                  </button>
-                  <div id="notif-dropdown" className="dropdown-content hidden">
-                    <div className="dropdown-header">
-                      <span>Notifications</span>
-                      <button onClick={() => window.markAllRead && window.markAllRead()} className="mark-read-btn">
-                        Mark all read
-                      </button>
-                    </div>
-                    <ul id="notif-list">
-                      <li className="empty-notif">No new notifications</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <button className="btn-primary" style={{ width: "auto" }} onClick={() => window.openAddEmployeeModal && window.openAddEmployeeModal()}>
-                  + Add Employee
-                </button>
-              </div>
+              <button className="btn-primary" onClick={() => window.openAddEmployeeModal && window.openAddEmployeeModal()}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Add Employee
+              </button>
             </div>
 
             <div className="table-container">
@@ -136,9 +296,10 @@ export default function AdminDashboard() {
 
           {/* SECTION: TASKS */}
           <section id="tasks-section" className="hidden">
-            <div className="flex items-center justify-between" style={{ marginBottom: "1.5rem" }}>
+            <div className="section-header">
               <h2>Task Management</h2>
-              <button className="btn-primary" style={{ width: "auto" }} onClick={() => window.openAssignTaskModal && window.openAssignTaskModal()}>
+              <button className="btn-primary" onClick={() => window.openAssignTaskModal && window.openAssignTaskModal()}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 Assign New Task
               </button>
             </div>
@@ -205,33 +366,64 @@ export default function AdminDashboard() {
 
           {/* SECTION: JOB APPLICANTS */}
           <section id="applicants-section" className="hidden">
-            <h2>Job Applications</h2>
+            <div className="section-header">
+              <h2>Job Applications</h2>
+              <select id="status-filter" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.82rem', borderRadius: 10 }}>
+                <option value="all">All Status</option>
+                <option value="new">New</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="shortlisted">Shortlisted</option>
+                <option value="interviewed">Interviewed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div id="applicants-cards-container" className="applicant-cards-grid">
+              <p style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Loading applications...</p>
+            </div>
+          </section>
+
+          {/* SECTION: EXECUTIVES */}
+          <section id="executives-section" className="hidden">
+            <div className="section-header">
+              <h2>Executive Management</h2>
+              <button className="btn-primary" onClick={() => {
+                document.getElementById('exec-modal').style.display = 'flex';
+                document.getElementById('exec-modal-title').textContent = 'Add New Executive';
+                document.getElementById('exec-form').reset();
+                document.getElementById('exec-edit-id').value = '';
+              }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Add Executive
+              </button>
+            </div>
+
             <div className="table-container">
-              <table id="applicants-table">
+              <table>
                 <thead>
                   <tr>
-                    <th>Applicant Name</th>
-                    <th>Job Title</th>
+                    <th>Name</th>
                     <th>Email</th>
+                    <th>Role</th>
                     <th>Phone</th>
-                    <th>Experience</th>
-                    <th>Applied On</th>
+                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody id="executives-table-body">
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: '#9ca3af' }}>Loading...</td></tr>
+                </tbody>
               </table>
             </div>
           </section>
 
-
-
+          </div>{/* end content-area */}
         </main>
       </div>
 
       {/* MODAL: ADD EMPLOYEE */}
       <div id="add-employee-modal" className="modal hidden">
         <div className="modal-content premium-modal">
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('add-employee-modal')}>✕</button>
           <div className="modal-header">
             <h2>New Employee</h2>
             <p className="modal-subtitle">Create a new account and generate ID</p>
@@ -355,8 +547,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* MODAL: APPLICANT DETAILS */}
-      <div id="applicant-detail-modal" className="modal hidden">
+      <div id="applicant-detail-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'applicant-detail-modal') window.closeModal && window.closeModal('applicant-detail-modal'); }}>
         <div className="modal-content premium-modal" style={{ maxWidth: '600px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('applicant-detail-modal')}>✕</button>
           <div className="modal-header">
             <h2 id="app-detail-name">Applicant Name</h2>
             <p className="modal-subtitle" id="app-detail-job">Job Title</p>
@@ -412,36 +605,37 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* EXECUTIVES SECTION */}
-      <section id="executives-section" style={{ display: 'none' }}>
-        <div className="flex items-center justify-between" style={{ marginBottom: '1.5rem' }}>
-          <h2>Executive Management</h2>
-          <button className="btn-primary" style={{ width: 'auto' }} onClick={() => {
-            document.getElementById('exec-modal').style.display = 'flex';
-            document.getElementById('exec-modal-title').textContent = 'Add New Executive';
-            document.getElementById('exec-form').reset();
-            document.getElementById('exec-edit-id').value = '';
-          }}>+ Add Executive</button>
+      {/* MODAL: EMAIL COMPOSE */}
+      <div id="email-compose-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'email-compose-modal') document.getElementById('email-compose-modal').classList.add('hidden'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '560px' }}>
+          <button className="modal-close-btn" onClick={() => document.getElementById('email-compose-modal').classList.add('hidden')}>✕</button>
+          <div className="modal-header">
+            <h2>📧 Compose Email</h2>
+            <p className="modal-subtitle">Send from hr@diverseloopers.com</p>
+          </div>
+          <div style={{ padding: '1.5rem' }}>
+            <div className="input-group">
+              <label>To</label>
+              <input id="email-to" type="email" readOnly style={{ background: '#f8fafc' }} />
+            </div>
+            <div className="input-group">
+              <label>Subject</label>
+              <input id="email-subject" type="text" />
+            </div>
+            <div className="input-group">
+              <label>Message</label>
+              <textarea id="email-body" rows={8} style={{ resize: 'vertical', minHeight: '160px' }}></textarea>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={() => document.getElementById('email-compose-modal').classList.add('hidden')}>Cancel</button>
+            <button id="send-email-btn" type="button" className="btn-primary" onClick={() => window.sendEmailFromDashboard && window.sendEmailFromDashboard()}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+              Send Email
+            </button>
+          </div>
         </div>
-
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="executives-table-body">
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#9ca3af' }}>Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
 
       {/* Executive Modal */}
       <div id="exec-modal" className="modal" style={{ display: 'none' }}>
@@ -467,7 +661,7 @@ export default function AdminDashboard() {
                   <option value="sales">Sales Executive</option>
                   <option value="cfo">Chief Finance Officer</option>
                   <option value="cso">Chief Staffing Officer</option>
-                  <option value="cmo">Chief Managing Officer</option>
+                  <option value="cmo">Chief Marketing Officer</option>
                   <option value="coo">Chief Operations Officer</option>
                   <option value="strategic_advisor">Strategic Advisor</option>
                 </select>
@@ -491,138 +685,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Executive management script */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        (function() {
-          const ROLE_LABELS = {
-            sales: 'Sales Executive',
-            cfo: 'Chief Finance Officer',
-            cso: 'Chief Staffing Officer',
-            cmo: 'Chief Managing Officer',
-            coo: 'Chief Operations Officer',
-            strategic_advisor: 'Strategic Advisor'
-          };
-
-          let executivesData = [];
-
-          async function loadExecutives() {
-            try {
-              const res = await fetch('/api/executives/manage');
-              const data = await res.json();
-              if (data.success) {
-                executivesData = data.executives;
-                renderExecutives();
-              }
-            } catch(e) { console.error(e); }
-          }
-
-          function renderExecutives() {
-            const tbody = document.getElementById('executives-table-body');
-            if (!tbody) return;
-            if (!executivesData.length) {
-              tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af">No executives found</td></tr>';
-              return;
-            }
-            tbody.innerHTML = executivesData.map(ex => {
-              return '<tr>' +
-                '<td><strong>' + (ex.name || '-') + '</strong></td>' +
-                '<td>' + (ex.email || '-') + '</td>' +
-                '<td>' + (ROLE_LABELS[ex.role] || ex.role) + '</td>' +
-                '<td>' + (ex.phone || '-') + '</td>' +
-                '<td><span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' +
-                  (ex.is_active ? 'background:#d1fae5;color:#059669' : 'background:#fee2e2;color:#dc2626') +
-                  '">' + (ex.is_active ? 'Active' : 'Inactive') + '</span></td>' +
-                '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
-                  '<button onclick="window.editExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:11px;font-weight:600">Edit</button>' +
-                  '<button onclick="window.toggleExecStatus(\'' + ex.id + '\', ' + !ex.is_active + ')" style="padding:4px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;' +
-                    (ex.is_active ? 'background:#fee2e2;color:#dc2626' : 'background:#d1fae5;color:#059669') +
-                  '">' + (ex.is_active ? 'Deactivate' : 'Activate') + '</button>' +
-                  '<button onclick="window.changeExecPass(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#dbeafe;color:#2563eb;cursor:pointer;font-size:11px;font-weight:600">Reset Pass</button>' +
-                  '<button onclick="window.deleteExec(\'' + ex.id + '\')" style="padding:4px 10px;border-radius:6px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600">Delete</button>' +
-                '</td>' +
-              '</tr>';
-            }).join('');
-          }
-
-          window.saveExecutive = async function() {
-            const editId = document.getElementById('exec-edit-id').value;
-            const name = document.getElementById('exec-name').value;
-            const email = document.getElementById('exec-email').value;
-            const role = document.getElementById('exec-role').value;
-            const phone = document.getElementById('exec-phone').value;
-            const password = document.getElementById('exec-password').value;
-
-            const body = editId
-              ? { action: 'update', id: editId, name, role, phone }
-              : { action: 'create', name, email, role, phone, password };
-
-            try {
-              const res = await fetch('/api/executives/manage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-              });
-              const data = await res.json();
-              if (data.success) {
-                document.getElementById('exec-modal').style.display = 'none';
-                loadExecutives();
-              } else {
-                alert(data.error || 'Failed to save');
-              }
-            } catch(e) { alert('Error: ' + e.message); }
-          };
-
-          window.editExec = function(id) {
-            const ex = executivesData.find(e => e.id === id);
-            if (!ex) return;
-            document.getElementById('exec-edit-id').value = ex.id;
-            document.getElementById('exec-name').value = ex.name || '';
-            document.getElementById('exec-email').value = ex.email || '';
-            document.getElementById('exec-role').value = ex.role || 'sales';
-            document.getElementById('exec-phone').value = ex.phone || '';
-            document.getElementById('exec-password').value = '';
-            document.getElementById('exec-modal-title').textContent = 'Edit Executive';
-            document.getElementById('exec-modal').style.display = 'flex';
-          };
-
-          window.toggleExecStatus = async function(id, newStatus) {
-            await fetch('/api/executives/manage', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'update', id, is_active: newStatus })
-            });
-            loadExecutives();
-          };
-
-          window.changeExecPass = async function(id) {
-            const newPass = prompt('Enter new password:');
-            if (!newPass) return;
-            await fetch('/api/executives/manage', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'update-password', id, password: newPass })
-            });
-            alert('Password updated.');
-          };
-
-          window.deleteExec = async function(id) {
-            if (!confirm('Delete this executive?')) return;
-            await fetch('/api/executives/manage', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'delete', id })
-            });
-            loadExecutives();
-          };
-
-          // Auto-load when section becomes visible
-          const origShowSection = window.showSection;
-          window.showSection = function(section) {
-            if (origShowSection) origShowSection(section);
-            if (section === 'executives') loadExecutives();
-          };
-        })();
-      `}} />
     </>
   );
 }

@@ -548,6 +548,19 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* My Job Applications */}
+            <div className="glass-card p-6 md:p-8 rounded-[2rem]">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold flex items-center gap-2">
+                  <i data-lucide="briefcase" className="w-4 h-4 text-purple-500"></i> My Applications
+                </h3>
+                <span id="app-count-badge" className="px-2 py-1 bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-bold rounded-lg">0 Applied</span>
+              </div>
+              <div id="my-applications-list" className="space-y-3">
+                <div className="p-4 glass-card rounded-xl text-center text-muted text-sm">Loading applications...</div>
+              </div>
+            </div>
+
             {/* Secondary Metrics */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="glass-card p-6 rounded-[2rem]">

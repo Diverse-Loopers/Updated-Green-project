@@ -38,6 +38,7 @@ export default function Footer() {
                 <li><a href="/skillsynth" className="hover:text-white transition">SkillSynth</a></li>
                 <li><a href="/analyzer" className="hover:text-white transition">Path Analyzer</a></li>
                 <li><a href="/career-analyzer" className="hover:text-white transition">Career Analyzer</a></li>
+                <li><a href="/career" className="hover:text-white transition">Careers</a></li>
               </ul>
             </div>
 

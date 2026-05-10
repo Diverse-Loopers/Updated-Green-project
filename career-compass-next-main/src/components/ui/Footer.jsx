@@ -26,7 +26,7 @@ export default function Footer() {
             </div>
 
             <div>
-              <h4 className="font-bold mb-6">Quick Navigation</h4>
+              <h4 className="font-bold mb-6">Quick Links</h4>
               <ul className="space-y-4 text-slate-400 text-sm">
                 <li><a href="/about" className="hover:text-white transition">About Us</a></li>
                 <li><a href="mailto:contact@diverseloopers.com" className="hover:text-white transition">Contact Us</a></li>
@@ -35,6 +35,7 @@ export default function Footer() {
                 <li><a href="/skillsynth" className="hover:text-white transition">SkillSynth</a></li>
                 <li><a href="/analyzer" className="hover:text-white transition">Path Analyzer</a></li>
                 <li><a href="/career-analyzer" className="hover:text-white transition">Career Analyzer</a></li>
+                <li><a href="/career" className="hover:text-white transition">Careers</a></li>
               </ul>
             </div>
 
@@ -44,7 +45,8 @@ export default function Footer() {
                 <li><a href="/" className="hover:text-white transition">For Students</a></li>
                 <li><a href="/institute" className="hover:text-white transition">For Universities</a></li>
                 <li><a href="/business" className="hover:text-white transition">For Businesses</a></li>
-                <li><a href="#" className="hover:text-white transition">Placement Support</a></li>
+                <li><a href="/courses" className="hover:text-white transition">All Courses</a></li>
+                <li><a href="/fame-wall" className="hover:text-white transition">Wall of Fame</a></li>
               </ul>
             </div>
 
@@ -82,7 +84,7 @@ export default function Footer() {
           </div>
 
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-medium">
-            <p>&copy; 2024 Diverse Loopers. All Rights Reserved.</p>
+            <p>&copy; 2025 Diverse Loopers. All Rights Reserved.</p>
             <div className="flex gap-8">
               <a href="#" className="hover:text-white transition">Privacy Policy</a>
               <a href="#" className="hover:text-white transition">Terms & Conditions</a>

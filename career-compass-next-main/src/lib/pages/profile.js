@@ -573,6 +573,50 @@ export async function fetchDashboardData(userId) {
             }
         }
 
+        // My Job Applications
+        const appListEl = document.getElementById('my-applications-list');
+        const appBadgeEl = document.getElementById('app-count-badge');
+        if (appListEl) {
+            try {
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                if (currentUser?.email) {
+                    const res = await fetch(`/api/applications/status?email=${encodeURIComponent(currentUser.email)}`);
+                    const result = await res.json();
+                    const apps = result.applications || [];
+                    
+                    if (appBadgeEl) appBadgeEl.textContent = `${apps.length} Applied`;
+                    
+                    if (apps.length === 0) {
+                        appListEl.innerHTML = '<div class="p-4 glass-card rounded-xl text-center text-muted text-sm">No applications submitted yet. <a href="/career" class="text-primary font-bold">Browse Careers</a></div>';
+                    } else {
+                        const statusStyles = {
+                            new: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400',
+                            reviewed: 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
+                            shortlisted: 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400',
+                            rejected: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400',
+                            interviewed: 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400',
+                        };
+                        appListEl.innerHTML = apps.map(a => {
+                            const status = a.status || 'new';
+                            const dateStr = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                            return `
+                                <div class="flex items-center justify-between p-4 glass-card rounded-xl hover:border-purple-500/30 transition-all">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-bold text-sm text-heading truncate">${a.job_title}</div>
+                                        <div class="text-xs text-muted mt-0.5">Applied ${dateStr}</div>
+                                    </div>
+                                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusStyles[status] || statusStyles.new}">${status}</span>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading applications:', err);
+                appListEl.innerHTML = '<div class="p-4 glass-card rounded-xl text-center text-muted text-sm">Unable to load applications</div>';
+            }
+        }
+
     } catch (e) {
         console.error('Dashboard data fetch error:', e);
     }
