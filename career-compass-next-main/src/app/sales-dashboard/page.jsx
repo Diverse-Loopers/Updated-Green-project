@@ -9,6 +9,7 @@ const ROLE_LABELS = {
   cfo: 'Chief Finance Officer',
   cso: 'Chief Staffing Officer',
   cmo: 'Chief Marketing Officer',
+  cmgo: 'Chief Managing Officer',
   coo: 'Chief Operations Officer',
   strategic_advisor: 'Strategic Advisor',
 };
@@ -88,7 +89,7 @@ export default function SalesDashboardPage() {
       setGwKey('');
       setGwSecret('');
       loadDashboardData();
-    } catch {}
+    } catch { }
     setSavingGw(false);
   };
 
@@ -155,25 +156,25 @@ export default function SalesDashboardPage() {
 
         <nav className="sd-nav">
           <button className={`sd-nav-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
             Overview
           </button>
           <button className={`sd-nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
             Transactions
           </button>
           <button className={`sd-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6" /></svg>
             Course Analytics
           </button>
           <button className={`sd-nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m8.66-13.5l-5.2 3m-5.2 3l-5.2 3m0-12l5.2 3m5.2 3l5.2 3"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v6m0 6v6m8.66-13.5l-5.2 3m-5.2 3l-5.2 3m0-12l5.2 3m5.2 3l5.2 3" /></svg>
             Payment Settings
           </button>
         </nav>
 
         <button className="sd-logout-btn" onClick={handleLogout}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
           Logout
         </button>
       </aside>
@@ -320,7 +321,7 @@ export default function SalesDashboardPage() {
         {activeTab === 'analytics' && (
           <div className="sd-content">
             <h1 className="sd-page-title">Course Analytics & Enrollments</h1>
-            
+
             {/* Course Summary Table */}
             <div className="sd-card" style={{ marginBottom: '2rem' }}>
               <h3 className="sd-card-title">Course Performance Summary</h3>
@@ -356,8 +357,8 @@ export default function SalesDashboardPage() {
             {/* Course Wise Enrollments */}
             <div className="sd-content-header" style={{ marginTop: '2rem' }}>
               <h2 className="sd-card-title" style={{ margin: 0 }}>Course-wise Enrollments</h2>
-              <select 
-                value={selectedCourse} 
+              <select
+                value={selectedCourse}
                 onChange={(e) => setSelectedCourse(e.target.value)}
                 className="sd-search"
                 style={{ width: 'auto', minWidth: '250px', cursor: 'pointer' }}
@@ -385,19 +386,19 @@ export default function SalesDashboardPage() {
                     {payments
                       .filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse)
                       .map(p => (
-                      <tr key={p.id}>
-                        <td>
-                          <div className="sd-cell-name">{p.user_name || '-'}</div>
-                        </td>
-                        <td>
-                          <div className="sd-cell-sub">{p.user_email || '-'}</div>
-                          <div className="sd-cell-sub">{p.user_phone || '-'}</div>
-                        </td>
-                        <td><div className="sd-cell-name" style={{ fontSize: '0.8rem' }}>{p.course_title}</div></td>
-                        <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
-                        <td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td>
-                      </tr>
-                    ))}
+                        <tr key={p.id}>
+                          <td>
+                            <div className="sd-cell-name">{p.user_name || '-'}</div>
+                          </td>
+                          <td>
+                            <div className="sd-cell-sub">{p.user_email || '-'}</div>
+                            <div className="sd-cell-sub">{p.user_phone || '-'}</div>
+                          </td>
+                          <td><div className="sd-cell-name" style={{ fontSize: '0.8rem' }}>{p.course_title}</div></td>
+                          <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
+                          <td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td>
+                        </tr>
+                      ))}
                     {payments.filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse).length === 0 && (
                       <tr><td colSpan={5} className="sd-empty">No enrollments found</td></tr>
                     )}

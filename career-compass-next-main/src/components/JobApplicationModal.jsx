@@ -156,6 +156,24 @@ const resumeUrl = publicUrlData.publicUrl;
         throw new Error('Failed to save application. Please contact support.');
       }
 
+      // Send thank-you email automatically
+      try {
+        const tplRes = await fetch('/api/applications/templates');
+        const tplData = await tplRes.json();
+        const tpl = tplData.templates?.find(t => t.template_key === 'application_received');
+        if (tpl) {
+          const emailSubject = tpl.subject.replace(/\{\{name\}\}/g, formData.applicant_name.trim()).replace(/\{\{job_title\}\}/g, job.title);
+          const emailBody = tpl.body.replace(/\{\{name\}\}/g, formData.applicant_name.trim()).replace(/\{\{job_title\}\}/g, job.title);
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: formData.applicant_email.trim(), subject: emailSubject, body: emailBody })
+          });
+        }
+      } catch (emailErr) {
+        console.error('Thank-you email failed:', emailErr);
+      }
+
       setSubmitSuccess(true);
       
       // Close modal after 2 seconds

@@ -366,16 +366,25 @@ export default function AdminDashboard() {
 
           {/* SECTION: JOB APPLICANTS */}
           <section id="applicants-section" className="hidden">
-            <div className="section-header">
+            <div className="section-header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
               <h2>Job Applications</h2>
-              <select id="status-filter" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.82rem', borderRadius: 10 }}>
-                <option value="all">All Status</option>
-                <option value="new">New</option>
-                <option value="reviewed">Reviewed</option>
-                <option value="shortlisted">Shortlisted</option>
-                <option value="interviewed">Interviewed</option>
-                <option value="rejected">Rejected</option>
-              </select>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select id="status-filter" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.82rem', borderRadius: 10 }}>
+                  <option value="all">All Status</option>
+                  <option value="new">New</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="shortlisted">Shortlisted</option>
+                  <option value="interviewed">Interviewed</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
+                  <input type="checkbox" id="select-all-checkbox" onChange={(e) => window.toggleSelectAll && window.toggleSelectAll(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#6C5CE7', cursor: 'pointer' }} />
+                  Select All
+                </label>
+                <button className="btn-primary" onClick={() => window.openTemplateEditor && window.openTemplateEditor()} style={{ fontSize: '0.78rem', padding: '0.5rem 1rem' }}>
+                  📧 Email Templates
+                </button>
+              </div>
             </div>
             <div id="applicants-cards-container" className="applicant-cards-grid">
               <p style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Loading applications...</p>

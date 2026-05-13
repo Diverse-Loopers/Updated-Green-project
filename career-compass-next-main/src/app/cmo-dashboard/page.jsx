@@ -27,9 +27,16 @@ export default function CMODashboard() {
   const [loading, setLoading] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [form, setForm] = useState({ name:'',email:'',phone:'',company:'',tags:'' });
-  const [compose, setCompose] = useState({ subject:'',title:'',body:'' });
+  const [compose, setCompose] = useState({ subject:'',title:'',body:'',cc:'',bcc:'' });
   const [attachments, setAttachments] = useState([]);
   const [sendStatus, setSendStatus] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState(null);
+  const [folderModal, setFolderModal] = useState(null);
+  const [folderForm, setFolderForm] = useState({ name:'', description:'' });
+  const [sendToFolder, setSendToFolder] = useState('all');
+  const [campaignDetail, setCampaignDetail] = useState(null);
+  const [runningCampaigns, setRunningCampaigns] = useState([]);
 
   useEffect(() => {
     const s = localStorage.getItem('executive_session');
@@ -39,13 +46,20 @@ export default function CMODashboard() {
     setExec(p);
   }, [router]);
 
+  const fetchFolders = useCallback(async () => {
+    const r = await fetch('/api/marketing/folders');
+    const d = await r.json();
+    if (d.success) setFolders(d.folders);
+  }, []);
+
   const fetchContacts = useCallback(async () => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
+    if (activeFolder) params.set('folder_id', activeFolder);
     const r = await fetch(`/api/marketing/contacts?${params}`);
     const d = await r.json();
     if (d.success) { setContacts(d.contacts); setTotalContacts(d.total); }
-  }, [search]);
+  }, [search, activeFolder]);
 
   const fetchCampaigns = useCallback(async () => {
     const r = await fetch('/api/marketing/campaigns');
@@ -53,18 +67,80 @@ export default function CMODashboard() {
     if (d.success) setCampaigns(d.campaigns);
   }, []);
 
-  useEffect(() => { if (exec) { fetchContacts(); fetchCampaigns(); } }, [exec, fetchContacts, fetchCampaigns]);
+  useEffect(() => { if (exec) { fetchContacts(); fetchCampaigns(); fetchFolders(); } }, [exec, fetchContacts, fetchCampaigns, fetchFolders]);
+
+  // Poll running campaigns every 5s
+  useEffect(() => {
+    if (!exec) return;
+    const poll = async () => {
+      try {
+        const r = await fetch('/api/marketing/send-bulk');
+        const d = await r.json();
+        if (d.success) setRunningCampaigns(d.running || []);
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(() => { poll(); fetchCampaigns(); }, 5000);
+    return () => clearInterval(interval);
+  }, [exec, fetchCampaigns]);
+
+  const openCampaignDetail = async (id) => {
+    const r = await fetch(`/api/marketing/campaigns/${id}`);
+    const d = await r.json();
+    if (d.success) setCampaignDetail(d);
+    else alert(d.error);
+  };
+
+  const deleteBounced = async (campId, emails) => {
+    if (!confirm(`Delete ${emails.length} bounced contacts from your contact list?`)) return;
+    const r = await fetch(`/api/marketing/campaigns/${campId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'delete-bounced', emails }) });
+    const d = await r.json();
+    if (d.success) { alert(`Deleted ${d.deleted} contacts!`); fetchContacts(); fetchFolders(); openCampaignDetail(campId); }
+    else alert(d.error);
+  };
+
+  const createFolder = async () => {
+    if (!folderForm.name.trim()) return alert('Name required');
+    const r = await fetch('/api/marketing/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',...folderForm})});
+    const d = await r.json();
+    if (d.success) { setFolderModal(null); setFolderForm({name:'',description:''}); fetchFolders(); } else alert(d.error);
+  };
+  const renameFolder = async (id, name) => {
+    const newName = prompt('Rename folder:', name);
+    if (!newName || newName === name) return;
+    await fetch('/api/marketing/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rename',id,name:newName})});
+    fetchFolders();
+  };
+  const deleteFolder = async (id) => {
+    if (!confirm('Delete folder? Contacts will become unassigned.')) return;
+    await fetch('/api/marketing/folders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});
+    if (activeFolder == id) setActiveFolder(null);
+    fetchFolders(); fetchContacts();
+  };
+  const moveContacts = async (folderId) => {
+    if (!selectedIds.length) return alert('Select contacts first');
+    await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'move',ids:selectedIds,folder_id:folderId})});
+    setSelectedIds([]); fetchContacts(); fetchFolders();
+  };
 
   const addContact = async () => {
     if (!form.email) return alert('Email required');
-    const r = await fetch('/api/marketing/contacts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'create', ...form, tags: form.tags ? form.tags.split(',').map(t=>t.trim()) : [] }) });
+    const payload = { action:'create', ...form, tags: form.tags ? form.tags.split(',').map(t=>t.trim()) : [] };
+    if (activeFolder && activeFolder !== 'unassigned') payload.folder_id = activeFolder;
+    const r = await fetch('/api/marketing/contacts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const d = await r.json();
-    if (d.success) { setShowModal(null); setForm({name:'',email:'',phone:'',company:'',tags:''}); fetchContacts(); } else alert(d.error);
+    if (d.success) { setShowModal(null); setForm({name:'',email:'',phone:'',company:'',tags:''}); fetchContacts(); fetchFolders(); } else alert(d.error);
   };
 
-  const deleteContact = async (id) => { if (!confirm('Delete this contact?')) return; await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})}); fetchContacts(); };
+  const deleteContact = async (id) => { if (!confirm('Delete?')) return; await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})}); fetchContacts(); fetchFolders(); };
 
-  const importApplicants = async () => { setLoading(true); const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'import-applicants'})}); const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); };
+  const importApplicants = async () => {
+    setLoading(true);
+    const payload = { action:'import-applicants' };
+    if (activeFolder && activeFolder !== 'unassigned') payload.folder_id = activeFolder;
+    const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); fetchFolders();
+  };
 
   const handleCSVImport = async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -73,8 +149,10 @@ export default function CMODashboard() {
     const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
     const rows = lines.slice(1).map(line => { const v=line.split(',').map(x=>x.trim()); const o={}; headers.forEach((h,i)=>{o[h]=v[i]||'';}); return {email:o.email,name:o.name,phone:o.phone,company:o.company}; }).filter(r=>r.email);
     setLoading(true);
-    const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'bulk-import',contacts:rows})});
-    const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); e.target.value='';
+    const payload = { action:'bulk-import', contacts:rows };
+    if (activeFolder && activeFolder !== 'unassigned') payload.folder_id = activeFolder;
+    const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); fetchFolders(); e.target.value='';
   };
 
   const toggleSelect = (id) => setSelectedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
@@ -93,23 +171,22 @@ export default function CMODashboard() {
     const ids = selectedIds.length > 0 ? selectedIds : contacts.map(c=>c.id);
     if (ids.length===0) return alert('No contacts');
     if (!confirm(`Send to ${ids.length} contacts?`)) return;
-
     setSendStatus({ msg: `Sending to ${ids.length} contacts...` });
-
-    // Build FormData for attachments
     const fd = new FormData();
     fd.append('contactIds', JSON.stringify(ids));
+    if (sendToFolder && sendToFolder !== 'all') fd.append('folderIds', JSON.stringify([sendToFolder]));
     fd.append('subject', compose.subject);
     fd.append('title', compose.title || compose.subject);
     fd.append('htmlBody', compose.body);
+    fd.append('cc', compose.cc || '');
+    fd.append('bcc', compose.bcc || '');
     attachments.forEach((a,i) => fd.append(`file_${i}`, a.file));
-
     const r = await fetch('/api/marketing/send-bulk', { method:'POST', body: fd });
     const d = await r.json();
     setSendStatus(null);
     if (d.success) {
-      alert(`Campaign sent!\nDelivered: ${d.delivered}\nFailed: ${d.failed}${d.skipped?' | Skipped (invalid): '+d.skipped:''}`);
-      setCompose({subject:'',title:'',body:''}); setAttachments([]); setSelectedIds([]); fetchCampaigns();
+      alert(d.message || 'Campaign started in background!');
+      setCompose({subject:'',title:'',body:'',cc:'',bcc:''}); setAttachments([]); setSelectedIds([]); fetchCampaigns();
     } else alert(d.error);
   };
 
@@ -179,10 +256,35 @@ export default function CMODashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Running Campaigns - Live */}
+            {runningCampaigns.length>0&&(
+              <div style={{marginBottom:'1.5rem'}}>
+                <h3 style={{marginBottom:'0.75rem',fontSize:'1rem',fontWeight:700}}>🔴 Live — Running Campaigns</h3>
+                {runningCampaigns.map(rc=>(
+                  <div key={rc.campaignId} style={{background:rc.paused?'#fef3c7':'#dbeafe',border:rc.paused?'1px solid #f59e0b':'1px solid #3b82f6',borderRadius:10,padding:'1rem',marginBottom:'0.5rem'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'0.5rem'}}>
+                      <span style={{fontWeight:700,fontSize:'0.85rem'}}>Campaign #{rc.campaignId}</span>
+                      <span style={{fontWeight:700,fontSize:'0.78rem',color:rc.paused?'#d97706':'#2563eb'}}>{rc.paused ? `⏸️ Paused until ${new Date(rc.pauseUntil).toLocaleTimeString()}` : '🔄 Sending...'}</span>
+                    </div>
+                    <div style={{display:'flex',gap:'1rem',marginTop:'0.5rem',fontSize:'0.78rem',flexWrap:'wrap'}}>
+                      <span>📤 Progress: {rc.current}/{rc.total}</span>
+                      <span>✅ Delivered: {rc.delivered}</span>
+                      <span>❌ Failed: {rc.failed}</span>
+                      {rc.bounceCount>0&&<span style={{color:'#ef4444',fontWeight:600}}>⚠️ Bounces: {rc.bounceCount}</span>}
+                    </div>
+                    <div style={{marginTop:'0.5rem',background:'#e2e8f0',borderRadius:8,height:6,overflow:'hidden'}}>
+                      <div style={{width:`${Math.round((rc.current/rc.total)*100)}%`,height:'100%',background:rc.paused?'#f59e0b':'#3b82f6',borderRadius:8,transition:'width 0.3s'}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <h3 style={{marginBottom:'1rem',fontSize:'1rem',fontWeight:700}}>Recent Campaigns</h3>
             <div className="cmo-campaigns-grid">
               {campaigns.slice(0,6).map(c=>(
-                <div className="cmo-campaign-card" key={c.id}>
+                <div className="cmo-campaign-card" key={c.id} onClick={()=>openCampaignDetail(c.id)} style={{cursor:'pointer'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}><h4>{c.title}</h4><span className={`cmo-badge cmo-badge-${c.status}`}>{c.status}</span></div>
                   <div className="meta">{c.subject} • {c.sent_at?new Date(c.sent_at).toLocaleDateString('en-IN'):'Draft'}</div>
                   <div className="stats-row">
@@ -199,20 +301,42 @@ export default function CMODashboard() {
           {/* CONTACTS */}
           <div className={`cmo-section ${section==='contacts'?'active':''}`}>
             <div className="cmo-section-header">
-              <h2>Contacts ({totalContacts})</h2>
+              <h2>Contacts ({contacts.length})</h2>
               <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
                 <button className="cmo-btn cmo-btn-primary" onClick={()=>setShowModal('add')}>+ Add Contact</button>
+                <button className="cmo-btn cmo-btn-ghost" onClick={()=>setFolderModal('create')}>📁 New Folder</button>
                 <button className="cmo-btn cmo-btn-ghost" onClick={importApplicants} disabled={loading}>{loading?'Importing...':'📥 Import Applicants'}</button>
                 <label className="cmo-btn cmo-btn-ghost" style={{cursor:'pointer'}}>📄 Import CSV<input type="file" accept=".csv" onChange={handleCSVImport} style={{display:'none'}}/></label>
               </div>
             </div>
+
+            {/* Folder Tabs */}
+            <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',flexWrap:'wrap',alignItems:'center'}}>
+              <button className={`cmo-btn ${!activeFolder?'cmo-btn-primary':'cmo-btn-ghost'}`} style={{fontSize:'0.72rem'}} onClick={()=>setActiveFolder(null)}>📋 All ({totalContacts})</button>
+              {folders.map(f=>(
+                <div key={f.id} style={{display:'flex',alignItems:'center',gap:2}}>
+                  <button className={`cmo-btn ${activeFolder==f.id?'cmo-btn-primary':'cmo-btn-ghost'}`} style={{fontSize:'0.72rem'}} onClick={()=>setActiveFolder(f.id)}>
+                    📁 {f.name} ({f.contact_count})
+                  </button>
+                  <button onClick={()=>renameFolder(f.id,f.name)} style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:2}} title="Rename">✏️</button>
+                  <button onClick={()=>deleteFolder(f.id)} style={{background:'none',border:'none',cursor:'pointer',fontSize:12,padding:2,color:'#ef4444'}} title="Delete">🗑️</button>
+                </div>
+              ))}
+            </div>
+
             {selectedIds.length>0&&(
               <div className="cmo-select-bar">
                 <span>{selectedIds.length} selected</span>
                 <button className="cmo-btn cmo-btn-primary cmo-btn-sm" onClick={()=>setSection('compose')}>📧 Email Selected</button>
+                <select onChange={e=>{if(e.target.value)moveContacts(e.target.value==='unassign'?null:e.target.value);e.target.value='';}} defaultValue="" style={{border:'1px solid #d4d4e8',borderRadius:6,padding:'4px 8px',fontSize:12,background:'#fff',cursor:'pointer'}}>
+                  <option value="" disabled>📁 Move to folder...</option>
+                  <option value="unassign">Remove from folder</option>
+                  {folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
                 <button className="cmo-btn cmo-btn-ghost cmo-btn-sm" onClick={()=>setSelectedIds([])}>Clear</button>
               </div>
             )}
+
             <div className="cmo-table-wrap">
               <table className="cmo-table">
                 <thead><tr>
@@ -230,7 +354,7 @@ export default function CMODashboard() {
                       <td><button className="cmo-btn cmo-btn-danger cmo-btn-sm" onClick={()=>deleteContact(c.id)}>Delete</button></td>
                     </tr>
                   ))}
-                  {contacts.length===0&&<tr><td colSpan={8} style={{textAlign:'center',color:'var(--cmo-text-sec)',padding:'2rem'}}>No contacts yet</td></tr>}
+                  {contacts.length===0&&<tr><td colSpan={8} style={{textAlign:'center',color:'var(--cmo-text-sec)',padding:'2rem'}}>No contacts in this folder</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -254,6 +378,24 @@ export default function CMODashboard() {
                 <div>
                   <label className="cmo-label">Subject Line</label>
                   <input className="cmo-input" placeholder="Email subject..." value={compose.subject} onChange={e=>setCompose({...compose,subject:e.target.value})} />
+                </div>
+                <div>
+                  <label className="cmo-label">CC (comma separated emails)</label>
+                  <input className="cmo-input" placeholder="cc1@email.com, cc2@email.com" value={compose.cc} onChange={e=>setCompose({...compose,cc:e.target.value})} />
+                </div>
+                <div>
+                  <label className="cmo-label">BCC (comma separated emails)</label>
+                  <input className="cmo-input" placeholder="bcc1@email.com, bcc2@email.com" value={compose.bcc} onChange={e=>setCompose({...compose,bcc:e.target.value})} />
+                </div>
+                <div className="cmo-form-full" style={{display:'flex',gap:'1rem',alignItems:'flex-end',flexWrap:'wrap'}}>
+                  <div style={{flex:1,minWidth:200}}>
+                    <label className="cmo-label">Send to Folder</label>
+                    <select className="cmo-input" value={sendToFolder} onChange={e=>setSendToFolder(e.target.value)} style={{cursor:'pointer'}}>
+                      <option value="all">All Contacts ({totalContacts})</option>
+                      {folders.map(f=><option key={f.id} value={f.id}>{f.name} ({f.contact_count})</option>)}
+                    </select>
+                  </div>
+                  {selectedIds.length>0&&<span style={{fontSize:'0.72rem',color:'var(--cmo-primary)',fontWeight:600,padding:'0.5rem 0'}}>⚡ {selectedIds.length} manually selected — overrides folder</span>}
                 </div>
                 <div className="cmo-form-full">
                   <label className="cmo-label">Email Body (Rich HTML Editor)</label>
@@ -342,6 +484,92 @@ export default function CMODashboard() {
             <div className="cmo-modal-footer">
               <button className="cmo-btn cmo-btn-ghost" onClick={()=>setShowModal(null)}>Cancel</button>
               <button className="cmo-btn cmo-btn-primary" onClick={addContact}>Add Contact</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FOLDER MODAL */}
+      {folderModal==='create'&&(
+        <div className="cmo-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setFolderModal(null);}}>
+          <div className="cmo-modal">
+            <div className="cmo-modal-header"><h3>Create Folder</h3><p>Organize your contacts into groups</p></div>
+            <div className="cmo-modal-body">
+              <div><label className="cmo-label">Folder Name *</label><input className="cmo-input" value={folderForm.name} onChange={e=>setFolderForm({...folderForm,name:e.target.value})} placeholder="e.g. Students, Companies, Partners"/></div>
+              <div style={{marginTop:'1rem'}}><label className="cmo-label">Description</label><input className="cmo-input" value={folderForm.description} onChange={e=>setFolderForm({...folderForm,description:e.target.value})} placeholder="Optional description"/></div>
+            </div>
+            <div className="cmo-modal-footer">
+              <button className="cmo-btn cmo-btn-ghost" onClick={()=>setFolderModal(null)}>Cancel</button>
+              <button className="cmo-btn cmo-btn-primary" onClick={createFolder}>Create Folder</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CAMPAIGN DETAIL MODAL */}
+      {campaignDetail&&(
+        <div className="cmo-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setCampaignDetail(null);}}>
+          <div className="cmo-modal" style={{maxWidth:750,maxHeight:'85vh',overflow:'auto'}}>
+            <div className="cmo-modal-header">
+              <h3>📧 {campaignDetail.campaign.title}</h3>
+              <p>Subject: <strong>{campaignDetail.campaign.subject}</strong></p>
+            </div>
+            <div className="cmo-modal-body">
+              {/* Status */}
+              <div style={{display:'flex',gap:'1rem',marginBottom:'1rem',flexWrap:'wrap'}}>
+                <span className={`cmo-badge cmo-badge-${campaignDetail.campaign.status}`}>{campaignDetail.campaign.status}</span>
+                <span style={{fontSize:'0.78rem',color:'var(--cmo-text-sec)'}}>Sent: {campaignDetail.campaign.sent_at?new Date(campaignDetail.campaign.sent_at).toLocaleString('en-IN'):'—'}</span>
+              </div>
+
+              {/* Stats */}
+              <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+                <div style={{background:'#d1fae5',padding:'0.5rem 1rem',borderRadius:8,fontSize:'0.78rem',fontWeight:700,color:'#065f46'}}>✅ Delivered: {campaignDetail.totals.sent}</div>
+                <div style={{background:'#fee2e2',padding:'0.5rem 1rem',borderRadius:8,fontSize:'0.78rem',fontWeight:700,color:'#991b1b'}}>❌ Failed: {campaignDetail.totals.failed}</div>
+                {campaignDetail.totals.pending>0&&<div style={{background:'#dbeafe',padding:'0.5rem 1rem',borderRadius:8,fontSize:'0.78rem',fontWeight:700,color:'#1e40af'}}>⏳ Pending: {campaignDetail.totals.pending}</div>}
+              </div>
+
+              {/* Email Body Preview */}
+              <div style={{marginBottom:'1.25rem'}}>
+                <h4 style={{fontSize:'0.85rem',fontWeight:700,marginBottom:'0.5rem'}}>📝 Email Body Sent</h4>
+                <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:'1rem',maxHeight:200,overflow:'auto',fontSize:'0.82rem'}} dangerouslySetInnerHTML={{__html:campaignDetail.campaign.body}} />
+              </div>
+
+              {/* Delivered Recipients */}
+              <div style={{marginBottom:'1.25rem'}}>
+                <h4 style={{fontSize:'0.85rem',fontWeight:700,marginBottom:'0.5rem',color:'#065f46'}}>✅ Successfully Delivered ({campaignDetail.totals.sent})</h4>
+                <div style={{maxHeight:180,overflow:'auto',border:'1px solid #d1fae5',borderRadius:8}}>
+                  <table className="cmo-table" style={{fontSize:'0.75rem'}}>
+                    <thead><tr><th>Email</th><th>Sent At</th></tr></thead>
+                    <tbody>
+                      {campaignDetail.recipients.sent.map((r,i)=><tr key={i}><td>{r.email}</td><td>{r.sent_at?new Date(r.sent_at).toLocaleString('en-IN'):'—'}</td></tr>)}
+                      {campaignDetail.recipients.sent.length===0&&<tr><td colSpan={2} style={{textAlign:'center',color:'#999'}}>None</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Bounced/Failed Recipients */}
+              {campaignDetail.totals.failed>0&&(
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem',flexWrap:'wrap',gap:'0.5rem'}}>
+                    <h4 style={{fontSize:'0.85rem',fontWeight:700,color:'#991b1b'}}>❌ Failed / Bounced ({campaignDetail.totals.failed})</h4>
+                    <button className="cmo-btn cmo-btn-danger cmo-btn-sm" onClick={()=>deleteBounced(campaignDetail.campaign.id, campaignDetail.recipients.failed.map(r=>r.email))}>
+                      🗑️ Delete All Bounced from Contacts
+                    </button>
+                  </div>
+                  <div style={{maxHeight:180,overflow:'auto',border:'1px solid #fee2e2',borderRadius:8}}>
+                    <table className="cmo-table" style={{fontSize:'0.75rem'}}>
+                      <thead><tr><th>Email</th><th>Error</th></tr></thead>
+                      <tbody>
+                        {campaignDetail.recipients.failed.map((r,i)=><tr key={i}><td>{r.email}</td><td style={{color:'#dc2626',fontSize:'0.72rem'}}>{r.error_message||'Unknown'}</td></tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="cmo-modal-footer">
+              <button className="cmo-btn cmo-btn-ghost" onClick={()=>setCampaignDetail(null)}>Close</button>
             </div>
           </div>
         </div>

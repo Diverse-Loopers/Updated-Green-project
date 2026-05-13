@@ -546,7 +546,7 @@ export async function loadAttendance() {
             <td>${rec.employee_id}</td>
             <td>${empName}</td>
             <td>${rec.check_in_time}</td>
-            <td>${rec.face_verified ? '✅ Verified' : '❌ Failed'}</td>
+            <td>${rec.face_verified ? 'âœ… Verified' : 'âŒ Failed'}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -662,6 +662,60 @@ export function logoutAdmin() {
 //     });
 // }
 
+// Bulk selection tracking
+let selectedApplicantIds = new Set();
+
+function updateBulkBar() {
+    let bar = document.getElementById('bulk-actions-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'bulk-actions-bar';
+        bar.style.cssText = 'display:none;align-items:center;gap:1rem;padding:0.75rem 1.25rem;background:#ede9fe;border-radius:10px;margin-bottom:1rem;font-size:0.8rem;color:#7c3aed;font-weight:600;flex-wrap:wrap;';
+        const container = document.getElementById('applicants-cards-container');
+        if (container) container.parentNode.insertBefore(bar, container);
+    }
+    if (selectedApplicantIds.size > 0) {
+        bar.style.display = 'flex';
+        bar.innerHTML = `
+            <span>${selectedApplicantIds.size} selected</span>
+            <button onclick="bulkUpdateStatus('shortlisted')" style="background:#d1fae5;color:#065f46;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">âœ… Shortlist All</button>
+            <button onclick="bulkUpdateStatus('rejected')" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">âŒ Reject All</button>
+            <button onclick="clearBulkSelection()" style="background:#fff;color:#64748b;border:1px solid #e2e8f0;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
+        `;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+if (typeof window !== 'undefined') {
+    window.clearBulkSelection = function() { selectedApplicantIds.clear(); updateBulkBar(); document.querySelectorAll('.applicant-checkbox').forEach(c => c.checked = false); const sa = document.getElementById('select-all-checkbox'); if(sa) sa.checked = false; };
+    window.toggleSelectAll = function(checked) {
+        document.querySelectorAll('.applicant-checkbox').forEach(c => { c.checked = checked; const id = c.getAttribute('data-app-id'); if (checked) selectedApplicantIds.add(String(id)); else selectedApplicantIds.delete(String(id)); });
+        updateBulkBar();
+    };
+    window.toggleApplicantSelect = function(id, checked) {
+        if (checked) selectedApplicantIds.add(String(id)); else selectedApplicantIds.delete(String(id));
+        updateBulkBar();
+    };
+    window.bulkUpdateStatus = async function(status) {
+        const ids = Array.from(selectedApplicantIds);
+        if (!ids.length) return;
+        if (!confirm(`Mark ${ids.length} applicant(s) as ${status}? Emails will be sent automatically.`)) return;
+        showToast(`Updating ${ids.length} applicants...`, 'info');
+        try {
+            const res = await fetch('/api/applications/status', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applicationIds: ids, status })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.message, 'success');
+                selectedApplicantIds.clear();
+                loadJobApplicants(document.getElementById('status-filter')?.value || 'all');
+            } else showToast(result.error, 'error');
+        } catch { showToast('Error', 'error'); }
+    };
+}
+
 async function loadJobApplicants(filterStatus = 'all') {
     const { data, error } = await supabase
         .from('applications')
@@ -701,6 +755,7 @@ function renderApplicantCards(apps, filterStatus = 'all') {
         card.setAttribute('data-card-id', app.id);
         card.innerHTML = `
             <div class="applicant-card-header">
+                <input type="checkbox" class="applicant-checkbox" data-app-id="${app.id}" onchange="toggleApplicantSelect('${app.id}', this.checked)" style="width:18px;height:18px;accent-color:#6C5CE7;cursor:pointer;flex-shrink:0;" ${selectedApplicantIds.has(String(app.id)) ? 'checked' : ''} />
                 <div class="applicant-avatar">${initials}</div>
                 <div style="flex:1">
                     <h4>${app.applicant_name}</h4>
@@ -750,14 +805,16 @@ function renderApplicantCards(apps, filterStatus = 'all') {
 
 async function updateAppStatus(appId, newStatus) {
     try {
+        if (!confirm(`Mark as ${newStatus}? An email will be sent automatically.`)) return;
+        showToast('Updating status & sending email...', 'info');
         const res = await fetch('/api/applications/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ applicationId: appId, status: newStatus })
+            body: JSON.stringify({ applicationIds: [appId], status: newStatus })
         });
         const result = await res.json();
         if (result.success) {
-            showToast(`Application marked as ${newStatus}`, 'success');
+            showToast(result.message, 'success');
             loadJobApplicants(document.getElementById('status-filter')?.value || 'all');
         } else {
             showToast(result.error || 'Failed to update status', 'error');
@@ -775,7 +832,7 @@ function openEmailCompose(appId) {
     if (!modal) return;
     
     document.getElementById('email-to').value = app.applicant_email;
-    document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} — Diverse Loopers`;
+    document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} â€” Diverse Loopers`;
     document.getElementById('email-body').value = `Dear ${app.applicant_name},\n\nThank you for applying for the ${app.job_title} position at Diverse Loopers.\n\n\n\nBest regards,\nHR Team\nDiverse Loopers`;
     
     modal.classList.remove('hidden');
@@ -813,6 +870,82 @@ async function sendEmailFromDashboard() {
     sendBtn.textContent = 'Send Email';
 }
 
+// ============= EMAIL TEMPLATE EDITOR =============
+if (typeof window !== 'undefined') {
+window.openTemplateEditor = async function() {
+    let modal = document.getElementById('template-editor-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'template-editor-modal';
+        modal.className = 'modal-overlay hidden';
+        const modalHTML = '<div class="modal" style="max-width:700px;max-height:85vh;overflow:auto;">'
+            + '<div class="modal-header"><h3>\u{1F4E7} Email Templates</h3><p>Edit the auto-emails sent to applicants</p></div>'
+            + '<div id="template-editor-body" style="padding:1.25rem 1.5rem;"></div>'
+            + '<div class="modal-footer" style="padding:1rem 1.5rem;display:flex;justify-content:flex-end;border-top:1px solid #e2e8f0;">'
+            + '<button onclick="document.getElementById(\'template-editor-modal\').classList.add(\'hidden\')" class="btn-secondary">Close</button>'
+            + '</div></div>';
+        modal.innerHTML = modalHTML;
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+    const edBody = document.getElementById('template-editor-body');
+    edBody.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:2rem;">Loading templates...</p>';
+
+    try {
+        const res = await fetch('/api/applications/templates');
+        const d = await res.json();
+        if (!d.success || !d.templates.length) { edBody.innerHTML = '<p style="color:#ef4444;">No templates found.</p>'; return; }
+        const labels = { shortlisted: '\u2705 Shortlisted Email', rejected: '\u274C Rejected Email', application_received: '\u{1F4E9} Thank You (Application Received)' };
+        edBody.innerHTML = d.templates.map(t => {
+            const eSubj = (t.subject||'').replace(/"/g, '\u0026quot;');
+            const eBody = (t.body||'').replace(/\u0026/g,'\u0026amp;').replace(/</g,'\u0026lt;').replace(/>/g,'\u0026gt;');
+            return '<div style="margin-bottom:1.5rem;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;">'
+            + '<h4 style="font-size:0.9rem;font-weight:700;margin-bottom:0.75rem;">' + (labels[t.template_key]||t.template_key) + '</h4>'
+            + '<label style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Subject</label>'
+            + '<input type="text" id="tpl-subject-' + t.template_key + '" value="' + eSubj + '" style="width:100%;padding:0.6rem 0.8rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.82rem;margin-bottom:0.75rem;font-family:inherit;" />'
+            + '<label style="font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Body (HTML) \u2014 use {{name}} and {{job_title}}</label>'
+            + '<textarea id="tpl-body-' + t.template_key + '" rows="6" style="width:100%;padding:0.6rem 0.8rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.78rem;font-family:monospace;resize:vertical;">' + eBody + '</textarea>'
+            + '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;">'
+            + '<button onclick="saveTemplate(\'' + t.template_key + '\')" style="background:linear-gradient(135deg,#6C5CE7,#a855f7);color:#fff;border:none;padding:8px 20px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">\u{1F4BE} Save</button>'
+            + '<button onclick="previewTemplate(\'' + t.template_key + '\')" style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;padding:8px 20px;border-radius:8px;font-weight:600;font-size:0.75rem;cursor:pointer;">\u{1F441}\uFE0F Preview</button>'
+            + '<span id="tpl-status-' + t.template_key + '" style="font-size:0.72rem;color:#10b981;font-weight:600;"></span>'
+            + '</div>'
+            + '<div id="tpl-preview-' + t.template_key + '" style="display:none;margin-top:0.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;font-size:0.82rem;max-height:200px;overflow:auto;"></div>'
+            + '</div>';
+        }).join('');
+    } catch(err) { edBody.innerHTML = '<p style="color:#ef4444;">Error loading templates</p>'; }
+};
+
+window.saveTemplate = async function(key) {
+    const subject = document.getElementById('tpl-subject-' + key)?.value;
+    const bodyRaw = document.getElementById('tpl-body-' + key)?.value || '';
+    const bodyDecoded = bodyRaw.replace(/\u0026lt;/g,'<').replace(/\u0026gt;/g,'>').replace(/\u0026amp;/g,'\u0026').replace(/\u0026quot;/g,'"');
+    const statusEl = document.getElementById('tpl-status-' + key);
+    try {
+        const res = await fetch('/api/applications/templates', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template_key: key, subject, body: bodyDecoded })
+        });
+        const rd = await res.json();
+        if (rd.success) { statusEl.textContent = '\u2705 Saved!'; setTimeout(() => { statusEl.textContent = ''; }, 3000); }
+        else { statusEl.textContent = '\u274C ' + rd.error; statusEl.style.color = '#ef4444'; }
+    } catch(e) { statusEl.textContent = '\u274C Error'; statusEl.style.color = '#ef4444'; }
+};
+
+window.previewTemplate = function(key) {
+    const bodyRaw = document.getElementById('tpl-body-' + key)?.value || '';
+    const bodyDecoded = bodyRaw.replace(/\u0026lt;/g,'<').replace(/\u0026gt;/g,'>').replace(/\u0026amp;/g,'\u0026').replace(/\u0026quot;/g,'"');
+    const preview = document.getElementById('tpl-preview-' + key);
+    if (preview.style.display === 'none') {
+        preview.style.display = 'block';
+        const rendered = bodyDecoded.replace(/\{\{name\}\}/g, '<strong>John Doe</strong>').replace(/\{\{job_title\}\}/g, '<strong>Software Developer</strong>');
+        preview.innerHTML = rendered;
+    } else { preview.style.display = 'none'; }
+};
+} // end template editor window check
+
+
 function searchDashboard(query) {
     const q = query.toLowerCase().trim();
     const activeSection = document.querySelector('section:not(.hidden)');
@@ -839,7 +972,7 @@ function startDateTime() {
     if (!el) return;
     const update = () => {
         const now = new Date();
-        el.textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + '  •  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        el.textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + '  â€¢  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     };
     update();
     setInterval(update, 30000);
