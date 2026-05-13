@@ -158,6 +158,15 @@ export default function CMODashboard() {
   const toggleSelect = (id) => setSelectedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => setSelectedIds(selectedIds.length===contacts.length?[]:contacts.map(c=>c.id));
 
+  const bulkDeleteContacts = async () => {
+    if (!selectedIds.length) return;
+    if (!confirm(`Delete ${selectedIds.length} selected contact(s)? This cannot be undone.`)) return;
+    for (const id of selectedIds) {
+      await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});
+    }
+    setSelectedIds([]); fetchContacts(); fetchFolders();
+  };
+
   const handleFileAttach = (e) => {
     const files = Array.from(e.target.files);
     const newAttachments = files.map(f => ({ file: f, name: f.name, size: (f.size/1024).toFixed(1)+'KB' }));
@@ -333,6 +342,7 @@ export default function CMODashboard() {
                   <option value="unassign">Remove from folder</option>
                   {folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
+                <button className="cmo-btn cmo-btn-danger cmo-btn-sm" onClick={bulkDeleteContacts}>🗑️ Delete Selected</button>
                 <button className="cmo-btn cmo-btn-ghost cmo-btn-sm" onClick={()=>setSelectedIds([])}>Clear</button>
               </div>
             )}
