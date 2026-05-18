@@ -79,8 +79,24 @@
         #blog-editor h2 { font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #0f172a; }
         #blog-editor h3 { font-size: 1.15rem; font-weight: 600; margin: 1.2rem 0 0.4rem; color: #0f172a; }
         #blog-editor p { margin: 0 0 0.8rem; }
-        #blog-editor ul, #blog-editor ol { padding-left: 1.5rem; margin: 0 0 1rem; }
-        #blog-editor li { margin-bottom: 0.3rem; }
+        #blog-editor ul {
+            padding-left: 1.5rem;
+            margin: 0 0 1rem;
+            list-style-type: disc !important;
+        }
+        #blog-editor ol {
+            padding-left: 1.5rem;
+            margin: 0 0 1rem;
+            list-style-type: decimal !important;
+        }
+        #blog-editor li {
+            margin-bottom: 0.3rem;
+            display: list-item !important;
+        }
+        #blog-editor ul li { list-style-type: disc !important; }
+        #blog-editor ol li { list-style-type: decimal !important; }
+        #blog-editor ul ul { list-style-type: circle !important; }
+        #blog-editor ol ol { list-style-type: lower-alpha !important; }
         #blog-editor a { color: #4f46e5; text-decoration: underline; }
         #blog-editor blockquote {
             border-left: 4px solid #4f46e5;
@@ -117,4 +133,43 @@
             text-align: left;
         }
         #blog-editor table th { background: #f8fafc; font-weight: 600; }
+
+        /* Crop Overlay */
+        .crop-overlay-container {
+            position: relative;
+            cursor: crosshair;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .crop-overlay-container canvas {
+            display: block;
+        }
+        .crop-selection {
+            position: absolute;
+            border: 2px dashed #4f46e5;
+            background: rgba(79, 70, 229, 0.08);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .crop-dim-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            pointer-events: none;
+            z-index: 5;
+        }
+        .crop-selection-size {
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4f46e5;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            z-index: 11;
+        }
    

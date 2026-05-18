@@ -2477,23 +2477,37 @@ function initBlogEditor() {
 }
 
 // --- Media Modal ---
+let cropState = { isDragging: false, startX: 0, startY: 0, endX: 0, endY: 0, hasCrop: false };
+let canvasScale = 1; // ratio of displayed canvas size to actual canvas pixel size
+
 function openMediaModal(title) {
     const modal = document.getElementById('blog-media-modal');
     const titleEl = document.getElementById('blog-media-modal-title');
     if (modal) modal.style.display = 'flex';
     if (titleEl) titleEl.textContent = title;
-    // Reset fields
     ['blog-media-file','blog-media-url','blog-media-alt','blog-media-width','blog-media-height'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
     });
     const preview = document.getElementById('blog-media-preview-area');
     if (preview) preview.style.display = 'none';
     blogOriginalImage = null;
+    resetCropSelection();
 }
 
 function closeMediaModal() {
     const modal = document.getElementById('blog-media-modal');
     if (modal) modal.style.display = 'none';
+    resetCropSelection();
+}
+
+function resetCropSelection() {
+    cropState = { isDragging: false, startX: 0, startY: 0, endX: 0, endY: 0, hasCrop: false };
+    const rect = document.getElementById('blog-crop-rect');
+    const dim = document.getElementById('blog-crop-dim');
+    if (rect) rect.style.display = 'none';
+    if (dim) dim.style.display = 'none';
+    const info = document.getElementById('blog-crop-info');
+    if (info) info.textContent = 'Click & drag on image to select area';
 }
 
 function initMediaModal() {
@@ -2509,40 +2523,123 @@ function initMediaModal() {
             img.onload = () => {
                 blogOriginalImage = img;
                 drawImageToCanvas(img);
+                resetCropSelection();
                 const preview = document.getElementById('blog-media-preview-area');
                 if (preview) preview.style.display = 'block';
+                initLucideIcons();
             };
             img.src = ev.target.result;
         };
         reader.readAsDataURL(file);
     });
 
-    // Crop
+    // --- Drag-to-select crop (like Edge screenshot) ---
+    const container = document.getElementById('blog-crop-container');
+    if (container) {
+        container.addEventListener('mousedown', (e) => {
+            const canvas = document.getElementById('blog-media-canvas');
+            if (!canvas || !blogOriginalImage) return;
+            const rect = canvas.getBoundingClientRect();
+            cropState.isDragging = true;
+            cropState.startX = e.clientX - rect.left;
+            cropState.startY = e.clientY - rect.top;
+            cropState.endX = cropState.startX;
+            cropState.endY = cropState.startY;
+            cropState.hasCrop = false;
+            const dim = document.getElementById('blog-crop-dim');
+            if (dim) dim.style.display = 'block';
+            updateCropRect();
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!cropState.isDragging) return;
+            const canvas = document.getElementById('blog-media-canvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            cropState.endX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            cropState.endY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+            updateCropRect();
+        });
+
+        container.addEventListener('mouseup', () => {
+            if (!cropState.isDragging) return;
+            cropState.isDragging = false;
+            const w = Math.abs(cropState.endX - cropState.startX);
+            const h = Math.abs(cropState.endY - cropState.startY);
+            if (w > 5 && h > 5) {
+                cropState.hasCrop = true;
+                const info = document.getElementById('blog-crop-info');
+                if (info) info.textContent = 'Selection ready — click "Apply Crop"';
+            } else {
+                resetCropSelection();
+            }
+        });
+
+        container.addEventListener('mouseleave', () => {
+            if (cropState.isDragging) {
+                cropState.isDragging = false;
+                const w = Math.abs(cropState.endX - cropState.startX);
+                const h = Math.abs(cropState.endY - cropState.startY);
+                if (w > 5 && h > 5) cropState.hasCrop = true;
+                else resetCropSelection();
+            }
+        });
+    }
+
+    // Apply Crop button
     document.getElementById('blog-media-crop-btn')?.addEventListener('click', () => {
-        const canvas = document.getElementById('blog-media-canvas');
-        const w = parseInt(document.getElementById('blog-media-width')?.value) || canvas?.width;
-        const h = parseInt(document.getElementById('blog-media-height')?.value) || canvas?.height;
-        if (canvas && blogOriginalImage) {
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(blogOriginalImage, 0, 0, w, h);
+        if (!cropState.hasCrop || !blogOriginalImage) {
+            showMessageBox('Drag on the image first to select the area you want to crop.');
+            return;
         }
-    });
+        const canvas = document.getElementById('blog-media-canvas');
+        if (!canvas) return;
 
-    // Grayscale
-    document.getElementById('blog-media-grayscale-btn')?.addEventListener('click', () => {
-        applyCanvasFilter('grayscale');
-    });
+        // Convert displayed coordinates to actual image coordinates
+        const dispW = canvas.getBoundingClientRect().width;
+        const dispH = canvas.getBoundingClientRect().height;
+        const scaleX = blogOriginalImage.width / dispW;
+        const scaleY = blogOriginalImage.height / dispH;
 
-    // Brightness
-    document.getElementById('blog-media-brightness-btn')?.addEventListener('click', () => {
-        applyCanvasFilter('brightness');
+        const sx = Math.min(cropState.startX, cropState.endX) * scaleX;
+        const sy = Math.min(cropState.startY, cropState.endY) * scaleY;
+        const sw = Math.abs(cropState.endX - cropState.startX) * scaleX;
+        const sh = Math.abs(cropState.endY - cropState.startY) * scaleY;
+
+        // Create cropped image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sw;
+        tempCanvas.height = sh;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(blogOriginalImage, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        // Make the cropped version the new "original"
+        const croppedImg = new Image();
+        croppedImg.onload = () => {
+            blogOriginalImage = croppedImg;
+            drawImageToCanvas(croppedImg);
+            resetCropSelection();
+            const info = document.getElementById('blog-crop-info');
+            if (info) info.textContent = `Cropped to ${Math.round(sw)}×${Math.round(sh)}px — drag again to re-crop`;
+        };
+        croppedImg.src = tempCanvas.toDataURL('image/png');
     });
 
     // Reset
     document.getElementById('blog-media-reset-btn')?.addEventListener('click', () => {
-        if (blogOriginalImage) drawImageToCanvas(blogOriginalImage);
+        const file = document.getElementById('blog-media-file')?.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                blogOriginalImage = img;
+                drawImageToCanvas(img);
+                resetCropSelection();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
     });
 
     // Insert
@@ -2553,13 +2650,17 @@ function initMediaModal() {
         const w = document.getElementById('blog-media-width')?.value || '';
         const h = document.getElementById('blog-media-height')?.value || 'auto';
 
-        // If canvas was edited, use canvas data
+        // If we have an image (original or cropped), upload the canvas content
         const canvas = document.getElementById('blog-media-canvas');
         if (file && file.type.startsWith('image/') && canvas && canvas.width > 0) {
-            // Convert canvas to blob and upload
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.85));
+            // Draw final image to a clean canvas at full res
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = blogOriginalImage.width;
+            finalCanvas.height = blogOriginalImage.height;
+            finalCanvas.getContext('2d').drawImage(blogOriginalImage, 0, 0);
+            const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/webp', 0.85));
             if (blob) {
-                const webpFile = new File([blob], 'edited-' + Date.now() + '.webp', { type: 'image/webp' });
+                const webpFile = new File([blob], 'blog-' + Date.now() + '.webp', { type: 'image/webp' });
                 url = await uploadImage(webpFile, 'blog-images', 'content');
             }
         } else if (file && !url) {
@@ -2575,7 +2676,6 @@ function initMediaModal() {
         const style = w ? `width:${w};height:${h};` : 'max-width:100%;';
 
         if (blogMediaMode === 'video') {
-            // YouTube/Vimeo embed
             let embedUrl = url;
             if (url.includes('youtube.com/watch')) embedUrl = url.replace('watch?v=', 'embed/');
             if (url.includes('youtu.be/')) embedUrl = url.replace('youtu.be/', 'www.youtube.com/embed/');
@@ -2590,34 +2690,45 @@ function initMediaModal() {
     });
 }
 
+function updateCropRect() {
+    const rect = document.getElementById('blog-crop-rect');
+    const sizeLabel = document.getElementById('blog-crop-size');
+    if (!rect) return;
+
+    const x = Math.min(cropState.startX, cropState.endX);
+    const y = Math.min(cropState.startY, cropState.endY);
+    const w = Math.abs(cropState.endX - cropState.startX);
+    const h = Math.abs(cropState.endY - cropState.startY);
+
+    rect.style.display = 'block';
+    rect.style.left = x + 'px';
+    rect.style.top = y + 'px';
+    rect.style.width = w + 'px';
+    rect.style.height = h + 'px';
+
+    if (sizeLabel) {
+        // Show actual pixel dimensions (accounting for scale)
+        const canvas = document.getElementById('blog-media-canvas');
+        if (canvas && blogOriginalImage) {
+            const dispW = canvas.getBoundingClientRect().width;
+            const scale = blogOriginalImage.width / dispW;
+            sizeLabel.textContent = `${Math.round(w * scale)} × ${Math.round(h * scale)} px`;
+        } else {
+            sizeLabel.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+        }
+    }
+}
+
 function drawImageToCanvas(img) {
     const canvas = document.getElementById('blog-media-canvas');
     if (!canvas) return;
-    const maxW = 500;
+    const maxW = 460;
     const scale = img.width > maxW ? maxW / img.width : 1;
     canvas.width = img.width * scale;
     canvas.height = img.height * scale;
+    canvasScale = scale;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-}
-
-function applyCanvasFilter(type) {
-    const canvas = document.getElementById('blog-media-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    for (let i = 0; i < data.length; i += 4) {
-        if (type === 'grayscale') {
-            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            data[i] = data[i + 1] = data[i + 2] = avg;
-        } else if (type === 'brightness') {
-            data[i] = Math.min(255, data[i] + 30);
-            data[i + 1] = Math.min(255, data[i + 1] + 30);
-            data[i + 2] = Math.min(255, data[i + 2] + 30);
-        }
-    }
-    ctx.putImageData(imageData, 0, 0);
 }
 
 // --- Blog Listeners Init ---

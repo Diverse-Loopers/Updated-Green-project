@@ -1630,17 +1630,26 @@ export default function AdminDashboard() {
                           <input type="text" id="blog-media-height" placeholder="auto" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
                         </div>
                       </div>
-                      {/* Image Preview & Crop */}
+                      {/* Image Preview & Visual Crop Selector */}
                       <div id="blog-media-preview-area" style={{display:'none'}}>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Preview</label>
-                        <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                          <canvas id="blog-media-canvas" className="max-w-full mx-auto" style={{maxHeight:'300px'}}></canvas>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                          Preview — Drag to select crop area
+                        </label>
+                        <div id="blog-crop-container" className="crop-overlay-container relative border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                          <canvas id="blog-media-canvas" className="max-w-full mx-auto block"></canvas>
+                          <div id="blog-crop-dim" className="crop-dim-overlay" style={{display:'none'}}></div>
+                          <div id="blog-crop-rect" className="crop-selection" style={{display:'none'}}>
+                            <span id="blog-crop-size" className="crop-selection-size"></span>
+                          </div>
                         </div>
-                        <div className="flex gap-2 mt-2">
-                          <button type="button" id="blog-media-crop-btn" className="px-3 py-1.5 bg-indigo-50 text-primary text-xs font-bold rounded-lg">Crop to Size</button>
-                          <button type="button" id="blog-media-grayscale-btn" className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg">Grayscale</button>
-                          <button type="button" id="blog-media-brightness-btn" className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg">Brighten</button>
-                          <button type="button" id="blog-media-reset-btn" className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg">Reset</button>
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <button type="button" id="blog-media-crop-btn" className="px-4 py-2 bg-indigo-50 text-primary text-xs font-bold rounded-lg flex items-center gap-1.5">
+                            <i data-lucide="crop" className="w-3.5 h-3.5"></i> Apply Crop
+                          </button>
+                          <button type="button" id="blog-media-reset-btn" className="px-4 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg flex items-center gap-1.5">
+                            <i data-lucide="rotate-ccw" className="w-3.5 h-3.5"></i> Reset
+                          </button>
+                          <span className="text-[10px] text-slate-400 font-semibold ml-auto" id="blog-crop-info">Click & drag on image to select area</span>
                         </div>
                       </div>
                     </div>

@@ -15,12 +15,12 @@ export const metadata = {
 
 export default function BlogLayout({ children }) {
   return (
-    <>
+    <div className="bg-white text-slate-800 min-h-screen">
       <JsonLd data={breadcrumbSchema([
         { name: 'Home', url: '/' },
         { name: 'Blog', url: '/blog' },
       ])} />
       {children}
-    </>
+    </div>
   );
 }

@@ -164,14 +164,25 @@
 .article-content p {
   margin: 0 0 1.2rem;
 }
-.article-content ul, .article-content ol {
+.article-content ul {
   margin: 0 0 1.5rem;
   padding-left: 1.5rem;
+  list-style-type: disc !important;
+}
+.article-content ol {
+  margin: 0 0 1.5rem;
+  padding-left: 1.5rem;
+  list-style-type: decimal !important;
 }
 .article-content li {
   margin-bottom: 0.5rem;
   line-height: 1.7;
+  display: list-item !important;
 }
+.article-content ul li { list-style-type: disc !important; }
+.article-content ol li { list-style-type: decimal !important; }
+.article-content ul ul { list-style-type: circle !important; }
+.article-content ol ol { list-style-type: lower-alpha !important; }
 .article-content a {
   color: #16a34a;
   font-weight: 500;
