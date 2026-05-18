@@ -30,6 +30,7 @@ export default function Footer() {
               <ul className="space-y-4 text-slate-400 text-sm">
                 <li><a href="/about" className="hover:text-white transition">About Us</a></li>
                 <li><a href="mailto:contact@diverseloopers.com" className="hover:text-white transition">Contact Us</a></li>
+                <li><a href="/blog" className="hover:text-white transition">Blog</a></li>
                 <li><a href="#programs" className="hover:text-white transition">Programs</a></li>
                 <li><a href="#hybrid-hustle" className="hover:text-white transition">Hybrid Hustle</a></li>
                 <li><a href="/skillsynth" className="hover:text-white transition">SkillSynth</a></li>
