@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /site.admin
+Disallow: /sales-dashboard
+Disallow: /cmo-dashboard
+Disallow: /employee-dashboard
+Disallow: /trainer-dashboard
+Disallow: /hrms-login
+Disallow: /executive-login
+Disallow: /products/dashboard
+Disallow: /products/loopmail/app
+Disallow: /products/loopmail/onboarding
+Disallow: /settings
+Disallow: /profile
+Disallow: /my-courses
+Disallow: /update-password
+Disallow: /auth/
+Disallow: /api/
+
+Sitemap: https://diverseloopers.com/sitemap.xml
