@@ -421,7 +421,7 @@ export function showConfirmBox(title, message, onConfirm) {
 
 // --- View Logic ---
 export function switchView(viewName) {
-    const sections = ['dashboard', 'events', 'users', 'skills', 'courses', 'fame', 'Job-Postings', 'announcements', 'coupons', 'trainers'];
+    const sections = ['dashboard', 'events', 'users', 'skills', 'courses', 'fame', 'Job-Postings', 'announcements', 'coupons', 'trainers', 'business-cms'];
     sections.forEach(s => {
         const view = document.getElementById(`${s}-view`);
         const nav = document.getElementById(`nav-${s}`);
@@ -434,13 +434,11 @@ export function switchView(viewName) {
     if (currentView) currentView.classList.remove('hidden');
     if (currentNav) currentNav.classList.add('active');
 
-    // Close mobile sidebar if open
     const sidebar = document.getElementById('sidebar');
     if (window.innerWidth < 1024 && sidebar && sidebar.classList.contains('sidebar-open')) {
         toggleSidebar();
     }
 
-    // Scroll to top of main area
     const mainScrollArea = document.getElementById('main-scroll-area');
     if (mainScrollArea) mainScrollArea.scrollTop = 0;
 
@@ -458,6 +456,7 @@ export function switchView(viewName) {
     if (viewName === 'announcements') loadAllAnnouncements();
     if (viewName === 'coupons') loadAllCoupons();
     if (viewName === 'trainers') loadAllTrainers();
+    if (viewName === 'business-cms') loadBusinessCMS();
     
     initLucideIcons();
 }
@@ -1973,5 +1972,265 @@ export function initAdminDashboardListeners() {
         window.editTrainer = editTrainer;
         window.deleteTrainer = deleteTrainer;
         window.resetTrainerForm = resetTrainerForm;
+        // Business CMS
+        window.editBizProduct = editBizProduct;
+        window.deleteBizProduct = deleteBizProduct;
+        window.editBizPartner = editBizPartner;
+        window.deleteBizPartner = deleteBizPartner;
+        window.editBizTestimonial = editBizTestimonial;
+        window.deleteBizTestimonial = deleteBizTestimonial;
+        window.editBizStat = editBizStat;
+        window.deleteBizStat = deleteBizStat;
     }
+
+    // Business CMS form listeners
+    const bizHeroForm = document.getElementById('biz-hero-form');
+    if (bizHeroForm) bizHeroForm.onsubmit = handleBizHeroSave;
+    const bizProductForm = document.getElementById('biz-product-form');
+    if (bizProductForm) bizProductForm.onsubmit = handleBizProductSave;
+    const bizPartnerForm = document.getElementById('biz-partner-form');
+    if (bizPartnerForm) bizPartnerForm.onsubmit = handleBizPartnerSave;
+    const bizTestimonialForm = document.getElementById('biz-testimonial-form');
+    if (bizTestimonialForm) bizTestimonialForm.onsubmit = handleBizTestimonialSave;
+    const bizStatForm = document.getElementById('biz-stat-form');
+    if (bizStatForm) bizStatForm.onsubmit = handleBizStatSave;
+    // Reset buttons
+    document.getElementById('biz-product-reset')?.addEventListener('click', () => { document.getElementById('biz-product-form')?.reset(); document.getElementById('biz-product-id').value = ''; });
+    document.getElementById('biz-partner-reset')?.addEventListener('click', () => { document.getElementById('biz-partner-form')?.reset(); document.getElementById('biz-partner-id').value = ''; });
+    document.getElementById('biz-testimonial-reset')?.addEventListener('click', () => { document.getElementById('biz-testimonial-form')?.reset(); document.getElementById('biz-testimonial-id').value = ''; });
+    document.getElementById('biz-stat-reset')?.addEventListener('click', () => { document.getElementById('biz-stat-form')?.reset(); document.getElementById('biz-stat-id').value = ''; });
+}
+
+// ==========================================
+// BUSINESS CMS CRUD
+// ==========================================
+let bizProducts = [], bizPartners = [], bizTestimonials = [], bizStats = [], bizHero = null;
+
+async function loadBusinessCMS() {
+    await Promise.all([loadBizHero(), loadBizProducts(), loadBizPartners(), loadBizTestimonials(), loadBizStats()]);
+    initLucideIcons();
+}
+
+// --- HERO ---
+async function loadBizHero() {
+    const { data } = await supabase.from('business_hero').select('*').eq('is_active', true).limit(1).single();
+    bizHero = data;
+    if (data) {
+        const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        s('biz-hero-headline', data.headline);
+        s('biz-hero-subheadline', data.subheadline);
+        s('biz-hero-cycling', Array.isArray(data.cycling_words) ? data.cycling_words.join(',') : '');
+        s('biz-hero-video', data.demo_video_url);
+        s('biz-hero-cta1-text', data.cta_primary_text);
+        s('biz-hero-cta1-link', data.cta_primary_link);
+        s('biz-hero-cta2-text', data.cta_secondary_text);
+        s('biz-hero-cta2-link', data.cta_secondary_link);
+    }
+}
+
+async function handleBizHeroSave(e) {
+    e.preventDefault();
+    const payload = {
+        headline: document.getElementById('biz-hero-headline')?.value?.trim(),
+        subheadline: document.getElementById('biz-hero-subheadline')?.value?.trim(),
+        cycling_words: (document.getElementById('biz-hero-cycling')?.value || '').split(',').map(w => w.trim()).filter(Boolean),
+        demo_video_url: document.getElementById('biz-hero-video')?.value?.trim() || null,
+        cta_primary_text: document.getElementById('biz-hero-cta1-text')?.value?.trim(),
+        cta_primary_link: document.getElementById('biz-hero-cta1-link')?.value?.trim(),
+        cta_secondary_text: document.getElementById('biz-hero-cta2-text')?.value?.trim(),
+        cta_secondary_link: document.getElementById('biz-hero-cta2-link')?.value?.trim(),
+    };
+    if (bizHero?.id) {
+        await supabase.from('business_hero').update(payload).eq('id', bizHero.id);
+    } else {
+        await supabase.from('business_hero').insert([payload]);
+    }
+    showMessageBox('Hero settings saved!');
+    loadBizHero();
+}
+
+// --- PRODUCTS ---
+async function loadBizProducts() {
+    const { data } = await supabase.from('business_products').select('*').order('sort_order');
+    bizProducts = data || [];
+    const tb = document.getElementById('biz-products-table');
+    if (tb) {
+        tb.innerHTML = bizProducts.map(p => `<tr class="border-b border-slate-50">
+            <td class="px-6 py-4"><img src="${p.image_url || ''}" class="w-16 h-10 object-cover rounded-lg bg-slate-100"></td>
+            <td class="px-6 py-4 font-bold text-sm">${p.name}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${p.tagline || ''}</td>
+            <td class="px-6 py-4 text-right"><button onclick="window.editBizProduct('${p.id}')" class="text-xs font-bold text-primary mr-3">Edit</button><button onclick="window.deleteBizProduct('${p.id}')" class="text-xs font-bold text-red-500">Delete</button></td>
+        </tr>`).join('');
+    }
+}
+
+function editBizProduct(id) {
+    const p = bizProducts.find(x => x.id === id); if (!p) return;
+    const s = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v || ''; };
+    s('biz-product-id', p.id); s('biz-product-name', p.name); s('biz-product-tagline', p.tagline);
+    s('biz-product-desc', p.description); s('biz-product-image', p.image_url); s('biz-product-link', p.cta_link);
+    s('biz-product-features', Array.isArray(p.features) ? p.features.join('\n') : '');
+    const colorEl = document.getElementById('biz-product-color'); if (colorEl) colorEl.value = p.color_accent || '#16a34a';
+    document.getElementById('main-scroll-area')?.scrollTo(0, 0);
+}
+
+async function handleBizProductSave(e) {
+    e.preventDefault();
+    const id = document.getElementById('biz-product-id')?.value;
+    const name = document.getElementById('biz-product-name')?.value?.trim();
+    const payload = {
+        name, slug: name?.toLowerCase().replace(/\s+/g, '-'),
+        tagline: document.getElementById('biz-product-tagline')?.value?.trim(),
+        description: document.getElementById('biz-product-desc')?.value?.trim(),
+        features: (document.getElementById('biz-product-features')?.value || '').split('\n').map(f => f.trim()).filter(Boolean),
+        image_url: document.getElementById('biz-product-image')?.value?.trim(),
+        cta_link: document.getElementById('biz-product-link')?.value?.trim() || '/business',
+        color_accent: document.getElementById('biz-product-color')?.value || '#16a34a',
+    };
+    if (id) { await supabase.from('business_products').update(payload).eq('id', id); }
+    else { await supabase.from('business_products').insert([payload]); }
+    showMessageBox('Product saved!');
+    document.getElementById('biz-product-form')?.reset(); document.getElementById('biz-product-id').value = '';
+    loadBizProducts();
+}
+
+async function deleteBizProduct(id) {
+    showConfirmBox('Delete Product', 'Are you sure?', async () => {
+        await supabase.from('business_products').delete().eq('id', id);
+        loadBizProducts();
+    });
+}
+
+// --- PARTNERS ---
+async function loadBizPartners() {
+    const { data } = await supabase.from('business_partners').select('*').order('sort_order');
+    bizPartners = data || [];
+    const tb = document.getElementById('biz-partners-table');
+    if (tb) {
+        tb.innerHTML = bizPartners.map(p => `<tr class="border-b border-slate-50">
+            <td class="px-6 py-4"><img src="${p.logo_url || ''}" class="h-8 object-contain bg-slate-50 rounded p-1" onerror="this.style.display='none'"></td>
+            <td class="px-6 py-4 font-bold text-sm">${p.name}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${p.website_url || ''}</td>
+            <td class="px-6 py-4 text-right"><button onclick="window.editBizPartner('${p.id}')" class="text-xs font-bold text-primary mr-3">Edit</button><button onclick="window.deleteBizPartner('${p.id}')" class="text-xs font-bold text-red-500">Delete</button></td>
+        </tr>`).join('');
+    }
+}
+
+function editBizPartner(id) {
+    const p = bizPartners.find(x => x.id === id); if (!p) return;
+    const s = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v || ''; };
+    s('biz-partner-id', p.id); s('biz-partner-name', p.name); s('biz-partner-logo', p.logo_url); s('biz-partner-website', p.website_url);
+}
+
+async function handleBizPartnerSave(e) {
+    e.preventDefault();
+    const id = document.getElementById('biz-partner-id')?.value;
+    const payload = {
+        name: document.getElementById('biz-partner-name')?.value?.trim(),
+        logo_url: document.getElementById('biz-partner-logo')?.value?.trim(),
+        website_url: document.getElementById('biz-partner-website')?.value?.trim(),
+    };
+    if (id) { await supabase.from('business_partners').update(payload).eq('id', id); }
+    else { await supabase.from('business_partners').insert([payload]); }
+    showMessageBox('Partner saved!');
+    document.getElementById('biz-partner-form')?.reset(); document.getElementById('biz-partner-id').value = '';
+    loadBizPartners();
+}
+
+async function deleteBizPartner(id) {
+    showConfirmBox('Delete Partner', 'Are you sure?', async () => {
+        await supabase.from('business_partners').delete().eq('id', id);
+        loadBizPartners();
+    });
+}
+
+// --- TESTIMONIALS ---
+async function loadBizTestimonials() {
+    const { data } = await supabase.from('business_testimonials').select('*').order('created_at', { ascending: false });
+    bizTestimonials = data || [];
+    const tb = document.getElementById('biz-testimonials-table');
+    if (tb) {
+        tb.innerHTML = bizTestimonials.map(t => `<tr class="border-b border-slate-50">
+            <td class="px-6 py-4 font-bold text-sm">${t.client_name}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${t.company || ''}</td>
+            <td class="px-6 py-4 text-sm">${'⭐'.repeat(t.rating || 5)}</td>
+            <td class="px-6 py-4 text-right"><button onclick="window.editBizTestimonial('${t.id}')" class="text-xs font-bold text-primary mr-3">Edit</button><button onclick="window.deleteBizTestimonial('${t.id}')" class="text-xs font-bold text-red-500">Delete</button></td>
+        </tr>`).join('');
+    }
+}
+
+function editBizTestimonial(id) {
+    const t = bizTestimonials.find(x => x.id === id); if (!t) return;
+    const s = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v || ''; };
+    s('biz-testimonial-id', t.id); s('biz-testimonial-name', t.client_name); s('biz-testimonial-company', t.company);
+    s('biz-testimonial-role', t.role); s('biz-testimonial-quote', t.quote); s('biz-testimonial-rating', t.rating); s('biz-testimonial-avatar', t.avatar_url);
+}
+
+async function handleBizTestimonialSave(e) {
+    e.preventDefault();
+    const id = document.getElementById('biz-testimonial-id')?.value;
+    const payload = {
+        client_name: document.getElementById('biz-testimonial-name')?.value?.trim(),
+        company: document.getElementById('biz-testimonial-company')?.value?.trim(),
+        role: document.getElementById('biz-testimonial-role')?.value?.trim(),
+        quote: document.getElementById('biz-testimonial-quote')?.value?.trim(),
+        rating: parseInt(document.getElementById('biz-testimonial-rating')?.value) || 5,
+        avatar_url: document.getElementById('biz-testimonial-avatar')?.value?.trim() || null,
+    };
+    if (id) { await supabase.from('business_testimonials').update(payload).eq('id', id); }
+    else { await supabase.from('business_testimonials').insert([payload]); }
+    showMessageBox('Testimonial saved!');
+    document.getElementById('biz-testimonial-form')?.reset(); document.getElementById('biz-testimonial-id').value = '';
+    loadBizTestimonials();
+}
+
+async function deleteBizTestimonial(id) {
+    showConfirmBox('Delete Testimonial', 'Are you sure?', async () => {
+        await supabase.from('business_testimonials').delete().eq('id', id);
+        loadBizTestimonials();
+    });
+}
+
+// --- STATS ---
+async function loadBizStats() {
+    const { data } = await supabase.from('business_stats').select('*').order('sort_order');
+    bizStats = data || [];
+    const tb = document.getElementById('biz-stats-table');
+    if (tb) {
+        tb.innerHTML = bizStats.map(s => `<tr class="border-b border-slate-50">
+            <td class="px-6 py-4 font-bold text-sm">${s.label}</td>
+            <td class="px-6 py-4 text-sm">${s.value}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${s.suffix || ''}</td>
+            <td class="px-6 py-4 text-right"><button onclick="window.editBizStat('${s.id}')" class="text-xs font-bold text-primary mr-3">Edit</button><button onclick="window.deleteBizStat('${s.id}')" class="text-xs font-bold text-red-500">Delete</button></td>
+        </tr>`).join('');
+    }
+}
+
+function editBizStat(id) {
+    const s = bizStats.find(x => x.id === id); if (!s) return;
+    const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v || ''; };
+    set('biz-stat-id', s.id); set('biz-stat-label', s.label); set('biz-stat-value', s.value); set('biz-stat-suffix', s.suffix); set('biz-stat-sort', s.sort_order);
+}
+
+async function handleBizStatSave(e) {
+    e.preventDefault();
+    const id = document.getElementById('biz-stat-id')?.value;
+    const payload = {
+        label: document.getElementById('biz-stat-label')?.value?.trim(),
+        value: parseInt(document.getElementById('biz-stat-value')?.value) || 0,
+        suffix: document.getElementById('biz-stat-suffix')?.value?.trim() || '+',
+        sort_order: parseInt(document.getElementById('biz-stat-sort')?.value) || 0,
+    };
+    if (id) { await supabase.from('business_stats').update(payload).eq('id', id); }
+    else { await supabase.from('business_stats').insert([payload]); }
+    showMessageBox('Stat saved!');
+    document.getElementById('biz-stat-form')?.reset(); document.getElementById('biz-stat-id').value = '';
+    loadBizStats();
+}
+
+async function deleteBizStat(id) {
+    showConfirmBox('Delete Stat', 'Are you sure?', async () => {
+        await supabase.from('business_stats').delete().eq('id', id);
+        loadBizStats();
+    });
 }

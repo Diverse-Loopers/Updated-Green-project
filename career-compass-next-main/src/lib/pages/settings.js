@@ -178,7 +178,7 @@ export async function loadLatestPathAnalysis() {
 
 export async function requestPasswordReset(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/update-password',
+        redirectTo: window.location.origin + '/auth/callback?next=/update-password',
     });
     return { error };
 }

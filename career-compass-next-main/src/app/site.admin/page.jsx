@@ -372,6 +372,12 @@ export default function AdminDashboard() {
               className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
               <i data-lucide="graduation-cap" className="w-5 h-5"></i> Trainers
             </button>
+
+            <button onClick={() => switchView("business-cms")}
+              id="nav-business-cms"
+              className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
+              <i data-lucide="globe" className="w-5 h-5"></i> Business Page
+            </button>
           </nav>
 
           <div className="p-6 mt-auto border-t border-slate-100">
@@ -1217,6 +1223,255 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody id="trainers-table-body"></tbody>
               </table>
+            </div>
+          </div>
+
+
+          {/* BUSINESS CMS VIEW */}
+          <div id="business-cms-view" className="hidden p-4 md:p-8 space-y-8">
+            <h1 className="text-2xl md:text-3xl font-black">Business Page CMS</h1>
+            <p className="text-sm text-slate-500 -mt-4">Manage all dynamic content on the /business page.</p>
+
+            {/* Sub-tabs */}
+            <div className="flex gap-2 flex-wrap">
+              {['hero','products','partners','testimonials','stats'].map(tab => (
+                <button key={tab} onClick={() => {
+                  document.querySelectorAll('.biz-subtab').forEach(el => el.classList.add('hidden'));
+                  document.getElementById(`biz-${tab}`).classList.remove('hidden');
+                  document.querySelectorAll('.biz-tab-btn').forEach(b => { b.className = b.className.replace('bg-primary text-white','bg-slate-100 text-slate-600'); });
+                  document.getElementById(`biz-tab-${tab}`).className = document.getElementById(`biz-tab-${tab}`).className.replace('bg-slate-100 text-slate-600','bg-primary text-white');
+                }}
+                id={`biz-tab-${tab}`}
+                className={`biz-tab-btn px-4 py-2 rounded-xl text-xs font-bold capitalize ${tab === 'hero' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* HERO SUB-TAB */}
+            <div id="biz-hero" className="biz-subtab bg-white p-6 md:p-8 rounded-3xl space-y-4">
+              <h3 className="text-xl font-bold mb-4">Hero Section Settings</h3>
+              <form id="biz-hero-form" className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Headline</label>
+                    <input type="text" id="biz-hero-headline" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cycling Words (comma separated)</label>
+                    <input type="text" id="biz-hero-cycling" placeholder="Learn,Build,Earn,Grow" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Subheadline</label>
+                  <textarea id="biz-hero-subheadline" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Demo Video URL (YouTube embed)</label>
+                  <input type="url" id="biz-hero-video" placeholder="https://www.youtube.com/embed/..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">CTA Primary Text</label>
+                    <input type="text" id="biz-hero-cta1-text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">CTA Primary Link</label>
+                    <input type="text" id="biz-hero-cta1-link" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">CTA Secondary Text</label>
+                    <input type="text" id="biz-hero-cta2-text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">CTA Secondary Link</label>
+                    <input type="text" id="biz-hero-cta2-link" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+                <button type="submit" id="biz-hero-save" className="px-6 py-3 bg-primary text-white rounded-xl font-bold">Save Hero Settings</button>
+              </form>
+            </div>
+
+            {/* PRODUCTS SUB-TAB */}
+            <div id="biz-products" className="biz-subtab hidden space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-3xl">
+                <h3 id="biz-product-form-title" className="text-xl font-bold mb-4">Add New Product</h3>
+                <form id="biz-product-form" className="space-y-4">
+                  <input type="hidden" id="biz-product-id" />
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Product Name *</label>
+                      <input type="text" id="biz-product-name" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tagline</label>
+                      <input type="text" id="biz-product-tagline" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Description</label>
+                    <textarea id="biz-product-desc" rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Features (one per line)</label>
+                    <textarea id="biz-product-features" rows={4} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Image URL</label>
+                      <input type="url" id="biz-product-image" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">CTA Link</label>
+                      <input type="text" id="biz-product-link" placeholder="/business" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Accent Color</label>
+                      <input type="color" id="biz-product-color" defaultValue="#16a34a" className="h-11 w-14 rounded-lg border border-slate-200 cursor-pointer" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl font-bold">Save Product</button>
+                    <button type="button" id="biz-product-reset" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Reset</button>
+                  </div>
+                </form>
+              </div>
+              <div className="bg-white rounded-3xl overflow-hidden">
+                <table className="w-full"><thead className="bg-slate-50"><tr>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Image</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Tagline</th>
+                  <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
+                </tr></thead><tbody id="biz-products-table"></tbody></table>
+              </div>
+            </div>
+
+            {/* PARTNERS SUB-TAB */}
+            <div id="biz-partners" className="biz-subtab hidden space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-3xl">
+                <h3 id="biz-partner-form-title" className="text-xl font-bold mb-4">Add New Partner</h3>
+                <form id="biz-partner-form" className="space-y-4">
+                  <input type="hidden" id="biz-partner-id" />
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Partner Name *</label>
+                      <input type="text" id="biz-partner-name" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Logo URL</label>
+                      <input type="url" id="biz-partner-logo" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Website URL</label>
+                      <input type="url" id="biz-partner-website" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl font-bold">Save Partner</button>
+                    <button type="button" id="biz-partner-reset" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Reset</button>
+                  </div>
+                </form>
+              </div>
+              <div className="bg-white rounded-3xl overflow-hidden">
+                <table className="w-full"><thead className="bg-slate-50"><tr>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Logo</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Website</th>
+                  <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
+                </tr></thead><tbody id="biz-partners-table"></tbody></table>
+              </div>
+            </div>
+
+            {/* TESTIMONIALS SUB-TAB */}
+            <div id="biz-testimonials" className="biz-subtab hidden space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-3xl">
+                <h3 id="biz-testimonial-form-title" className="text-xl font-bold mb-4">Add New Testimonial</h3>
+                <form id="biz-testimonial-form" className="space-y-4">
+                  <input type="hidden" id="biz-testimonial-id" />
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Client Name *</label>
+                      <input type="text" id="biz-testimonial-name" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Company</label>
+                      <input type="text" id="biz-testimonial-company" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Role</label>
+                      <input type="text" id="biz-testimonial-role" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Quote *</label>
+                    <textarea id="biz-testimonial-quote" rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required></textarea>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Rating (1-5)</label>
+                      <input type="number" id="biz-testimonial-rating" min="1" max="5" defaultValue={5} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Avatar URL</label>
+                      <input type="url" id="biz-testimonial-avatar" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl font-bold">Save Testimonial</button>
+                    <button type="button" id="biz-testimonial-reset" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Reset</button>
+                  </div>
+                </form>
+              </div>
+              <div className="bg-white rounded-3xl overflow-hidden">
+                <table className="w-full"><thead className="bg-slate-50"><tr>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Client</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Company</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Rating</th>
+                  <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
+                </tr></thead><tbody id="biz-testimonials-table"></tbody></table>
+              </div>
+            </div>
+
+            {/* STATS SUB-TAB */}
+            <div id="biz-stats" className="biz-subtab hidden space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-3xl">
+                <h3 id="biz-stat-form-title" className="text-xl font-bold mb-4">Add New Stat</h3>
+                <form id="biz-stat-form" className="space-y-4">
+                  <input type="hidden" id="biz-stat-id" />
+                  <div className="grid md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Label *</label>
+                      <input type="text" id="biz-stat-label" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Value *</label>
+                      <input type="number" id="biz-stat-value" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Suffix</label>
+                      <input type="text" id="biz-stat-suffix" defaultValue="+" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Sort Order</label>
+                      <input type="number" id="biz-stat-sort" defaultValue={0} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl font-bold">Save Stat</button>
+                    <button type="button" id="biz-stat-reset" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Reset</button>
+                  </div>
+                </form>
+              </div>
+              <div className="bg-white rounded-3xl overflow-hidden">
+                <table className="w-full"><thead className="bg-slate-50"><tr>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Label</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Value</th>
+                  <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Suffix</th>
+                  <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
+                </tr></thead><tbody id="biz-stats-table"></tbody></table>
+              </div>
             </div>
           </div>
 

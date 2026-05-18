@@ -30,7 +30,7 @@ export function initParticleCanvas() {
   
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#16a34a';
     pts.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;

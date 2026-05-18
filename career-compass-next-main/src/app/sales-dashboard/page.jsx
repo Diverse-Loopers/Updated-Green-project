@@ -5,12 +5,8 @@ import { useRouter } from 'next/navigation';
 import './sales-dashboard.css';
 
 const ROLE_LABELS = {
-  sales: 'Sales Executive',
-  cfo: 'Chief Finance Officer',
-  cso: 'Chief Staffing Officer',
-  cmo: 'Chief Marketing Officer',
-  cmgo: 'Chief Managing Officer',
-  coo: 'Chief Operations Officer',
+  sales: 'Sales Executive', cfo: 'Chief Finance Officer', cso: 'Chief Staffing Officer',
+  cmo: 'Chief Marketing Officer', cmgo: 'Chief Managing Officer', coo: 'Chief Operations Officer',
   strategic_advisor: 'Strategic Advisor',
 };
 
@@ -20,7 +16,7 @@ export default function SalesDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
 
-  // Data states
+  // Existing data
   const [payments, setPayments] = useState([]);
   const [stats, setStats] = useState({ totalRevenue: 0, totalTransactions: 0, avgOrderValue: 0, couponsUsed: 0 });
   const [chart, setChart] = useState([]);
@@ -29,18 +25,28 @@ export default function SalesDashboardPage() {
   const [courseAnalytics, setCourseAnalytics] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('All Courses');
 
+  // Business data
+  const [bizSubs, setBizSubs] = useState([]);
+  const [bizStats, setBizStats] = useState({ activeCount: 0, totalRevenue: 0, planBreakdown: {}, pendingOnboarding: 0, total: 0 });
+  const [bizFilter, setBizFilter] = useState('all');
+  const [leads, setLeads] = useState([]);
+  const [leadStats, setLeadStats] = useState({ new: 0, contacted: 0, converted: 0, rejected: 0 });
+  const [leadFilter, setLeadFilter] = useState('all');
+
   // Settings form
   const [gwName, setGwName] = useState('razorpay');
   const [gwKey, setGwKey] = useState('');
   const [gwSecret, setGwSecret] = useState('');
   const [savingGw, setSavingGw] = useState(false);
 
+  // Email templates
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [editingTpl, setEditingTpl] = useState(null);
+  const [tplSaving, setTplSaving] = useState(false);
+
   useEffect(() => {
     const session = localStorage.getItem('executive_session');
-    if (!session) {
-      router.push('/executive-login');
-      return;
-    }
+    if (!session) { router.push('/executive-login'); return; }
     setExec(JSON.parse(session));
     loadDashboardData();
   }, []);
@@ -50,100 +56,100 @@ export default function SalesDashboardPage() {
     try {
       const [payRes, settingsRes] = await Promise.all([
         fetch('/api/payment/dashboard').then(r => r.json()),
-        fetch('/api/payment/dashboard', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get-settings' }),
-        }).then(r => r.json()),
+        fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get-settings' }) }).then(r => r.json()),
       ]);
-
-      if (payRes.success) {
-        setPayments(payRes.payments);
-        setStats(payRes.stats);
-        setChart(payRes.chart);
-        setCourseAnalytics(payRes.courseAnalytics || []);
-      }
-      if (settingsRes.success) {
-        setSettings(settingsRes.settings);
-      }
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-    }
+      if (payRes.success) { setPayments(payRes.payments); setStats(payRes.stats); setChart(payRes.chart); setCourseAnalytics(payRes.courseAnalytics || []); }
+      if (settingsRes.success) setSettings(settingsRes.settings);
+    } catch (err) { console.error('Dashboard load error:', err); }
     setLoading(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('executive_session');
-    router.push('/executive-login');
+  const loadBizData = async () => {
+    try {
+      const [subsRes, leadsRes] = await Promise.all([
+        fetch('/api/loopmail/business-dashboard?tab=subscriptions').then(r => r.json()),
+        fetch('/api/loopmail/business-dashboard?tab=leads').then(r => r.json()),
+      ]);
+      if (subsRes.success) { setBizSubs(subsRes.subscriptions || []); setBizStats(subsRes.stats); }
+      if (leadsRes.success) { setLeads(leadsRes.leads || []); setLeadStats(leadsRes.stats); }
+    } catch {}
   };
+
+  useEffect(() => { if (activeTab === 'biz-payments' || activeTab === 'biz-leads') loadBizData(); }, [activeTab]);
+  useEffect(() => { if (activeTab === 'email-templates') loadTemplates(); }, [activeTab]);
+
+  const loadTemplates = async () => {
+    try {
+      const res = await fetch('/api/loopmail/email-templates').then(r => r.json());
+      if (res.success) setEmailTemplates(res.templates || []);
+    } catch {}
+  };
+
+  const saveTemplate = async (tpl) => {
+    setTplSaving(true);
+    try {
+      await fetch('/api/loopmail/email-templates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: tpl.id, subject: tpl.subject, body_html: tpl.body_html, is_active: tpl.is_active }),
+      });
+      setEditingTpl(null);
+      loadTemplates();
+    } catch {}
+    setTplSaving(false);
+  };
+
+  const handleLogout = () => { localStorage.removeItem('executive_session'); router.push('/executive-login'); };
 
   const saveGateway = async () => {
     if (!gwKey || !gwSecret) return;
     setSavingGw(true);
-    try {
-      await fetch('/api/payment/dashboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save-settings', gateway_name: gwName, api_key: gwKey, api_secret: gwSecret }),
-      });
-      setGwKey('');
-      setGwSecret('');
-      loadDashboardData();
-    } catch { }
+    try { await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-settings', gateway_name: gwName, api_key: gwKey, api_secret: gwSecret }) }); setGwKey(''); setGwSecret(''); loadDashboardData(); } catch {}
     setSavingGw(false);
   };
 
-  const activateGateway = async (name) => {
-    await fetch('/api/payment/dashboard', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'activate-gateway', gateway_name: name }),
-    });
-    loadDashboardData();
-  };
+  const activateGateway = async (name) => { await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'activate-gateway', gateway_name: name }) }); loadDashboardData(); };
+  const deleteGateway = async (id) => { if (!confirm('Remove this gateway?')) return; await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete-settings', id }) }); loadDashboardData(); };
 
-  const deleteGateway = async (id) => {
-    if (!confirm('Remove this gateway configuration?')) return;
-    await fetch('/api/payment/dashboard', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete-settings', id }),
-    });
-    loadDashboardData();
+  const updateLeadStatus = async (leadId, status) => {
+    await fetch('/api/loopmail/business-dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update-lead-status', lead_id: leadId, status }) });
+    loadBizData();
   };
 
   const filteredPayments = payments.filter(p => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      (p.user_name || '').toLowerCase().includes(q) ||
-      (p.user_email || '').toLowerCase().includes(q) ||
-      (p.course_title || '').toLowerCase().includes(q) ||
-      (p.transaction_id || '').toLowerCase().includes(q) ||
-      (p.coupon_code || '').toLowerCase().includes(q)
-    );
+    return (p.user_name || '').toLowerCase().includes(q) || (p.user_email || '').toLowerCase().includes(q) || (p.course_title || '').toLowerCase().includes(q);
   });
+
+  const filteredBizSubs = bizSubs.filter(s => {
+    if (bizFilter === 'all') return true;
+    if (bizFilter === 'pending') return s.onboarding_status !== 'active';
+    return s.plan === bizFilter;
+  });
+
+  const filteredLeads = leads.filter(l => leadFilter === 'all' ? true : l.status === leadFilter);
 
   const maxChartValue = Math.max(...chart.map(c => c.revenue), 1);
 
-  if (loading && !exec) {
-    return (
-      <div className="sd-loading">
-        <div className="sd-spinner"></div>
-        <p>Loading dashboard...</p>
-      </div>
-    );
-  }
+  if (loading && !exec) return (<div className="sd-loading"><div className="sd-spinner"></div><p>Loading dashboard...</p></div>);
+
+  const NAV_ITEMS = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'transactions', label: 'Transactions', icon: '💰' },
+    { id: 'analytics', label: 'Course Analytics', icon: '📈' },
+    { id: 'biz-payments', label: 'Business Payments', icon: '🏢' },
+    { id: 'biz-leads', label: 'Enterprise Leads', icon: '📋' },
+    { id: 'email-templates', label: 'Email Templates', icon: '✉️' },
+    { id: 'settings', label: 'Payment Settings', icon: '⚙️' },
+  ];
 
   return (
     <div className="sd-layout">
-      {/* Sidebar */}
       <aside className="sd-sidebar">
         <div className="sd-sidebar-logo">
           <img src="/Diverse Loopers Black BG (2).png" alt="Logo" />
-          <span>Executive Panel</span>
+          <span>CSO Panel</span>
         </div>
-
         {exec && (
           <div className="sd-user-card">
             <div className="sd-user-avatar">{exec.name?.charAt(0).toUpperCase()}</div>
@@ -153,326 +159,214 @@ export default function SalesDashboardPage() {
             </div>
           </div>
         )}
-
         <nav className="sd-nav">
-          <button className={`sd-nav-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-            Overview
-          </button>
-          <button className={`sd-nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
-            Transactions
-          </button>
-          <button className={`sd-nav-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6" /></svg>
-            Course Analytics
-          </button>
-          <button className={`sd-nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v6m0 6v6m8.66-13.5l-5.2 3m-5.2 3l-5.2 3m0-12l5.2 3m5.2 3l5.2 3" /></svg>
-            Payment Settings
-          </button>
+          {NAV_ITEMS.map(item => (
+            <button key={item.id} className={`sd-nav-btn ${activeTab === item.id ? 'active' : ''}`} onClick={() => setActiveTab(item.id)}>
+              <span style={{ fontSize: 16 }}>{item.icon}</span> {item.label}
+            </button>
+          ))}
         </nav>
-
-        <button className="sd-logout-btn" onClick={handleLogout}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-          Logout
-        </button>
+        <button className="sd-logout-btn" onClick={handleLogout}>🚪 Logout</button>
       </aside>
 
-      {/* Main Content */}
       <main className="sd-main">
-        {/* OVERVIEW TAB */}
+        <div className="sd-topbar">
+          <div>
+            <h1>{NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}</h1>
+            <p>Diverse Loopers Executive Dashboard</p>
+          </div>
+        </div>
+
+        {/* OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="sd-content">
-            <h1 className="sd-page-title">Sales Overview</h1>
-
             <div className="sd-stats-grid">
-              <div className="sd-stat-card sd-stat-revenue">
-                <p className="sd-stat-label">Total Revenue</p>
-                <p className="sd-stat-value">Rs. {stats.totalRevenue.toLocaleString('en-IN')}</p>
-              </div>
-              <div className="sd-stat-card sd-stat-transactions">
-                <p className="sd-stat-label">Transactions</p>
-                <p className="sd-stat-value">{stats.totalTransactions}</p>
-              </div>
-              <div className="sd-stat-card sd-stat-avg">
-                <p className="sd-stat-label">Avg Order Value</p>
-                <p className="sd-stat-value">Rs. {stats.avgOrderValue.toLocaleString('en-IN')}</p>
-              </div>
-              <div className="sd-stat-card sd-stat-coupons">
-                <p className="sd-stat-label">Coupons Used</p>
-                <p className="sd-stat-value">{stats.couponsUsed}</p>
-              </div>
+              <div className="sd-stat-card sd-stat-revenue"><p className="sd-stat-label">Total Revenue</p><p className="sd-stat-value">₹{stats.totalRevenue.toLocaleString('en-IN')}</p></div>
+              <div className="sd-stat-card sd-stat-transactions"><p className="sd-stat-label">Transactions</p><p className="sd-stat-value">{stats.totalTransactions}</p></div>
+              <div className="sd-stat-card sd-stat-avg"><p className="sd-stat-label">Avg Order</p><p className="sd-stat-value">₹{stats.avgOrderValue.toLocaleString('en-IN')}</p></div>
+              <div className="sd-stat-card sd-stat-coupons"><p className="sd-stat-label">Coupons Used</p><p className="sd-stat-value">{stats.couponsUsed}</p></div>
             </div>
-
-            {/* Revenue Chart */}
-            <div className="sd-card">
-              <h3 className="sd-card-title">Revenue - Last 7 Days</h3>
-              <div className="sd-chart">
-                {chart.map((day, i) => (
-                  <div key={i} className="sd-chart-bar-wrap">
-                    <div className="sd-chart-bar" style={{ height: `${(day.revenue / maxChartValue) * 100}%` }}>
-                      {day.revenue > 0 && <span className="sd-chart-val">Rs.{day.revenue}</span>}
-                    </div>
-                    <span className="sd-chart-label">{day.label}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="sd-card"><h3 className="sd-card-title">Revenue — Last 7 Days</h3>
+              <div className="sd-chart">{chart.map((day, i) => (<div key={i} className="sd-chart-bar-wrap"><div className="sd-chart-bar" style={{ height: `${(day.revenue / maxChartValue) * 100}%` }}>{day.revenue > 0 && <span className="sd-chart-val">₹{day.revenue}</span>}</div><span className="sd-chart-label">{day.label}</span></div>))}</div>
             </div>
-
-            {/* Recent Transactions */}
-            <div className="sd-card">
-              <h3 className="sd-card-title">Recent Transactions</h3>
-              <div className="sd-table-wrap">
-                <table className="sd-table">
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>Course</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.slice(0, 10).map(p => (
-                      <tr key={p.id}>
-                        <td>
-                          <div className="sd-cell-name">{p.user_name || '-'}</div>
-                          <div className="sd-cell-sub">{p.user_email}</div>
-                        </td>
-                        <td>{p.course_title}</td>
-                        <td>Rs. {(p.amount || 0).toLocaleString('en-IN')}</td>
-                        <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
-                        <td>{p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-IN') : '-'}</td>
-                      </tr>
-                    ))}
-                    {payments.length === 0 && (
-                      <tr><td colSpan={5} className="sd-empty">No transactions yet</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <div className="sd-card"><h3 className="sd-card-title">Recent Transactions</h3>
+              <div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>Customer</th><th>Course</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+                <tbody>{payments.slice(0, 10).map(p => (<tr key={p.id}><td><div className="sd-cell-name">{p.user_name || '-'}</div><div className="sd-cell-sub">{p.user_email}</div></td><td>{p.course_title}</td><td>₹{(p.amount || 0).toLocaleString('en-IN')}</td><td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td><td>{p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-IN') : '-'}</td></tr>))}
+                  {payments.length === 0 && <tr><td colSpan={5} className="sd-empty">No transactions yet</td></tr>}
+                </tbody></table></div>
             </div>
           </div>
         )}
 
-        {/* TRANSACTIONS TAB */}
+        {/* TRANSACTIONS */}
         {activeTab === 'transactions' && (
           <div className="sd-content">
-            <div className="sd-content-header">
-              <h1 className="sd-page-title">All Transactions</h1>
-              <input
-                type="text"
-                placeholder="Search by name, email, course..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="sd-search"
-              />
+            <div className="sd-content-header"><h1 className="sd-page-title">All Transactions</h1>
+              <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="sd-search" />
             </div>
-
-            <div className="sd-card">
-              <div className="sd-table-wrap">
-                <table className="sd-table">
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>Contact</th>
-                      <th>Course</th>
-                      <th>Amount</th>
-                      <th>Coupon</th>
-                      <th>Gateway</th>
-                      <th>Status</th>
-                      <th>Date & Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPayments.map(p => (
-                      <tr key={p.id}>
-                        <td>
-                          <div className="sd-cell-name">{p.user_name || '-'}</div>
-                          <div className="sd-cell-sub">{p.user_email}</div>
-                        </td>
-                        <td>{p.user_phone || '-'}</td>
-                        <td>{p.course_title}</td>
-                        <td>
-                          <div>Rs. {(p.amount || 0).toLocaleString('en-IN')}</div>
-                          {p.discount_amount > 0 && (
-                            <div className="sd-cell-sub sd-discount">-Rs.{p.discount_amount}</div>
-                          )}
-                        </td>
-                        <td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td>
-                        <td><span className="sd-gw-tag">{p.gateway}</span></td>
-                        <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
-                        <td>{p.paid_at ? new Date(p.paid_at).toLocaleString('en-IN') : '-'}</td>
-                      </tr>
-                    ))}
-                    {filteredPayments.length === 0 && (
-                      <tr><td colSpan={8} className="sd-empty">No transactions found</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <div className="sd-card"><div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>Customer</th><th>Contact</th><th>Course</th><th>Amount</th><th>Coupon</th><th>Gateway</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody>{filteredPayments.map(p => (<tr key={p.id}><td><div className="sd-cell-name">{p.user_name || '-'}</div><div className="sd-cell-sub">{p.user_email}</div></td><td>{p.user_phone || '-'}</td><td>{p.course_title}</td><td>₹{(p.amount || 0).toLocaleString('en-IN')}{p.discount_amount > 0 && <div className="sd-cell-sub sd-discount">-₹{p.discount_amount}</div>}</td><td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td><td><span className="sd-gw-tag">{p.gateway}</span></td><td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td><td>{p.paid_at ? new Date(p.paid_at).toLocaleString('en-IN') : '-'}</td></tr>))}
+                {filteredPayments.length === 0 && <tr><td colSpan={8} className="sd-empty">No transactions found</td></tr>}
+              </tbody></table></div></div>
           </div>
         )}
 
-        {/* COURSE ANALYTICS TAB */}
+        {/* COURSE ANALYTICS */}
         {activeTab === 'analytics' && (
           <div className="sd-content">
-            <h1 className="sd-page-title">Course Analytics & Enrollments</h1>
-
-            {/* Course Summary Table */}
-            <div className="sd-card" style={{ marginBottom: '2rem' }}>
-              <h3 className="sd-card-title">Course Performance Summary</h3>
-              <div className="sd-table-wrap">
-                <table className="sd-table">
-                  <thead>
-                    <tr>
-                      <th>Course Title</th>
-                      <th>Total Enrollments</th>
-                      <th>Revenue Generated</th>
-                      <th>Coupons Applied</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courseAnalytics.map((c, i) => (
-                      <tr key={i}>
-                        <td>
-                          <div className="sd-cell-name">{c.course_title}</div>
-                        </td>
-                        <td>{c.enrollments}</td>
-                        <td style={{ color: '#10b981', fontWeight: 'bold' }}>Rs. {c.revenue.toLocaleString('en-IN')}</td>
-                        <td>{c.coupons}</td>
-                      </tr>
-                    ))}
-                    {courseAnalytics.length === 0 && (
-                      <tr><td colSpan={4} className="sd-empty">No course data available</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <h1 className="sd-page-title">Course Analytics</h1>
+            <div className="sd-card"><h3 className="sd-card-title">Course Performance</h3>
+              <div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>Course</th><th>Enrollments</th><th>Revenue</th><th>Coupons</th></tr></thead>
+                <tbody>{courseAnalytics.map((c, i) => (<tr key={i}><td className="sd-cell-name">{c.course_title}</td><td>{c.enrollments}</td><td style={{ color: '#16a34a', fontWeight: 'bold' }}>₹{c.revenue.toLocaleString('en-IN')}</td><td>{c.coupons}</td></tr>))}
+                  {courseAnalytics.length === 0 && <tr><td colSpan={4} className="sd-empty">No data</td></tr>}
+                </tbody></table></div>
             </div>
-
-            {/* Course Wise Enrollments */}
-            <div className="sd-content-header" style={{ marginTop: '2rem' }}>
-              <h2 className="sd-card-title" style={{ margin: 0 }}>Course-wise Enrollments</h2>
-              <select
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="sd-search"
-                style={{ width: 'auto', minWidth: '250px', cursor: 'pointer' }}
-              >
+            <div className="sd-content-header" style={{ marginTop: '1.5rem' }}>
+              <h3 className="sd-card-title" style={{ margin: 0 }}>Enrollments</h3>
+              <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)} className="sd-search" style={{ width: 'auto', minWidth: 250 }}>
                 <option value="All Courses">All Courses</option>
-                {courseAnalytics.map((c, i) => (
-                  <option key={i} value={c.course_title}>{c.course_title}</option>
-                ))}
+                {courseAnalytics.map((c, i) => <option key={i} value={c.course_title}>{c.course_title}</option>)}
               </select>
             </div>
-
-            <div className="sd-card">
-              <div className="sd-table-wrap">
-                <table className="sd-table">
-                  <thead>
-                    <tr>
-                      <th>Student Details</th>
-                      <th>Contact Info</th>
-                      <th>Course Name</th>
-                      <th>Payment Status</th>
-                      <th>Coupon</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments
-                      .filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse)
-                      .map(p => (
-                        <tr key={p.id}>
-                          <td>
-                            <div className="sd-cell-name">{p.user_name || '-'}</div>
-                          </td>
-                          <td>
-                            <div className="sd-cell-sub">{p.user_email || '-'}</div>
-                            <div className="sd-cell-sub">{p.user_phone || '-'}</div>
-                          </td>
-                          <td><div className="sd-cell-name" style={{ fontSize: '0.8rem' }}>{p.course_title}</div></td>
-                          <td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td>
-                          <td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td>
-                        </tr>
-                      ))}
-                    {payments.filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse).length === 0 && (
-                      <tr><td colSpan={5} className="sd-empty">No enrollments found</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <div className="sd-card"><div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>Student</th><th>Contact</th><th>Course</th><th>Status</th><th>Coupon</th></tr></thead>
+              <tbody>{payments.filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse).map(p => (<tr key={p.id}><td className="sd-cell-name">{p.user_name || '-'}</td><td><div className="sd-cell-sub">{p.user_email}</div><div className="sd-cell-sub">{p.user_phone || '-'}</div></td><td style={{ fontSize: '0.8rem' }}>{p.course_title}</td><td><span className={`sd-badge sd-badge-${p.status}`}>{p.status}</span></td><td>{p.coupon_code ? <span className="sd-coupon-tag">{p.coupon_code}</span> : '-'}</td></tr>))}
+                {payments.filter(p => selectedCourse === 'All Courses' || p.course_title === selectedCourse).length === 0 && <tr><td colSpan={5} className="sd-empty">No enrollments</td></tr>}
+              </tbody></table></div></div>
           </div>
         )}
 
-        {/* PAYMENT SETTINGS TAB */}
+        {/* BUSINESS PAYMENTS */}
+        {activeTab === 'biz-payments' && (
+          <div className="sd-content">
+            <h1 className="sd-page-title">Business Subscriptions & Payments</h1>
+            <div className="sd-stats-grid">
+              <div className="sd-stat-card"><p className="sd-stat-label">Total Subscribers</p><p className="sd-stat-value" style={{ color: '#3b82f6' }}>{bizStats.total}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Active Plans</p><p className="sd-stat-value" style={{ color: '#16a34a' }}>{bizStats.activeCount}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Business Revenue</p><p className="sd-stat-value" style={{ color: '#f59e0b' }}>₹{(bizStats.totalRevenue || 0).toLocaleString('en-IN')}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Pending Onboarding</p><p className="sd-stat-value" style={{ color: '#8b5cf6' }}>{bizStats.pendingOnboarding}</p></div>
+            </div>
+            <div className="sd-filter-tabs">
+              {[{ k: 'all', l: 'All' }, { k: 'basic', l: 'Basic' }, { k: 'premium', l: 'Premium' }, { k: 'enterprise', l: 'Enterprise' }, { k: 'pending', l: 'Pending' }].map(f => (
+                <button key={f.k} className={`sd-filter-tab ${bizFilter === f.k ? 'active' : ''}`} onClick={() => setBizFilter(f.k)}>{f.l}</button>
+              ))}
+            </div>
+            <div className="sd-card"><div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>User</th><th>Company</th><th>Plan</th><th>Amount</th><th>Payment ID</th><th>Status</th><th>Onboarding</th><th>Date</th></tr></thead>
+              <tbody>{filteredBizSubs.map(s => (<tr key={s.id || s.user_id}><td><div className="sd-cell-name">{s.client_profiles?.full_name || '-'}</div><div className="sd-cell-sub">{s.client_profiles?.work_email || '-'}</div></td><td>{s.client_profiles?.company_name || '-'}</td><td><span className={`sd-badge sd-badge-${s.plan}`}>{s.plan}</span></td><td>₹{(s.amount_paid || 0).toLocaleString('en-IN')}</td><td style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{s.payment_id || '-'}</td><td><span className={`sd-badge sd-badge-${s.status}`}>{s.status}</span></td><td><span className={`sd-badge sd-badge-${s.onboarding_status}`}>{s.onboarding_status || 'pending'}</span></td><td>{s.updated_at ? new Date(s.updated_at).toLocaleDateString('en-IN') : '-'}</td></tr>))}
+                {filteredBizSubs.length === 0 && <tr><td colSpan={8} className="sd-empty">No subscriptions found</td></tr>}
+              </tbody></table></div></div>
+          </div>
+        )}
+
+        {/* ENTERPRISE LEADS */}
+        {activeTab === 'biz-leads' && (
+          <div className="sd-content">
+            <h1 className="sd-page-title">Enterprise Inquiries</h1>
+            <div className="sd-stats-grid">
+              <div className="sd-stat-card"><p className="sd-stat-label">New Leads</p><p className="sd-stat-value" style={{ color: '#3b82f6' }}>{leadStats.new}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Contacted</p><p className="sd-stat-value" style={{ color: '#8b5cf6' }}>{leadStats.contacted}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Converted</p><p className="sd-stat-value" style={{ color: '#16a34a' }}>{leadStats.converted}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Rejected</p><p className="sd-stat-value" style={{ color: '#ef4444' }}>{leadStats.rejected}</p></div>
+            </div>
+            <div className="sd-filter-tabs">
+              {[{ k: 'all', l: 'All' }, { k: 'new', l: 'New' }, { k: 'contacted', l: 'Contacted' }, { k: 'converted', l: 'Converted' }, { k: 'rejected', l: 'Rejected' }].map(f => (
+                <button key={f.k} className={`sd-filter-tab ${leadFilter === f.k ? 'active' : ''}`} onClick={() => setLeadFilter(f.k)}>{f.l}</button>
+              ))}
+            </div>
+            <div className="sd-card"><div className="sd-table-wrap"><table className="sd-table"><thead><tr><th>Contact</th><th>Company</th><th>Product</th><th>Details</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+              <tbody>{filteredLeads.map(l => (<tr key={l.id}><td><div className="sd-cell-name">{l.full_name}</div><div className="sd-cell-sub">{l.email}</div><div className="sd-cell-sub">{l.phone || '-'}</div></td><td>{l.company || '-'}</td><td><span className="sd-gw-tag">{l.product_slug}</span></td><td style={{ maxWidth: 250, fontSize: '0.75rem', color: '#64748b' }}>{l.message || '-'}</td><td><span className={`sd-badge sd-badge-${l.status}`}>{l.status}</span></td><td>{new Date(l.created_at).toLocaleDateString('en-IN')}</td>
+                <td><div className="sd-lead-actions">
+                  {l.status === 'new' && <button className="sd-btn sd-btn-sm sd-btn-purple" onClick={() => updateLeadStatus(l.id, 'contacted')}>Contact</button>}
+                  {(l.status === 'new' || l.status === 'contacted') && <button className="sd-btn sd-btn-sm sd-btn-success" onClick={() => updateLeadStatus(l.id, 'converted')}>Convert</button>}
+                  {l.status !== 'rejected' && l.status !== 'converted' && <button className="sd-btn sd-btn-sm sd-btn-danger" onClick={() => updateLeadStatus(l.id, 'rejected')}>Reject</button>}
+                </div></td></tr>))}
+                {filteredLeads.length === 0 && <tr><td colSpan={7} className="sd-empty">No leads found</td></tr>}
+              </tbody></table></div></div>
+          </div>
+        )}
+
+        {/* PAYMENT SETTINGS */}
         {activeTab === 'settings' && (
           <div className="sd-content">
             <h1 className="sd-page-title">Payment Gateway Settings</h1>
-
-            {/* Add Gateway */}
-            <div className="sd-card">
-              <h3 className="sd-card-title">Configure Gateway</h3>
+            <div className="sd-card"><h3 className="sd-card-title">Configure Gateway</h3>
               <div className="sd-settings-form">
                 <div className="sd-form-row">
-                  <div className="sd-form-field">
-                    <label>Gateway</label>
-                    <select value={gwName} onChange={(e) => setGwName(e.target.value)} className="sd-select">
-                      <option value="razorpay">Razorpay</option>
-                      <option value="stripe">Stripe</option>
-                      <option value="payu">PayU</option>
-                      <option value="paypal">PayPal</option>
-                      <option value="cashfree">Cashfree</option>
-                    </select>
-                  </div>
-                  <div className="sd-form-field">
-                    <label>API Key / Key ID</label>
-                    <input type="text" value={gwKey} onChange={(e) => setGwKey(e.target.value)} placeholder="rzp_live_xxxxx" className="sd-input" />
-                  </div>
-                  <div className="sd-form-field">
-                    <label>API Secret</label>
-                    <input type="password" value={gwSecret} onChange={(e) => setGwSecret(e.target.value)} placeholder="Secret key" className="sd-input" />
-                  </div>
+                  <div className="sd-form-field"><label>Gateway</label><select value={gwName} onChange={e => setGwName(e.target.value)} className="sd-select"><option value="razorpay">Razorpay</option><option value="stripe">Stripe</option><option value="payu">PayU</option></select></div>
+                  <div className="sd-form-field"><label>API Key</label><input type="text" value={gwKey} onChange={e => setGwKey(e.target.value)} placeholder="rzp_live_xxxxx" className="sd-input" /></div>
+                  <div className="sd-form-field"><label>API Secret</label><input type="password" value={gwSecret} onChange={e => setGwSecret(e.target.value)} placeholder="Secret key" className="sd-input" /></div>
                 </div>
-                <button onClick={saveGateway} disabled={savingGw || !gwKey || !gwSecret} className="sd-btn sd-btn-primary">
-                  {savingGw ? 'Saving...' : 'Save Gateway'}
-                </button>
+                <button onClick={saveGateway} disabled={savingGw || !gwKey || !gwSecret} className="sd-btn sd-btn-primary">{savingGw ? 'Saving...' : 'Save Gateway'}</button>
               </div>
             </div>
-
-            {/* Active Gateways */}
-            <div className="sd-card">
-              <h3 className="sd-card-title">Configured Gateways</h3>
-              {settings.length === 0 ? (
-                <p className="sd-empty-text">No gateways configured yet. Add one above.</p>
-              ) : (
-                <div className="sd-gw-list">
-                  {settings.map(s => (
-                    <div key={s.id} className={`sd-gw-item ${s.is_active ? 'sd-gw-active' : ''}`}>
-                      <div className="sd-gw-info">
-                        <span className="sd-gw-name">{s.gateway_name.toUpperCase()}</span>
-                        <span className="sd-gw-key">Key: {s.api_key.substring(0, 12)}...</span>
-                        {s.is_active && <span className="sd-badge sd-badge-success">ACTIVE</span>}
-                      </div>
-                      <div className="sd-gw-actions">
-                        {!s.is_active && (
-                          <button onClick={() => activateGateway(s.gateway_name)} className="sd-btn sd-btn-sm sd-btn-success">
-                            Activate
-                          </button>
-                        )}
-                        <button onClick={() => deleteGateway(s.id)} className="sd-btn sd-btn-sm sd-btn-danger">
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="sd-card"><h3 className="sd-card-title">Configured Gateways</h3>
+              {settings.length === 0 ? <p className="sd-empty-text">No gateways configured yet.</p> : (
+                <div className="sd-gw-list">{settings.map(s => (
+                  <div key={s.id} className={`sd-gw-item ${s.is_active ? 'sd-gw-active' : ''}`}>
+                    <div className="sd-gw-info"><span className="sd-gw-name">{s.gateway_name.toUpperCase()}</span><span className="sd-gw-key">Key: {s.api_key.substring(0, 12)}...</span>{s.is_active && <span className="sd-badge sd-badge-success">ACTIVE</span>}</div>
+                    <div className="sd-gw-actions">{!s.is_active && <button onClick={() => activateGateway(s.gateway_name)} className="sd-btn sd-btn-sm sd-btn-success">Activate</button>}<button onClick={() => deleteGateway(s.id)} className="sd-btn sd-btn-sm sd-btn-danger">Remove</button></div>
+                  </div>
+                ))}</div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* EMAIL TEMPLATES */}
+        {activeTab === 'email-templates' && (
+          <div className="sd-content">
+            <h1 className="sd-page-title">Email Templates</h1>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: 24 }}>Edit the emails that are automatically sent when users enroll. Use placeholders like <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{'{{'} full_name {'}}'}</code> for dynamic content.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20, padding: '12px 16px', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: 10, fontSize: '0.75rem', color: '#15803d' }}>
+              <strong>Available placeholders:</strong> {'{{full_name}}'}, {'{{organization}}'}, {'{{plan}}'}, {'{{product}}'}, {'{{transaction_id}}'}, {'{{work_email}}'}, {'{{billing_address}}'}, {'{{industry}}'}, {'{{company_size}}'}, {'{{country}}'}, {'{{phone}}'}, {'{{gst_number}}'}, {'{{date}}'}
+            </div>
+            {emailTemplates.map(tpl => (
+              <div key={tpl.id} className="sd-card" style={{ border: editingTpl?.id === tpl.id ? '2px solid #16a34a' : undefined }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div>
+                    <h3 className="sd-card-title" style={{ margin: 0 }}>{tpl.name}</h3>
+                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '4px 0 0' }}>{tpl.description}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editingTpl?.id === tpl.id ? editingTpl.is_active : tpl.is_active} onChange={e => {
+                        if (editingTpl?.id === tpl.id) setEditingTpl({ ...editingTpl, is_active: e.target.checked });
+                        else saveTemplate({ ...tpl, is_active: e.target.checked });
+                      }} /> Active
+                    </label>
+                    {editingTpl?.id === tpl.id ? (
+                      <>
+                        <button className="sd-btn sd-btn-sm sd-btn-primary" disabled={tplSaving} onClick={() => saveTemplate(editingTpl)}>{tplSaving ? 'Saving...' : 'Save'}</button>
+                        <button className="sd-btn sd-btn-sm sd-btn-danger" onClick={() => setEditingTpl(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <button className="sd-btn sd-btn-sm sd-btn-info" onClick={() => setEditingTpl({ ...tpl })}>Edit</button>
+                    )}
+                  </div>
+                </div>
+                {editingTpl?.id === tpl.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div className="sd-form-field">
+                      <label>Subject Line</label>
+                      <input type="text" className="sd-input" value={editingTpl.subject} onChange={e => setEditingTpl({ ...editingTpl, subject: e.target.value })} />
+                    </div>
+                    <div className="sd-form-field">
+                      <label>HTML Body</label>
+                      <textarea className="sd-input" rows={16} style={{ fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.5 }} value={editingTpl.body_html} onChange={e => setEditingTpl({ ...editingTpl, body_html: e.target.value })} />
+                    </div>
+                    <div className="sd-card" style={{ padding: 16, background: '#f8fafc', marginTop: 8 }}>
+                      <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Preview</p>
+                      <div dangerouslySetInnerHTML={{ __html: editingTpl.body_html.replace(/\{\{(\w+)\}\}/g, '<span style="background:#fef3c7;padding:1px 4px;border-radius:3px;font-size:11px;color:#92400e;">{{$1}}</span>') }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 16, fontSize: '0.8rem', color: '#64748b' }}>
+                    <div><strong>Subject:</strong> {tpl.subject}</div>
+                    <div style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8' }}>Last updated: {tpl.updated_at ? new Date(tpl.updated_at).toLocaleString('en-IN') : '-'}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {emailTemplates.length === 0 && <div className="sd-card"><p className="sd-empty-text">No templates found. Run the migration-email-templates.sql in Supabase.</p></div>}
           </div>
         )}
       </main>

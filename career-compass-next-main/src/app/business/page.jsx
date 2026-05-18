@@ -1,16 +1,32 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Script from 'next/script'
 import Footer from '@/components/ui/Footer'
 import './business.css'
 import { initBusinessPage, handleBusinessFormSubmit, setInquiryType, scrollToSection } from '@/lib/pages/business'
-import { ArrowRight, BarChart3, BrainCircuit, CheckCircle, Code2, Coins, Menu, Plus, Palette, Server, Settings2, ShieldAlert, ShieldCheck, Users, Zap } from 'lucide-react'
-
+import { ArrowRight, BarChart3, BrainCircuit, CheckCircle, Code2, Coins, Menu, Plus, Palette, Server, Settings2, ShieldAlert, ShieldCheck, Users, Zap, Mail, Calendar, Briefcase, Heart, FolderCheck, Building2, Star, Stethoscope, ShoppingCart, GraduationCap, Landmark, Home, Truck, LogOut } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 export default function BusinessPage() {
+  const [products, setProducts] = useState([])
+  const [partners, setPartners] = useState([])
+  const [testimonials, setTestimonials] = useState([])
+  const [heroData, setHeroData] = useState(null)
+  const [stats, setStats] = useState([])
+  const [countersAnimated, setCountersAnimated] = useState(false)
+  const [authUser, setAuthUser] = useState(null)
+  const statsRef = useRef(null)
+
   useEffect(() => {
     initBusinessPage();
+    // Fetch dynamic data
+    supabase.from('business_products').select('*').eq('is_active', true).order('sort_order').then(({ data }) => data && setProducts(data));
+    supabase.from('business_partners').select('*').eq('is_active', true).order('sort_order').then(({ data }) => data && setPartners(data));
+    supabase.from('business_testimonials').select('*').eq('is_active', true).then(({ data }) => data && setTestimonials(data));
+    supabase.from('business_hero').select('*').eq('is_active', true).limit(1).single().then(({ data }) => data && setHeroData(data));
+    supabase.from('business_stats').select('*').eq('is_active', true).order('sort_order').then(({ data }) => data && setStats(data));
+    supabase.auth.getSession().then(({ data: { session } }) => { if (session?.user) setAuthUser(session.user); });
 
     // Smooth scroll for anchor links
     const handleAnchorClick = (e) => {
@@ -49,6 +65,40 @@ export default function BusinessPage() {
     }
   }, []);
 
+  // Animated counters
+  useEffect(() => {
+    if (!statsRef.current || countersAnimated || stats.length === 0) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setCountersAnimated(true);
+        obs.disconnect();
+      }
+    }, { threshold: 0.3 });
+    obs.observe(statsRef.current);
+    return () => obs.disconnect();
+  }, [stats, countersAnimated]);
+
+  // Scroll reveal
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.fade-in, .reveal').forEach(el => obs.observe(el));
+    return () => obs.disconnect();
+  }, [products, partners, testimonials]);
+
+  const iconMap = { mail: Mail, calendar: Calendar, briefcase: Briefcase, heart: Heart, 'folder-check': FolderCheck, users: Users, 'building-2': Building2 };
+  const AnimatedCounter = ({ target, suffix }) => {
+    const [count, setCount] = useState(0);
+    useEffect(() => {
+      if (!countersAnimated) return;
+      let start = 0; const dur = 2000; const step = Math.ceil(target / (dur / 16));
+      const timer = setInterval(() => { start += step; if (start >= target) { setCount(target); clearInterval(timer); } else setCount(start); }, 16);
+      return () => clearInterval(timer);
+    }, [countersAnimated, target]);
+    return <>{count}{suffix}</>;
+  };
+
   return (
     <>
       {/* Fonts */}
@@ -72,10 +122,10 @@ export default function BusinessPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-20">
               <div>
-              <a href="/" className="flex-shrink-0 flex items-center gap-2">
-                <img src="/DIVERSE LOOPERS (1) bg.png" alt="Diverse Loopers" className="h-12 w-auto" />
-              </a>
-</div>
+                <a href="/" className="flex-shrink-0 flex items-center gap-2">
+                  <img src="/DIVERSE LOOPERS (1) bg.png" alt="Diverse Loopers" className="h-12 w-auto" />
+                </a>
+              </div>
               {/* Desktop Nav */}
               <div className="hidden md:flex items-center space-x-8">
                 <div className="flex space-x-1 p-1 bg-slate-100 rounded-full text-xs font-semibold mr-4">
@@ -86,18 +136,21 @@ export default function BusinessPage() {
                 <a href="/" className="text-slate-600 hover:text-primary font-medium transition text-sm">Home</a>
                 <a href="#services" className="text-slate-600 hover:text-primary font-medium transition text-sm">Solutions</a>
                 <a href="#talent-hiring" className="text-slate-600 hover:text-primary font-medium transition text-sm">Hire Talent</a>
-
-                
               </div>
-              
+
               <div className="hidden md:flex items-center gap-4">
-                  <a href="#contact" className="px-6 py-2.5  bg-primary text-white rounded-full font-bold text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-100">
-                    Start a Project
-                  </a>
-                </div>
+                {!authUser ? (
+                  <a href="/products/login" className="text-slate-600 hover:text-primary font-semibold transition text-sm">Login / Sign Up</a>
+                ) : (
+                  <a href="/products/dashboard" className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-full font-bold text-sm hover:border-green-600 hover:text-green-600 transition">My Dashboard</a>
+                )}
+                <a href="#contact" className="px-6 py-2.5 bg-green-600 text-white rounded-full font-bold text-sm hover:bg-green-700 transition shadow-lg shadow-green-100">
+                  Start a Project
+                </a>
+              </div>
 
               <button id="mobile-menu-toggle" className="md:hidden p-2 text-slate-600">
-                <Menu className="w-6 h-6"/>
+                <Menu className="w-6 h-6" />
               </button>
             </div>
           </div>
@@ -112,36 +165,212 @@ export default function BusinessPage() {
             <a href="/" className="block font-bold py-2">Home</a>
             <a href="#services" className="block font-bold py-2">Our Services</a>
             <a href="#talent-hiring" className="block font-bold py-2">Hire Talent</a>
-            <a href="#contact" className="block py-4 bg-primary text-white text-center rounded-2xl font-bold shadow-lg">Start a Project</a>
+            {!authUser ? (
+              <a href="/products/login" className="block font-bold py-2">Login / Sign Up</a>
+            ) : (
+              <a href="/products/dashboard" className="block py-3 bg-slate-900 text-white text-center rounded-2xl font-bold shadow-lg mb-2">My Dashboard</a>
+            )}
+            <a href="#contact" className="block py-4 bg-green-600 text-white text-center rounded-2xl font-bold shadow-lg">Start a Project</a>
           </div>
         </nav>
 
         <main className="flex-grow">
-          {/* Hero Section */}
-          <section id="hero-section" className="hero-gradient relative pt-40 pb-24 overflow-hidden">
+          {/* Hero Section — Coursera Style Split Layout */}
+          <section id="hero-section" className="hero-gradient relative pt-32 pb-20 overflow-hidden">
             <canvas id="hero-canvas" className="hero-canvas"></canvas>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-              <div className="text-center max-w-4xl mx-auto">
-                <span className="fade-in inline-block py-1 px-4 rounded-full bg-blue-50 text-primary text-xs font-bold tracking-widest uppercase mb-6">
-                  B2B Innovation & Execution
-                </span>
-                <h1 className="fade-in text-4xl md:text-7xl font-heading font-black text-slate-900 leading-tight mb-8">
-                  Get Work Done. Build Talent Pipelines. <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Reduce Costs.</span>
-                </h1>
-                <p className="fade-in text-xl text-slate-600 leading-relaxed mb-12 max-w-3xl mx-auto">
-                  Diverse Loopers connects companies with a curated ecosystem of trained students and early professionals who execute real projects under expert mentorship — ensuring quality delivery and long-term value.
-                </p>
-                <div className="fade-in flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <a href="#contact" className="w-full sm:w-auto px-10 py-5 bg-primary text-white rounded-full font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group transition">
-                    Start a Project <Zap className="w-5 h-5"/>
-                  </a>
-                  <button onClick={() => scrollToSection('contact')} className="w-full sm:w-auto px-10 py-5 bg-white text-slate-700 border border-slate-200 rounded-full font-bold text-lg hover:border-primary hover:text-primary transition">
-                    Talk to Our Team
-                  </button>
-                  <a href="/skillsynth" className="w-full sm:w-auto px-10 py-5 bg-primary text-white rounded-full font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center justify-center gap-2 group transition">
-                    Our Top Performers <Zap className="w-5 h-5"/>
-                  </a>
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                {/* Left Content */}
+                <div className="space-y-6">
+                  <span className="fade-in inline-block py-1 px-4 rounded-full bg-green-50 text-green-700 text-xs font-bold tracking-widest uppercase">
+                    B2B Innovation & Execution
+                  </span>
+                  <h1 className="fade-in text-4xl md:text-5xl lg:text-6xl font-heading font-black text-slate-900 leading-tight">
+                    {heroData?.headline || 'Custom Software Solutions for Your Business'}
+                  </h1>
+                  <p className="fade-in text-lg text-slate-600 leading-relaxed max-w-lg">
+                    {heroData?.subheadline || 'We build powerful, scalable and secure software that helps businesses automate, grow and succeed.'}
+                  </p>
+                  {/* Feature Checkmarks */}
+                  <div className="fade-in space-y-3">
+                    {[
+                      'Custom Development & Cloud Solutions',
+                      'Pre-trained talent ready for your tech stack',
+                      'End-to-end project delivery with expert mentorship'
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                        <span className="text-sm font-semibold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Buttons */}
+                  <div className="fade-in flex flex-wrap items-center gap-3 pt-2">
+                    <a href={heroData?.cta_primary_link || '#contact-section'} className="hero-btn-primary px-8 py-3.5 bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700 transition shadow-md shadow-green-200 flex items-center gap-2">
+                      {heroData?.cta_primary_text || 'Start a Project'} <ArrowRight className="w-4 h-4" />
+                    </a>
+                    <a href={heroData?.cta_secondary_link || '/skillsynth'} className="hero-btn-secondary px-8 py-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg font-bold text-sm hover:border-green-600 hover:text-green-600 transition">
+                      {heroData?.cta_secondary_text || 'Our Top Performers'}
+                    </a>
+                    <button onClick={() => scrollToSection('products')} className="hero-btn-secondary px-8 py-3.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold text-sm hover:bg-green-100 transition">
+                      Our Products ↓
+                    </button>
+                  </div>
                 </div>
+                {/* Right Image */}
+                <div className="fade-in hidden lg:block">
+                  <div className="hero-image-wrapper rounded-3xl overflow-hidden shadow-2xl shadow-green-100/50 border border-white/50">
+                    <img src="/images/business/hero-team.png" alt="Team collaborating" className="w-full h-auto object-cover" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== PRODUCTS SHOWCASE ===== */}
+          {products.length > 0 && (
+            <section id="products" className="py-24 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="fade-in text-center mb-16">
+                  <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Our SaaS Products</h2>
+                  <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900 mb-6">Tools Built for Growth</h3>
+                  <p className="text-slate-500 max-w-2xl mx-auto">Powerful software products designed to streamline your business operations.</p>
+                </div>
+                <div className="grid md:grid-cols-3 gap-8">
+                  {products.map((p, i) => {
+                    const features = Array.isArray(p.features) ? p.features : [];
+                    return (
+                      <div key={p.id} className={`product-card fade-in fade-in-delay-${i + 1}`}>
+                        <img src={p.image_url} alt={p.name} className="product-card-image" />
+                        <div className="product-card-body">
+                          <span className="product-badge" style={{ background: `${p.color_accent}15`, color: p.color_accent }}>
+                            {p.tagline}
+                          </span>
+                          <h4 className="text-xl font-bold text-slate-900 mb-2">{p.name}</h4>
+                          <p className="text-sm text-slate-500 mb-4 leading-relaxed">{p.description}</p>
+                          <ul className="product-features">
+                            {features.slice(0, 4).map((f, fi) => <li key={fi}>{f}</li>)}
+                          </ul>
+                          <a href={p.cta_link && p.cta_link !== '/business' ? p.cta_link : (p.slug === 'loopmail' ? '/products/loopmail' : `/products/${p.slug || 'dashboard'}`)} className="product-cta" style={{ background: p.color_accent }}>
+                            {p.cta_text || 'Learn More'} <ArrowRight className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Services Grid Section */}
+          <section id="services" className="py-24 bg-surface">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="fade-in text-center mb-20">
+                <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Execution Menu</h2>
+                <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900 mb-6">Services We Offer</h3>
+                <p className="text-slate-500 max-w-xl mx-auto">
+                  From product development to cloud optimization, our ecosystem delivers high-precision technical results.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-blue-50 text-primary rounded-xl flex items-center justify-center">
+                      <Code2 className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">Tech & Product</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>Web & Mobile Apps</li>
+                    <li>Full-stack Systems</li>
+                    <li>Dashboards & Admin Panels</li>
+                    <li>API Architecture</li>
+                  </ul>
+                </div>
+
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                      <Server className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">Cloud & DevOps</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>CI/CD Pipelines</li>
+                    <li>Server Automation</li>
+                    <li>Containerization (Docker/K8s)</li>
+                    <li>Cloud Migration</li>
+                  </ul>
+                </div>
+
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-pink-50 text-secondary rounded-xl flex items-center justify-center">
+                      <BrainCircuit className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">AI, Data & Auto</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>AI-powered Assistants</li>
+                    <li>Predictive Analytics</li>
+                    <li>Workflow Automation</li>
+                    <li>Data Visualization</li>
+                  </ul>
+                </div>
+
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">Cybersecurity</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>Vulnerability Checks</li>
+                    <li>Security Implementation</li>
+                    <li>Risk Assessment</li>
+                    <li>Threat Monitoring</li>
+                  </ul>
+                </div>
+
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
+                      <Palette className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">Digital & Creative</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>Branding & Strategy</li>
+                    <li>SEO Optimization</li>
+                    <li>Content Campaigns</li>
+                    <li>High-Conversion Funnels</li>
+                  </ul>
+                </div>
+
+                <div className="bento-card fade-in p-8 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+                      <Settings2 className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-900">Ops & Support</h4>
+                  </div>
+                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
+                    <li>Process Automation</li>
+                    <li>CRM Configuration</li>
+                    <li>Virtual Ops Support</li>
+                    <li>Custom Workshops</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="fade-in mt-12 text-center">
+                <p className="text-slate-400 text-sm mb-6 italic">Requirement not listed? We design custom solutions.</p>
+                <button onClick={() => scrollToSection('contact')} className="px-8 py-3.5 cursor-pointer bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition shadow-lg">
+                  Discuss a Custom Requirement
+                </button>
               </div>
             </div>
           </section>
@@ -158,7 +387,7 @@ export default function BusinessPage() {
                 </div>
                 <div className="flex-shrink-0">
                   <a href="#talent-hiring" className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition shadow-lg shadow-slate-200 flex items-center gap-2">
-                    Hire From Diverse Loopers <Users className="w-5 h-5"/>
+                    Hire From Diverse Loopers <Users className="w-5 h-5" />
                   </a>
                 </div>
               </div>
@@ -179,28 +408,28 @@ export default function BusinessPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bento-card fade-in p-8 rounded-[2.5rem]">
                   <div className="w-12 h-12 bg-blue-50 text-primary rounded-2xl flex items-center justify-center mb-6">
-                    <Users/>
+                    <Users />
                   </div>
                   <h4 className="font-bold text-slate-900 mb-3 text-lg leading-tight">Trained on Real Projects</h4>
                   <p className="text-sm text-slate-500">Every contributor has worked on structured, supervised projects — not just classroom exercises.</p>
                 </div>
                 <div className="bento-card fade-in p-8 rounded-[2.5rem]">
                   <div className="w-12 h-12 bg-pink-50 text-secondary rounded-2xl flex items-center justify-center mb-6">
-                    <ShieldCheck/>
+                    <ShieldCheck />
                   </div>
                   <h4 className="font-bold text-slate-900 mb-3 text-lg leading-tight">Guided by Experts</h4>
                   <p className="text-sm text-slate-500">Industry mentors review strategy, code quality, timelines, and deliverables at every stage.</p>
                 </div>
                 <div className="bento-card fade-in p-8 rounded-[2.5rem]">
                   <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-6">
-                    <BarChart3/>
+                    <BarChart3 />
                   </div>
                   <h4 className="font-bold text-slate-900 mb-3 text-lg leading-tight">Outcome-Driven Workflows</h4>
                   <p className="text-sm text-slate-500">Clear milestones, transparent communication, and measurable results for every sprint.</p>
                 </div>
                 <div className="bento-card fade-in p-8 rounded-[2.5rem]">
                   <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-6">
-                    <Coins/>
+                    <Coins />
                   </div>
                   <h4 className="font-bold text-slate-900 mb-3 text-lg leading-tight">Cost-Efficient</h4>
                   <p className="text-sm text-slate-500">Our hybrid execution model reduces operational costs while maintaining professional quality.</p>
@@ -225,16 +454,16 @@ export default function BusinessPage() {
                     <h4 className="font-bold text-slate-900 mb-4 italic">What You Get With Every Project</h4>
                     <ul className="space-y-3 text-sm font-medium">
                       <li className="flex items-center gap-3">
-                        <CheckCircle className="text-primary w-5 h-5"/> Dedicated project coordinator
+                        <CheckCircle className="text-primary w-5 h-5" /> Dedicated project coordinator
                       </li>
                       <li className="flex items-center gap-3">
-                        <CheckCircle className="text-primary w-5 h-5"/> Clear timelines and deliverables
+                        <CheckCircle className="text-primary w-5 h-5" /> Clear timelines and deliverables
                       </li>
                       <li className="flex items-center gap-3">
-                        <CheckCircle className="text-primary w-5 h-5"/> Regular review meetings
+                        <CheckCircle className="text-primary w-5 h-5" /> Regular review meetings
                       </li>
                       <li className="flex items-center gap-3">
-                        <CheckCircle className="text-primary w-5 h-5"/> Full documentation & handover
+                        <CheckCircle className="text-primary w-5 h-5" /> Full documentation & handover
                       </li>
                     </ul>
                   </div>
@@ -251,7 +480,7 @@ export default function BusinessPage() {
                       Tell us what you need delivered. We analyze scope, complexity, and expected outcomes to assemble the right execution team.
                     </p>
                     <a href="#contact" className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 hover:gap-3 transition-all">
-                      Submit Requirements <ArrowRight className="w-4 h-4"/>
+                      Submit Requirements <ArrowRight className="w-4 h-4" />
                     </a>
                   </div>
 
@@ -297,13 +526,13 @@ export default function BusinessPage() {
                   </p>
                   <ul className="space-y-4 text-sm font-semibold text-slate-700">
                     <li className="flex items-center gap-3">
-                      <CheckCircle className="text-primary"/> Documented Mentored Projects
+                      <CheckCircle className="text-primary" /> Documented Mentored Projects
                     </li>
                     <li className="flex items-center gap-3">
-                      <CheckCircle className="text-primary"/> Structured Delivery Training
+                      <CheckCircle className="text-primary" /> Structured Delivery Training
                     </li>
                     <li className="flex items-center gap-3">
-                      <CheckCircle className="text-primary"/> Collaboration Discipline
+                      <CheckCircle className="text-primary" /> Collaboration Discipline
                     </li>
                   </ul>
                 </div>
@@ -337,118 +566,6 @@ export default function BusinessPage() {
                 <p className="text-slate-500 font-medium italic">
                   Instead of hiring candidates who only studied theory, you hire people who already know how work actually happens.
                 </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Services Grid Section */}
-          <section id="services" className="py-24 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="fade-in text-center mb-20">
-                <h2 className="text-primary font-bold uppercase tracking-widest text-sm mb-4">Execution Menu</h2>
-                <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900 mb-6 italic">Services We Offer</h3>
-                <p className="text-slate-500 max-w-xl mx-auto">
-                  From product development to cloud optimization, our ecosystem delivers high-precision technical results.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-blue-50 text-primary rounded-xl flex items-center justify-center">
-                      <Code2 className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">Tech & Product</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>Web & Mobile Apps</li>
-                    <li>Full-stack Systems</li>
-                    <li>Dashboards & Admin Panels</li>
-                    <li>API Architecture</li>
-                  </ul>
-                </div>
-
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                      <Server className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">Cloud & DevOps</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>CI/CD Pipelines</li>
-                    <li>Server Automation</li>
-                    <li>Containerization (Docker/K8s)</li>
-                    <li>Cloud Migration</li>
-                  </ul>
-                </div>
-
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-pink-50 text-secondary rounded-xl flex items-center justify-center">
-                      <BrainCircuit className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">AI, Data & Auto</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>AI-powered Assistants</li>
-                    <li>Predictive Analytics</li>
-                    <li>Workflow Automation</li>
-                    <li>Data Visualization</li>
-                  </ul>
-                </div>
-
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
-                      <ShieldAlert className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">Cybersecurity</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>Vulnerability Checks</li>
-                    <li>Security Implementation</li>
-                    <li>Risk Assessment</li>
-                    <li>Threat Monitoring</li>
-                  </ul>
-                </div>
-
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-                      <Palette className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">Digital & Creative</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>Branding & Strategy</li>
-                    <li>SEO Optimization</li>
-                    <li>Content Campaigns</li>
-                    <li>High-Conversion Funnels</li>
-                  </ul>
-                </div>
-
-                <div className="bento-card fade-in p-8 rounded-[3rem]">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
-                      <Settings2 className="w-5 h-5"/>
-                    </div>
-                    <h4 className="font-bold text-slate-900">Ops & Support</h4>
-                  </div>
-                  <ul className="space-y-3 text-sm text-slate-500 font-medium">
-                    <li>Process Automation</li>
-                    <li>CRM Configuration</li>
-                    <li>Virtual Ops Support</li>
-                    <li>Custom Workshops</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="fade-in mt-12 text-center">
-                <p className="text-slate-400 text-sm mb-6 italic">Requirement not listed? We design custom solutions.</p>
-                <button onClick={() => scrollToSection('contact')} className="px-8 py-3.5 cursor-pointer bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition shadow-lg">
-                  Discuss a Custom Requirement
-                </button>
               </div>
             </div>
           </section>
@@ -509,6 +626,187 @@ export default function BusinessPage() {
             </div>
           </section>
 
+          {/* ===== ANIMATED STATS COUNTER ===== */}
+          <section ref={statsRef} className="stats-counter-section py-20">
+            <div className="max-w-7xl mx-auto px-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                {stats.map((s, i) => {
+                  const Icon = iconMap[s.icon_name] || CheckCircle;
+                  return (
+                    <div key={s.id || i} className="stat-counter-card fade-in">
+                      <Icon className="w-8 h-8 text-green-400 mx-auto mb-3" />
+                      <div className="stat-counter-num">
+                        <AnimatedCounter target={s.value} suffix={s.suffix} />
+                      </div>
+                      <div className="stat-counter-label">{s.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+
+          {/* ===== PARTNER LOGO MARQUEE ===== */}
+          {partners.length > 0 && (
+            <section className="py-16 bg-white border-y border-slate-100">
+              <div className="max-w-7xl mx-auto px-6">
+                <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">Trusted by Leading Companies</p>
+                <div className="partner-marquee">
+                  <div className="marquee-track">
+                    {[...partners, ...partners].map((p, i) => (
+                      <a key={i} href={p.website_url || '#'} target="_blank" rel="noopener noreferrer" title={p.name}>
+                        {p.logo_url ? (
+                          <img src={p.logo_url} alt={p.name} className="partner-logo" />
+                        ) : (
+                          <span className="partner-logo text-slate-400 font-bold text-lg whitespace-nowrap">{p.name}</span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ===== DEMO VIDEO ===== */}
+          {heroData?.demo_video_url && (
+            <section className="py-24 bg-surface">
+              <div className="max-w-5xl mx-auto px-6">
+                <div className="fade-in text-center mb-12">
+                  <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">See It In Action</h2>
+                  <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900 mb-6">Watch How We Work</h3>
+                </div>
+                <div className="fade-in video-container">
+                  <iframe src={heroData.demo_video_url} title="Demo Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ===== TESTIMONIALS ===== */}
+          {testimonials.length > 0 && (
+            <section className="py-24 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="fade-in text-center mb-16">
+                  <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Client Stories</h2>
+                  <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900">What Our Clients Say</h3>
+                </div>
+                <div className="grid md:grid-cols-3 gap-8">
+                  {testimonials.map((t, i) => (
+                    <div key={t.id} className={`testimonial-card fade-in fade-in-delay-${i + 1}`}>
+                      <div className="testimonial-stars">
+                        {[...Array(t.rating || 5)].map((_, si) => (
+                          <Star key={si} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                      <p className="testimonial-quote">{t.quote}</p>
+                      <div className="testimonial-author">
+                        <div className="testimonial-avatar">{(t.client_name || 'U')[0]}</div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{t.client_name}</p>
+                          <p className="text-xs text-slate-500">{t.role}{t.company ? `, ${t.company}` : ''}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ===== COMPARISON TABLE ===== */}
+          <section className="py-24 bg-surface border-y border-slate-100">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="fade-in text-center mb-16">
+                <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Why Us</h2>
+                <h3 className="text-3xl md:text-5xl font-heading font-black text-slate-900">How We Compare</h3>
+              </div>
+              <div className="fade-in overflow-x-auto">
+                <table className="comparison-table">
+                  <thead>
+                    <tr>
+                      <th>Feature</th>
+                      <th className="highlight">Diverse Loopers</th>
+                      <th>Traditional Agency</th>
+                      <th>Freelancers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['Cost', '$$', '$$$$', '$'],
+                      ['Quality Assurance', 'Expert-reviewed', 'In-house QA', 'Self-reviewed'],
+                      ['Scalability', 'Instant scale', 'Slow ramp', 'Limited'],
+                      ['Communication', 'Dedicated PM', 'Account mgr', 'Direct only'],
+                      ['Pre-trained Talent', 'Yes', 'No', 'No'],
+                      ['Hire After Project', 'Direct hire', 'Not available', 'Case by case'],
+                      ['Long-term Value', 'Talent pipeline', 'Vendor lock-in', 'One-off'],
+                    ].map(([feat, us, agency, free], i) => (
+                      <tr key={i}>
+                        <td>{feat}</td>
+                        <td className="highlight">{us}</td>
+                        <td>{agency}</td>
+                        <td>{free}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== INDUSTRIES + WHY CHOOSE US ===== */}
+          <section className="py-24 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid lg:grid-cols-2 gap-16">
+                {/* Industries */}
+                <div className="fade-in">
+                  <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Industries We Serve</h2>
+                  <h3 className="text-2xl md:text-3xl font-heading font-black text-slate-900 mb-8">Built for Every Sector</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { name: 'Healthcare', Icon: Stethoscope, bg: '#dcfce7', color: '#16a34a' },
+                      { name: 'E-commerce', Icon: ShoppingCart, bg: '#dbeafe', color: '#2563eb' },
+                      { name: 'Education', Icon: GraduationCap, bg: '#fef3c7', color: '#d97706' },
+                      { name: 'Finance', Icon: Landmark, bg: '#ede9fe', color: '#7c3aed' },
+                      { name: 'Real Estate', Icon: Home, bg: '#fce7f3', color: '#db2777' },
+                      { name: 'Logistics', Icon: Truck, bg: '#ffedd5', color: '#ea580c' },
+                    ].map(({ name, Icon, bg, color }) => (
+                      <div key={name} className="industry-card">
+                        <div className="industry-icon" style={{ background: bg }}>
+                          <Icon className="w-5 h-5" style={{ color }} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Why Choose Us */}
+                <div className="fade-in">
+                  <h2 className="text-green-600 font-bold uppercase tracking-widest text-sm mb-4">Our Strengths</h2>
+                  <h3 className="text-2xl md:text-3xl font-heading font-black text-slate-900 mb-8">Why Choose Us?</h3>
+                  <div className="space-y-5">
+                    {[
+                      'Experienced & Skilled Team',
+                      'Agile Development Process',
+                      'On-time Delivery',
+                      'Quality & Security Focused',
+                      '24/7 Support & Maintenance',
+                      'Cost-Effective Solutions',
+                    ].map(f => (
+                      <div key={f} className="why-feature">
+                        <div className="why-feature-icon">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        </div>
+                        <span className="text-sm font-semibold text-slate-700">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* FAQ Section */}
           <section id="faq" className="py-24 bg-white">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -519,7 +817,7 @@ export default function BusinessPage() {
                 <details className="group bg-surface border border-slate-100 rounded-2xl overflow-hidden">
                   <summary className="flex justify-between items-center p-6 cursor-pointer font-bold text-slate-900 select-none">
                     Is Diverse Loopers cheaper than agencies?
-                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition"/>
+                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition" />
                   </summary>
                   <div className="px-6 pb-6 text-slate-500 text-sm leading-relaxed">
                     Yes — our hybrid execution model significantly reduces costs while maintaining high quality through expert industry review cycles.
@@ -529,7 +827,7 @@ export default function BusinessPage() {
                 <details className="group bg-surface border border-slate-100 rounded-2xl overflow-hidden">
                   <summary className="flex justify-between items-center p-6 cursor-pointer font-bold text-slate-900 select-none">
                     Will I have to manage students directly?
-                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition"/>
+                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition" />
                   </summary>
                   <div className="px-6 pb-6 text-slate-500 text-sm leading-relaxed">
                     No. All work is guided, supervised, and reviewed by industry mentors and project leads who act as your primary point of contact.
@@ -539,7 +837,7 @@ export default function BusinessPage() {
                 <details className="group bg-surface border border-slate-100 rounded-2xl overflow-hidden">
                   <summary className="flex justify-between items-center p-6 cursor-pointer font-bold text-slate-900 select-none">
                     Can we hire the top performers?
-                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition"/>
+                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition" />
                   </summary>
                   <div className="px-6 pb-6 text-slate-500 text-sm leading-relaxed">
                     Yes — we help businesses connect with pre-trained candidates from their project teams when hiring needs arise.
@@ -549,7 +847,7 @@ export default function BusinessPage() {
                 <details className="group bg-surface border border-slate-100 rounded-2xl overflow-hidden">
                   <summary className="flex justify-between items-center p-6 cursor-pointer font-bold text-slate-900 select-none text-left">
                     Is the work original and secure?
-                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition flex-shrink-0"/>
+                    <Plus className="w-5 h-5 text-primary group-open:rotate-45 transition flex-shrink-0" />
                   </summary>
                   <div className="px-6 pb-6 text-slate-500 text-sm leading-relaxed">
                     All work follows ethical practices, NDAs if needed, and original output policies to protect your intellectual property.
@@ -670,7 +968,7 @@ export default function BusinessPage() {
             </div>
           </div>
         </footer> */}
-        <Footer/>
+        <Footer />
       </div>
     </>
   )

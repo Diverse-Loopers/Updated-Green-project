@@ -51,13 +51,20 @@ export async function handleLogin(e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         showMessage(error.message, true);
     } else {
-        showMessage('Welcome back!');
-        setTimeout(() => window.location.href = '/', 1500);
+        // Check if this is a business user — redirect them to business dashboard
+        const isBusiness = data?.user?.user_metadata?.is_business === true;
+        if (isBusiness) {
+            showMessage('Redirecting to your business dashboard...');
+            setTimeout(() => window.location.href = '/products/dashboard', 1500);
+        } else {
+            showMessage('Welcome back!');
+            setTimeout(() => window.location.href = '/', 1500);
+        }
     }
 }
 
@@ -66,7 +73,7 @@ export async function handleForgotPassword(e) {
     const email = document.getElementById('forgot-email').value;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/update-password'
+        redirectTo: window.location.origin + '/auth/callback?next=/update-password'
     });
 
     if (error) {

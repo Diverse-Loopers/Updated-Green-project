@@ -4,12 +4,28 @@ import { useEffect } from 'react';
 import './update-password.css';
 import Script from "next/script";
 import { initPasswordUpdatePage } from '@/lib/pages/update-password';
+import { supabase } from '@/lib/supabase';
 
 export default function UpdatePasswordPage() {
   useEffect(() => {
     // Initialize the page logic after component mounts
     if (typeof window !== 'undefined') {
       initPasswordUpdatePage();
+
+      // Also handle case where Supabase sends hash fragment directly
+      // e.g. /update-password#access_token=xxx&type=recovery
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        // Supabase client auto-detects this, just need to wait
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            // Session is now set — user can update password
+            const submitBtn = document.getElementById('submit-btn');
+            if (submitBtn) submitBtn.disabled = false;
+          }
+        });
+        return () => subscription?.unsubscribe();
+      }
     }
   }, []);
 
