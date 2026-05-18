@@ -657,9 +657,22 @@ export default function BusinessPage() {
                     {[...partners, ...partners].map((p, i) => (
                       <a key={i} href={p.website_url || '#'} target="_blank" rel="noopener noreferrer" title={p.name}>
                         {p.logo_url ? (
-                          <img src={p.logo_url} alt={p.name} className="partner-logo" />
+                          <img
+                            src={p.logo_url}
+                            alt={p.name}
+                            className="partner-logo"
+                            onError={(e) => {
+                              // Replace broken image with text fallback
+                              e.target.style.display = 'none';
+                              const fallback = document.createElement('span');
+                              fallback.className = 'partner-logo';
+                              fallback.style.cssText = 'color:#94a3b8;font-weight:700;font-size:1rem;white-space:nowrap;display:flex;align-items:center;';
+                              fallback.textContent = p.name;
+                              e.target.parentNode.appendChild(fallback);
+                            }}
+                          />
                         ) : (
-                          <span className="partner-logo text-slate-400 font-bold text-lg whitespace-nowrap">{p.name}</span>
+                          <span className="partner-logo" style={{ color: '#94a3b8', fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap' }}>{p.name}</span>
                         )}
                       </a>
                     ))}
