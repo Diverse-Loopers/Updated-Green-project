@@ -223,7 +223,8 @@ import {
   resetJobPostingForm,
   resetAnnouncementForm,
   resetCouponForm,
-  resetTrainerForm
+  resetTrainerForm,
+  resetBlogForm
 } from '@/lib/pages/site.admin';
 
 export default function AdminDashboard() {
@@ -377,6 +378,12 @@ export default function AdminDashboard() {
               id="nav-business-cms"
               className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
               <i data-lucide="globe" className="w-5 h-5"></i> Business Page
+            </button>
+
+            <button onClick={() => switchView("blog")}
+              id="nav-blog"
+              className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
+              <i data-lucide="file-text" className="w-5 h-5"></i> Blog
             </button>
           </nav>
 
@@ -1472,6 +1479,209 @@ export default function AdminDashboard() {
                   <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
                 </tr></thead><tbody id="biz-stats-table"></tbody></table>
               </div>
+            </div>
+          </div>
+
+          {/* BLOG VIEW */}
+          <div id="blog-view" className="hidden p-4 md:p-8 space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h1 className="text-2xl md:text-3xl font-black">Blog Management</h1>
+              <button id="blog-new-post-btn" className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2">
+                <i data-lucide="plus" className="w-4 h-4"></i> New Article
+              </button>
+            </div>
+
+            {/* Blog Editor Panel */}
+            <div id="blog-editor-panel" className="bg-white p-6 md:p-8 rounded-3xl" style={{display: 'none'}}>
+              <h3 id="blog-form-title" className="text-xl font-bold mb-6">New Article</h3>
+              <form id="blog-form" className="space-y-5">
+                <input type="hidden" id="blog-post-id" />
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Title *</label>
+                    <input type="text" id="blog-title" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">URL Slug *</label>
+                    <input type="text" id="blog-slug" placeholder="auto-generated-from-title" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Excerpt / Summary *</label>
+                  <textarea id="blog-excerpt" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" required></textarea>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Category</label>
+                    <input type="text" id="blog-category" defaultValue="General" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Author</label>
+                    <input type="text" id="blog-author" defaultValue="Diverse Loopers" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Read Time (min)</label>
+                    <input type="number" id="blog-read-time" defaultValue={5} min={1} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tags (comma-separated)</label>
+                    <input type="text" id="blog-tags" placeholder="email marketing, smtp, loopmail" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cover Image</label>
+                    <input type="file" id="blog-cover-upload" accept="image/*" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cover Image URL (or uploaded above)</label>
+                  <input type="url" id="blog-cover-url" placeholder="https://..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                </div>
+
+                {/* SEO Fields */}
+                <div className="border-t border-slate-200 pt-5">
+                  <h4 className="text-sm font-bold text-slate-400 uppercase mb-4">SEO Settings</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Meta Title</label>
+                      <input type="text" id="blog-meta-title" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Meta Description</label>
+                      <textarea id="blog-meta-desc" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></textarea>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Meta Keywords (comma-separated)</label>
+                      <input type="text" id="blog-meta-keywords" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rich Text Editor */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Article Content *</label>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    {/* Toolbar */}
+                    <div id="blog-toolbar" className="bg-slate-50 border-b border-slate-200 p-2 flex flex-wrap gap-1">
+                      <button type="button" className="rte-btn" data-cmd="bold" title="Bold"><i data-lucide="bold" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="italic" title="Italic"><i data-lucide="italic" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="underline" title="Underline"><i data-lucide="underline" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="strikeThrough" title="Strikethrough"><i data-lucide="strikethrough" className="w-4 h-4"></i></button>
+                      <span className="w-px h-6 bg-slate-300 mx-1"></span>
+                      <button type="button" className="rte-btn" data-cmd="formatBlock" data-val="h2" title="Heading 2"><i data-lucide="heading-2" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="formatBlock" data-val="h3" title="Heading 3"><i data-lucide="heading-3" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="formatBlock" data-val="p" title="Paragraph"><i data-lucide="pilcrow" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="formatBlock" data-val="blockquote" title="Quote"><i data-lucide="quote" className="w-4 h-4"></i></button>
+                      <span className="w-px h-6 bg-slate-300 mx-1"></span>
+                      <button type="button" className="rte-btn" data-cmd="insertUnorderedList" title="Bullet List"><i data-lucide="list" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="insertOrderedList" title="Numbered List"><i data-lucide="list-ordered" className="w-4 h-4"></i></button>
+                      <span className="w-px h-6 bg-slate-300 mx-1"></span>
+                      <button type="button" className="rte-btn" id="rte-link-btn" title="Insert Link"><i data-lucide="link" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="unlink" title="Remove Link"><i data-lucide="unlink" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" id="rte-image-btn" title="Insert Image"><i data-lucide="image" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" id="rte-video-btn" title="Insert Video"><i data-lucide="video" className="w-4 h-4"></i></button>
+                      <span className="w-px h-6 bg-slate-300 mx-1"></span>
+                      <button type="button" className="rte-btn" data-cmd="justifyLeft" title="Align Left"><i data-lucide="align-left" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="justifyCenter" title="Center"><i data-lucide="align-center" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="justifyRight" title="Align Right"><i data-lucide="align-right" className="w-4 h-4"></i></button>
+                      <span className="w-px h-6 bg-slate-300 mx-1"></span>
+                      <button type="button" className="rte-btn" id="rte-code-btn" title="Code Block"><i data-lucide="code" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" data-cmd="removeFormat" title="Clear Formatting"><i data-lucide="eraser" className="w-4 h-4"></i></button>
+                      <button type="button" className="rte-btn" id="rte-html-toggle" title="Toggle HTML Source"><i data-lucide="file-code" className="w-4 h-4"></i></button>
+                    </div>
+                    {/* Editor Area */}
+                    <div id="blog-editor" contentEditable="true" className="min-h-[350px] p-4 focus:outline-none prose prose-sm max-w-none" style={{fontFamily:'Inter, sans-serif'}}></div>
+                    {/* HTML Source (hidden by default) */}
+                    <textarea id="blog-html-source" className="w-full min-h-[350px] p-4 font-mono text-sm bg-slate-900 text-green-400" style={{display:'none'}}></textarea>
+                  </div>
+                </div>
+
+                {/* Media Insert Modal */}
+                <div id="blog-media-modal" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center" style={{display:'none'}}>
+                  <div className="bg-white rounded-2xl p-6 w-[90%] max-w-lg shadow-2xl">
+                    <h4 id="blog-media-modal-title" className="text-lg font-bold mb-4">Insert Media</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Upload File</label>
+                        <input type="file" id="blog-media-file" accept="image/*,video/*" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                      </div>
+                      <div className="text-center text-xs font-bold text-slate-400 uppercase">— or —</div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">URL</label>
+                        <input type="url" id="blog-media-url" placeholder="https://..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Alt Text / Caption</label>
+                        <input type="text" id="blog-media-alt" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Width (px or %)</label>
+                          <input type="text" id="blog-media-width" placeholder="100%" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Height (px or auto)</label>
+                          <input type="text" id="blog-media-height" placeholder="auto" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" />
+                        </div>
+                      </div>
+                      {/* Image Preview & Crop */}
+                      <div id="blog-media-preview-area" style={{display:'none'}}>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Preview</label>
+                        <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                          <canvas id="blog-media-canvas" className="max-w-full mx-auto" style={{maxHeight:'300px'}}></canvas>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button type="button" id="blog-media-crop-btn" className="px-3 py-1.5 bg-indigo-50 text-primary text-xs font-bold rounded-lg">Crop to Size</button>
+                          <button type="button" id="blog-media-grayscale-btn" className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg">Grayscale</button>
+                          <button type="button" id="blog-media-brightness-btn" className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg">Brighten</button>
+                          <button type="button" id="blog-media-reset-btn" className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg">Reset</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
+                      <button type="button" id="blog-media-insert-btn" className="flex-1 py-3 bg-primary text-white rounded-xl font-bold">Insert</button>
+                      <button type="button" id="blog-media-cancel-btn" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="blog-is-published" className="w-5 h-5 rounded" />
+                    <span className="text-sm font-bold text-slate-700">Publish immediately</span>
+                  </label>
+                </div>
+
+                <div className="flex gap-3">
+                  <button type="submit" id="blog-save-btn" className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2">
+                    <i data-lucide="save" className="w-4 h-4"></i> Save Article
+                  </button>
+                  <button type="button" id="blog-cancel-btn" className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
+                </div>
+              </form>
+            </div>
+
+            {/* Blog Posts List */}
+            <div className="bg-white rounded-3xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Title</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Category</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Views</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase">Date</th>
+                    <th className="px-6 py-4 text-right text-xs font-black text-slate-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="blog-table-body"></tbody>
+              </table>
             </div>
           </div>
 

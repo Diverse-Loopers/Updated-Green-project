@@ -12,4 +12,8 @@
   <url><loc>https://diverseloopers.com/products</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://diverseloopers.com/products/loopmail</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://diverseloopers.com/products/loopmail/pricing</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://diverseloopers.com/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://diverseloopers.com/blog/how-to-setup-smtp-for-bulk-email-marketing</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://diverseloopers.com/blog/best-free-email-marketing-tools-india-2026</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://diverseloopers.com/blog/how-students-get-real-project-experience</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
 </urlset>

@@ -42,4 +42,79 @@
                 transform: translateX(0);
             }
         }
+
+        /* Rich Text Editor Toolbar */
+        .rte-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .rte-btn:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .rte-btn:active {
+            background: #4f46e5;
+            color: white;
+        }
+
+        /* Blog Editor Content Area */
+        #blog-editor {
+            line-height: 1.7;
+            color: #334155;
+        }
+        #blog-editor:focus {
+            outline: 2px solid #4f46e5;
+            outline-offset: -2px;
+            border-radius: 0 0 12px 12px;
+        }
+        #blog-editor h2 { font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #0f172a; }
+        #blog-editor h3 { font-size: 1.15rem; font-weight: 600; margin: 1.2rem 0 0.4rem; color: #0f172a; }
+        #blog-editor p { margin: 0 0 0.8rem; }
+        #blog-editor ul, #blog-editor ol { padding-left: 1.5rem; margin: 0 0 1rem; }
+        #blog-editor li { margin-bottom: 0.3rem; }
+        #blog-editor a { color: #4f46e5; text-decoration: underline; }
+        #blog-editor blockquote {
+            border-left: 4px solid #4f46e5;
+            padding: 0.5rem 1rem;
+            margin: 1rem 0;
+            background: #f8fafc;
+            font-style: italic;
+            color: #64748b;
+        }
+        #blog-editor pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        #blog-editor img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        #blog-editor table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        #blog-editor table th,
+        #blog-editor table td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+        #blog-editor table th { background: #f8fafc; font-weight: 600; }
    
