@@ -421,7 +421,7 @@ export function showConfirmBox(title, message, onConfirm) {
 
 // --- View Logic ---
 export function switchView(viewName) {
-    const sections = ['dashboard', 'events', 'users', 'skills', 'courses', 'fame', 'Job-Postings', 'announcements', 'coupons', 'trainers', 'business-cms', 'blog'];
+    const sections = ['dashboard', 'events', 'users', 'skills', 'courses', 'fame', 'Job-Postings', 'announcements', 'coupons', 'trainers', 'business-cms', 'blog', 'legal-cookies'];
     sections.forEach(s => {
         const view = document.getElementById(`${s}-view`);
         const nav = document.getElementById(`nav-${s}`);
@@ -458,6 +458,7 @@ export function switchView(viewName) {
     if (viewName === 'trainers') loadAllTrainers();
     if (viewName === 'business-cms') loadBusinessCMS();
     if (viewName === 'blog') loadBlogPosts();
+    if (viewName === 'legal-cookies') loadLegalCookies();
     
     initLucideIcons();
 }
@@ -1907,6 +1908,75 @@ export function deleteTrainer(id) {
     });
 }
 
+// --- LEGAL & COOKIES ---
+async function loadLegalCookies() {
+    // Load Cookie Stats
+    const { count: accepted } = await supabase.from('cookie_consent_logs').select('*', { count: 'exact', head: true }).eq('action', 'accepted');
+    const { count: rejected } = await supabase.from('cookie_consent_logs').select('*', { count: 'exact', head: true }).eq('action', 'rejected');
+    
+    const accEl = document.getElementById('cookies-accepted-count');
+    const rejEl = document.getElementById('cookies-rejected-count');
+    if (accEl) accEl.textContent = accepted || 0;
+    if (rejEl) rejEl.textContent = rejected || 0;
+
+    // Load Default Legal Doc (Privacy Policy)
+    loadLegalDocument('privacy-policy');
+}
+
+async function loadLegalDocument(slug) {
+    document.getElementById('legal-doc-slug').value = slug;
+    
+    // UI Tab active state
+    const btnPriv = document.getElementById('btn-edit-privacy');
+    const btnTerms = document.getElementById('btn-edit-terms');
+    if (btnPriv && btnTerms) {
+        if (slug === 'privacy-policy') {
+            btnPriv.className = "px-4 py-2 bg-primary text-white rounded-lg font-bold";
+            btnTerms.className = "px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold";
+        } else {
+            btnTerms.className = "px-4 py-2 bg-primary text-white rounded-lg font-bold";
+            btnPriv.className = "px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold";
+        }
+    }
+
+    const { data, error } = await supabase.from('legal_documents').select('*').eq('slug', slug).single();
+    
+    if (data) {
+        document.getElementById('legal-doc-id').value = data.id;
+        document.getElementById('legal-doc-title').value = data.title;
+        document.getElementById('legal-doc-content').value = data.content;
+    } else {
+        document.getElementById('legal-doc-id').value = '';
+        document.getElementById('legal-doc-title').value = slug === 'privacy-policy' ? 'Privacy Policy' : 'Terms and Conditions';
+        document.getElementById('legal-doc-content').value = '';
+    }
+}
+
+async function handleLegalDocSave(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('legal-doc-id').value;
+    const slug = document.getElementById('legal-doc-slug').value;
+    const title = document.getElementById('legal-doc-title').value;
+    const content = document.getElementById('legal-doc-content').value;
+    
+    const payload = { slug, title, content };
+    
+    let result;
+    if (id) {
+        result = await supabase.from('legal_documents').update(payload).eq('id', id);
+    } else {
+        result = await supabase.from('legal_documents').insert([payload]);
+    }
+    
+    if (result.error) {
+        showMessageBox('Error saving document: ' + result.error.message);
+    } else {
+        showMessageBox('Document saved successfully!');
+        loadLegalDocument(slug);
+    }
+}
+
 // Initialize all event listeners
 export function initAdminDashboardListeners() {
     setCurrentDate();
@@ -1915,6 +1985,16 @@ export function initAdminDashboardListeners() {
 
     const messageBoxCloseBtn = document.getElementById('message-box-close-btn');
     if (messageBoxCloseBtn) messageBoxCloseBtn.onclick = closeMsg;
+
+    // Legal & Cookies Listeners
+    const legalDocForm = document.getElementById('legal-doc-form');
+    if (legalDocForm) legalDocForm.onsubmit = handleLegalDocSave;
+    
+    const btnPriv = document.getElementById('btn-edit-privacy');
+    if (btnPriv) btnPriv.onclick = () => loadLegalDocument('privacy-policy');
+    
+    const btnTerms = document.getElementById('btn-edit-terms');
+    if (btnTerms) btnTerms.onclick = () => loadLegalDocument('terms-and-conditions');
 
     const searchUsers = document.getElementById('search-users');
     if (searchUsers) searchUsers.addEventListener('input', handleSearchUsers);

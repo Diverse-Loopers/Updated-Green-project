@@ -1,10 +1,13 @@
+'use client'
+
+import Link from 'next/link';
 
 export default function Footer() {
   return (                                                                                                      
 <footer className="bg-slate-900 text-white pt-20 pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-            <div className="col-span-1 lg:col-span-1">
+          <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-8 mb-16">
+            <div className="col-span-1 md:col-span-2 lg:col-span-2">
               <img src="/Diverse Loopers Black BG (2).png" alt="Diverse Loopers" className="h-12 w-auto mb-6" />
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
                 Empowering talents for tomorrow through structured, future-ready career pathways and real industry exposure.
@@ -37,6 +40,33 @@ export default function Footer() {
                 <li><a href="/analyzer" className="hover:text-white transition">Path Analyzer</a></li>
                 <li><a href="/career-analyzer" className="hover:text-white transition">Career Analyzer</a></li>
                 <li><a href="/career" className="hover:text-white transition">Careers</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold mb-6">Company</h4>
+              <ul className="space-y-4 text-slate-400 text-sm">
+                <li><a href="/about" className="hover:text-white transition">About Us</a></li>
+                <li>
+                  <button 
+                    onClick={() => {
+                      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'privacy-policy' } }))
+                    }}
+                    className="hover:text-white transition cursor-pointer text-left"
+                  >
+                    Privacy Policy
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => {
+                      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'terms-and-conditions' } }))
+                    }}
+                    className="hover:text-white transition cursor-pointer text-left"
+                  >
+                    Terms of Service
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -87,8 +117,22 @@ export default function Footer() {
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-medium">
             <p>&copy; 2025 Diverse Loopers. All Rights Reserved.</p>
             <div className="flex gap-8">
-              <a href="#" className="hover:text-white transition">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition">Terms & Conditions</a>
+              <button 
+                onClick={() => {
+                  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'privacy-policy' } }))
+                }}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <button 
+                onClick={() => {
+                  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'terms-and-conditions' } }))
+                }}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Terms & Conditions
+              </button>
             </div>
             <p>Hybrid Hustle&reg; is a registered program concept.</p>
           </div>

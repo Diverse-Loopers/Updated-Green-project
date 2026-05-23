@@ -385,6 +385,12 @@ export default function AdminDashboard() {
               className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
               <i data-lucide="file-text" className="w-5 h-5"></i> Blog
             </button>
+
+            <button onClick={() => switchView("legal-cookies")}
+              id="nav-legal-cookies"
+              className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
+              <i data-lucide="shield" className="w-5 h-5"></i> Legal & Cookies
+            </button>
           </nav>
 
           <div className="p-6 mt-auto border-t border-slate-100">
@@ -1691,6 +1697,80 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody id="blog-table-body"></tbody>
               </table>
+            </div>
+          </div>
+
+          {/* LEGAL & COOKIES VIEW */}
+          <div id="legal-cookies-view" className="hidden p-4 md:p-8 space-y-8">
+            <h1 className="text-2xl md:text-3xl font-black">Legal & Cookies</h1>
+            
+            {/* Analytics */}
+            <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6">
+              <div className="bg-white p-6 rounded-3xl">
+                <p className="text-xs font-black text-slate-400 uppercase">Cookies Accepted</p>
+                <p id="cookies-accepted-count" className="text-4xl font-black text-emerald-500">0</p>
+              </div>
+              <div className="bg-white p-6 rounded-3xl">
+                <p className="text-xs font-black text-slate-400 uppercase">Cookies Rejected</p>
+                <p id="cookies-rejected-count" className="text-4xl font-black text-slate-500">0</p>
+              </div>
+            </div>
+
+            {/* Cookies in Use */}
+            <div className="bg-white p-6 md:p-8 rounded-3xl">
+              <h3 className="text-xl font-bold mb-6">Cookies In Use</h3>
+              <div className="overflow-hidden border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 font-black text-slate-500 uppercase">Name</th>
+                      <th className="px-4 py-3 font-black text-slate-500 uppercase">Purpose</th>
+                      <th className="px-4 py-3 font-black text-slate-500 uppercase">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-slate-200">
+                      <td className="px-4 py-3 font-medium">diverse_loopers_cookie_consent</td>
+                      <td className="px-4 py-3">Stores the user's consent preference for cookies.</td>
+                      <td className="px-4 py-3 text-slate-500">Persistent</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-medium">sb-access-token / sb-refresh-token</td>
+                      <td className="px-4 py-3">Essential Supabase authentication cookies.</td>
+                      <td className="px-4 py-3 text-slate-500">Session/Persistent</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Legal Documents */}
+            <div className="bg-white p-6 md:p-8 rounded-3xl">
+              <h3 className="text-xl font-bold mb-6">Edit Legal Documents</h3>
+              
+              <div className="mb-6 flex gap-4">
+                <button id="btn-edit-privacy" className="px-4 py-2 bg-primary text-white rounded-lg font-bold">Privacy Policy</button>
+                <button id="btn-edit-terms" className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold">Terms & Conditions</button>
+              </div>
+
+              <form id="legal-doc-form" className="space-y-4">
+                <input type="hidden" id="legal-doc-slug" value="privacy-policy" />
+                <input type="hidden" id="legal-doc-id" />
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Title</label>
+                  <input type="text" id="legal-doc-title" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold" required />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">HTML Content</label>
+                  <textarea id="legal-doc-content" rows={15} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm" required></textarea>
+                </div>
+
+                <button type="submit" className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2">
+                  <i data-lucide="save" className="w-4 h-4"></i> Save Changes
+                </button>
+              </form>
             </div>
           </div>
 

@@ -1,6 +1,8 @@
 import "./globals.css";
 import { Inter, Poppins } from 'next/font/google';
 import SmoothScroll from './SmoothScroll'
+import CookieConsent from '@/components/ui/CookieConsent';
+import LegalModalManager from '@/components/legal/LegalModalManager';
 
 // Optimized font loading with Next.js
 const inter = Inter({ 
@@ -120,6 +122,8 @@ export default function RootLayout({ children }) {
       <head />
       <body className="font-sans text-slate-800 bg-white dark:bg-[#090a14] dark:text-slate-200 min-h-screen overflow-x-hidden transition-colors duration-300" suppressHydrationWarning>
          <SmoothScroll />
+         <CookieConsent />
+         <LegalModalManager />
         {children}
       </body>
     </html>

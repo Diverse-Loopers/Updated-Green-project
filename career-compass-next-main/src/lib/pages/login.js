@@ -68,6 +68,21 @@ export async function handleLogin(e) {
     }
 }
 
+export async function handleGoogleLogin(e) {
+    if (e) e.preventDefault();
+    
+    const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: window.location.origin + '/auth/callback'
+        }
+    });
+
+    if (error) {
+        showMessage(error.message, true);
+    }
+}
+
 export async function handleForgotPassword(e) {
     e.preventDefault();
     const email = document.getElementById('forgot-email').value;
@@ -112,10 +127,16 @@ export function initAuthListeners() {
     const loginForm = document.getElementById('login-form');
     const forgotForm = document.getElementById('forgot-form');
     const otpForm = document.getElementById('otp-form');
+    
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    const googleRegisterBtn = document.getElementById('google-register-btn');
 
     if (forgotPasswordTrigger) forgotPasswordTrigger.onclick = showForgotPasswordOverlay;
     if (registerForm) registerForm.onsubmit = handleRegister;
     if (loginForm) loginForm.onsubmit = handleLogin;
     if (forgotForm) forgotForm.onsubmit = handleForgotPassword;
     if (otpForm) otpForm.onsubmit = handleOtpVerify;
+    
+    if (googleLoginBtn) googleLoginBtn.onclick = handleGoogleLogin;
+    if (googleRegisterBtn) googleRegisterBtn.onclick = handleGoogleLogin;
 }

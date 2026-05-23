@@ -75,24 +75,28 @@ export default function ClientDashboard() {
 
     useEffect(() => {
         (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { window.location.href = '/products/login'; return; }
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) { 
+                await supabase.auth.signOut();
+                window.location.href = '/products/login'; 
+                return; 
+            }
 
             // Validate business user
-            const isBusiness = session.user?.user_metadata?.is_business === true;
+            const isBusiness = user?.user_metadata?.is_business === true;
             if (!isBusiness) {
                 window.location.href = '/products/login?error=business_only';
                 return;
             }
 
-            setUser(session.user);
+            setUser(user);
 
             // Fetch subscriptions
             try {
                 const { data: subs } = await supabase
                     .from('client_subscriptions')
                     .select('*')
-                    .eq('user_id', session.user.id)
+                    .eq('user_id', user.id)
                     .eq('status', 'active');
                 setSubscriptions(subs || []);
 
@@ -102,14 +106,14 @@ export default function ClientDashboard() {
                 const { count: campCount } = await supabase
                     .from('loopmail_campaigns')
                     .select('id', { count: 'exact', head: true })
-                    .eq('user_id', session.user.id)
+                    .eq('user_id', user.id)
                     .gte('created_at', thirtyDaysAgo.toISOString());
                 setCampaignCount(campCount || 0);
 
                 const { count: contCount } = await supabase
                     .from('loopmail_contacts')
                     .select('id', { count: 'exact', head: true })
-                    .eq('user_id', session.user.id);
+                    .eq('user_id', user.id);
                 setContactCount(contCount || 0);
             } catch {
                 // Tables might not exist yet
@@ -134,7 +138,8 @@ export default function ClientDashboard() {
     const getToolSub = (toolId) => subscriptions.find(s => s.product_slug === toolId && s.onboarding_status === 'active');
     const getToolPlan = (toolId) => {
         const sub = getToolSub(toolId);
-        return sub?.plan || null; // null = not subscribed
+        if (!sub) return null; // null = not subscribed
+        return sub.plan || 'basic'; // default to basic
     };
 
     const subscribedTools = ALL_TOOLS.filter(t => t.status === 'active' && getToolSub(t.id));
