@@ -40,8 +40,10 @@ export default function ExecutiveLoginPage() {
         return;
       }
 
-      // Store executive session in localStorage
-      localStorage.setItem('executive_session', JSON.stringify(data.executive));
+      // Store executive session + token in sessionStorage (cleared when tab closes)
+      // Do NOT use localStorage — sessionStorage is safer for sensitive sessions
+      sessionStorage.setItem('executive_session', JSON.stringify(data.executive));
+      sessionStorage.setItem('executive_token', data.token);
 
       // Redirect based on role
       const route = ROLE_ROUTES[data.executive.role] || '/sales-dashboard';

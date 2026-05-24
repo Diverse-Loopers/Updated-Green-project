@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyExecutiveSession } from '@/lib/executive-auth';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// GET — Fetch business subscriptions, enterprise leads, and stats
+// GET — Fetch business subscriptions, enterprise leads, and stats — requires executive session
 export async function GET(req) {
+    const auth = await verifyExecutiveSession(req);
+    if (!auth.ok) return auth.response;
+
     try {
         const tab = new URL(req.url).searchParams.get('tab') || 'subscriptions';
 
@@ -63,8 +67,11 @@ export async function GET(req) {
     }
 }
 
-// POST — Update lead status
+// POST — Update lead status — requires executive session
 export async function POST(req) {
+    const auth = await verifyExecutiveSession(req);
+    if (!auth.ok) return auth.response;
+
     try {
         const { action, lead_id, status } = await req.json();
 

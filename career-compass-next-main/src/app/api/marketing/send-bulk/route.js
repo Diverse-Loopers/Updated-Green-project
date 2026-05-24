@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyExecutiveSession } from '@/lib/executive-auth';
 import nodemailer from 'nodemailer';
 import dns from 'dns';
 import { promisify } from 'util';
@@ -106,7 +107,11 @@ async function sendInBackground(campId, validContacts, skippedContacts, htmlBody
     setTimeout(() => runningCampaigns.delete(campId), 5 * 60 * 1000);
 }
 
-export async function GET() {
+export async function GET(request) {
+    // Requires valid executive session
+    const auth = await verifyExecutiveSession(request);
+    if (!auth.ok) return auth.response;
+
     // Return status of all running campaigns
     const active = [];
     for (const [id, state] of runningCampaigns) {
@@ -116,6 +121,10 @@ export async function GET() {
 }
 
 export async function POST(req) {
+    // Requires valid executive session to send bulk emails
+    const auth = await verifyExecutiveSession(req);
+    if (!auth.ok) return auth.response;
+
     try {
         const contentType = req.headers.get('content-type') || '';
         let contactIds, subject, htmlBody, title, cc, bcc, folderIds;

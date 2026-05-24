@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyExecutiveSession, hashPassword } from '@/lib/executive-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// GET: List all executives
-export async function GET() {
+// Only these roles can manage executives
+const ALLOWED_ROLES = ['admin', 'ceo', 'cto', 'coo'];
+
+// GET: List all executives — requires valid executive session
+export async function GET(request) {
+  const auth = await verifyExecutiveSession(request);
+  if (!auth.ok) return auth.response;
+
   try {
     const { data, error } = await supabase
       .from('executives')
@@ -17,22 +24,36 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json({ success: true, executives: data || [] });
   } catch (err) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to fetch executives' }, { status: 500 });
   }
 }
 
-// POST: Create, Update, Delete executives
-export async function POST(req) {
+// POST: Create, Update, Delete executives — requires admin/ceo/cto/coo role
+export async function POST(request) {
+  const auth = await verifyExecutiveSession(request);
+  if (!auth.ok) return auth.response;
+
+  // Only admins/seniors can manage executives
+  if (!ALLOWED_ROLES.includes(auth.executive.role)) {
+    return NextResponse.json(
+      { success: false, error: 'You do not have permission to manage executives.' },
+      { status: 403 }
+    );
+  }
+
   try {
-    const { action, ...body } = await req.json();
+    const { action, ...body } = await request.json();
 
     if (action === 'create') {
       const { email, password, name, role, phone } = body;
       if (!email || !password || !name || !role) {
-        return NextResponse.json({ success: false, error: 'Email, password, name, and role are required' }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: 'Email, password, name, and role are required' },
+          { status: 400 }
+        );
       }
 
-      // Check duplicate email
+      // Check duplicate
       const { data: existing } = await supabase
         .from('executives')
         .select('id')
@@ -40,14 +61,20 @@ export async function POST(req) {
         .maybeSingle();
 
       if (existing) {
-        return NextResponse.json({ success: false, error: 'An executive with this email already exists' }, { status: 400 });
+        return NextResponse.json(
+          { success: false, error: 'An executive with this email already exists' },
+          { status: 400 }
+        );
       }
+
+      // Hash password before storing
+      const hashedPassword = hashPassword(password);
 
       const { data, error } = await supabase
         .from('executives')
         .insert({
           email: email.toLowerCase().trim(),
-          password,
+          password: hashedPassword,
           name,
           role,
           phone: phone || null,
@@ -87,9 +114,12 @@ export async function POST(req) {
         return NextResponse.json({ success: false, error: 'ID and password required' }, { status: 400 });
       }
 
+      // Hash new password before storing
+      const hashedPassword = hashPassword(password);
+
       const { error } = await supabase
         .from('executives')
-        .update({ password })
+        .update({ password: hashedPassword })
         .eq('id', id);
 
       if (error) throw error;
@@ -99,6 +129,14 @@ export async function POST(req) {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return NextResponse.json({ success: false, error: 'Executive ID required' }, { status: 400 });
+
+      // Prevent self-deletion
+      if (id === auth.executive.id) {
+        return NextResponse.json(
+          { success: false, error: 'You cannot delete your own account.' },
+          { status: 400 }
+        );
+      }
 
       const { error } = await supabase
         .from('executives')
@@ -113,6 +151,6 @@ export async function POST(req) {
 
   } catch (err) {
     console.error('Executive manage error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }

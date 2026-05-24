@@ -1,4 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+// Sitemap runs server-side at build time — use a plain createClient (not the browser SSR client)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
 export default async function sitemap() {
   const baseUrl = 'https://diverseloopers.com'

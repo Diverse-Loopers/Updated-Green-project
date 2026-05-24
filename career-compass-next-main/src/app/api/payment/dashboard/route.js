@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifyExecutiveSession } from '@/lib/executive-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// GET: Fetch all payments for sales dashboard
+// GET: Fetch all payments — requires valid executive session
 export async function GET(req) {
+  const auth = await verifyExecutiveSession(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '100');
@@ -73,8 +77,11 @@ export async function GET(req) {
   }
 }
 
-// POST: Manage payment settings
+// POST: Manage payment settings — requires executive session (CFO/admin roles)
 export async function POST(req) {
+  const auth = await verifyExecutiveSession(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { action, ...body } = await req.json();
 

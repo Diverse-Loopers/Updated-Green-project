@@ -39,12 +39,17 @@ export default function CMODashboard() {
   const [runningCampaigns, setRunningCampaigns] = useState([]);
 
   useEffect(() => {
-    const s = localStorage.getItem('executive_session');
+    const s = sessionStorage.getItem('executive_session');
     if (!s) { router.push('/executive-login'); return; }
     const p = JSON.parse(s);
     if (p.role !== 'cmo') { router.push('/executive-login'); return; }
     setExec(p);
   }, [router]);
+
+  // Helper: get auth headers for protected API calls
+  const authHeaders = () => ({
+    'Authorization': `Bearer ${sessionStorage.getItem('executive_token') || ''}`
+  });
 
   const fetchFolders = useCallback(async () => {
     const r = await fetch('/api/marketing/folders');
@@ -74,7 +79,7 @@ export default function CMODashboard() {
     if (!exec) return;
     const poll = async () => {
       try {
-        const r = await fetch('/api/marketing/send-bulk');
+        const r = await fetch('/api/marketing/send-bulk', { headers: authHeaders() });
         const d = await r.json();
         if (d.success) setRunningCampaigns(d.running || []);
       } catch {}
@@ -190,7 +195,7 @@ export default function CMODashboard() {
     fd.append('cc', compose.cc || '');
     fd.append('bcc', compose.bcc || '');
     attachments.forEach((a,i) => fd.append(`file_${i}`, a.file));
-    const r = await fetch('/api/marketing/send-bulk', { method:'POST', body: fd });
+    const r = await fetch('/api/marketing/send-bulk', { method:'POST', body: fd, headers: authHeaders() });
     const d = await r.json();
     setSendStatus(null);
     if (d.success) {
@@ -199,7 +204,7 @@ export default function CMODashboard() {
     } else alert(d.error);
   };
 
-  const logout = () => { localStorage.removeItem('executive_session'); router.push('/executive-login'); };
+  const logout = () => { sessionStorage.removeItem('executive_session'); sessionStorage.removeItem('executive_token'); router.push('/executive-login'); };
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
   const sentCampaigns = campaigns.filter(c=>c.status==='sent');

@@ -123,7 +123,7 @@ export async function GET(request) {
         const { data, error } = await supabase
             .from('applications')
             .select('id, job_title, status, submitted_at, applicant_name')
-            .eq('applicant_email', email)
+            .ilike('applicant_email', email)
             .order('submitted_at', { ascending: false });
         if (error) throw error;
 

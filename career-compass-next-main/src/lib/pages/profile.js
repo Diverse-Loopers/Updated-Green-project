@@ -392,6 +392,13 @@ export async function fetchDashboardData(userId) {
             if (hustlerNameInput && profile.full_name) {
                 hustlerNameInput.value = profile.full_name;
             }
+
+            // Show email on profile page
+            const profileEmailEl = document.getElementById('profile-email');
+            if (profileEmailEl) {
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                profileEmailEl.textContent = authUser?.email || 'Not set';
+            }
         }
 
         // Dynamic Time of Day Greeting
@@ -540,7 +547,7 @@ export async function fetchDashboardData(userId) {
         }
 
         // Enrollments
-        const { data: enroll } = await supabase.from('enrollments').select('*, courses(title)').eq('user_id', userId);
+        const { data: enroll } = await supabase.from('enrollments').select('*, courses(title, image_url, instructor, level)').eq('user_id', userId);
         if (enroll?.length) {
             const mainCourse = enroll[0];
             
@@ -558,18 +565,44 @@ export async function fetchDashboardData(userId) {
             if (performanceBar) performanceBar.style.width = `${mainCourse.performance_score}%`;
             if (suggestionsText) suggestionsText.textContent = mainCourse.suggestions || "Focus on building proof projects.";
 
+            // Render course list into Active Learning section
+            const courseListEl = document.getElementById('enrolled-courses-list');
+            if (courseListEl) {
+                courseListEl.innerHTML = enroll.map(e => {
+                    const title = e.courses?.title || 'Untitled Course';
+                    const instructor = e.courses?.instructor || '';
+                    const level = e.courses?.level || '';
+                    return `
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fafafa;border:1px solid #f0f0f0;border-radius:12px;margin-bottom:8px;transition:border-color 0.15s"
+                             onmouseover="this.style.borderColor='#00c851'" onmouseout="this.style.borderColor='#f0f0f0'">
+                            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#e8f5e9,#a5d6a7);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00c851" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                            </div>
+                            <div style="flex:1;min-width:0">
+                                <div style="font-size:13px;font-weight:700;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
+                                <div style="font-size:11px;color:#999">${instructor}${level ? ' · ' + level : ''}</div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                                <span style="font-size:10px;font-weight:700;color:#00c851">${e.attendance_percentage || 0}%</span>
+                                <span style="font-size:9px;color:#bbb">Attendance</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             // Projects
             const { data: proj } = await supabase.from('course_projects').select('*').eq('enrollment_id', mainCourse.id);
             const projectsList = document.getElementById('projects-list');
             if (projectsList) {
-                projectsList.innerHTML = proj?.map(p => `<div class="p-3 bg-slate-100/30 dark:bg-white/5 rounded-xl text-xs font-bold">${p.project_name}</div>`).join('') || '<p class="text-xs text-slate-400">None started.</p>';
+                projectsList.innerHTML = proj?.map(p => `<div style="padding:10px 12px;background:#fafafa;border:1px solid #f0f0f0;border-radius:10px;font-size:12px;font-weight:700;color:#333;margin-bottom:6px">${p.project_name}</div>`).join('') || '<p style="font-size:12px;color:#999">None started.</p>';
             }
 
             // Exams
             const { data: exams } = await supabase.from('course_exams').select('*').eq('enrollment_id', mainCourse.id);
             const examsList = document.getElementById('exams-list');
             if (examsList) {
-                examsList.innerHTML = exams?.map(e => `<div class="flex justify-between p-2 text-xs font-bold border-b border-slate-50 dark:border-white/5 last:border-0"><span>${e.exam_title}</span><span class="text-secondary">${e.result_grade || 'Pending'}</span></div>`).join('') || '<p class="text-xs text-slate-400">No exams.</p>';
+                examsList.innerHTML = exams?.map(e => `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px;font-weight:600;border-bottom:1px solid #f0f0f0"><span style="color:#333">${e.exam_title}</span><span style="color:#e91e63">${e.result_grade || 'Pending'}</span></div>`).join('') || '<p style="font-size:12px;color:#999">No exams.</p>';
             }
         }
 
@@ -587,25 +620,25 @@ export async function fetchDashboardData(userId) {
                     if (appBadgeEl) appBadgeEl.textContent = `${apps.length} Applied`;
                     
                     if (apps.length === 0) {
-                        appListEl.innerHTML = '<div class="p-4 glass-card rounded-xl text-center text-muted text-sm">No applications submitted yet. <a href="/career" class="text-primary font-bold">Browse Careers</a></div>';
+                        appListEl.innerHTML = '<div style="padding:16px;text-align:center;color:#999;font-size:13px">No applications submitted yet. <a href="/career" style="color:#00c851;font-weight:700;text-decoration:none">Browse Careers</a></div>';
                     } else {
-                        const statusStyles = {
-                            new: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400',
-                            reviewed: 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
-                            shortlisted: 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400',
-                            rejected: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400',
-                            interviewed: 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400',
+                        const statusClasses = {
+                            new: 'pf-status-new',
+                            reviewed: 'pf-status-reviewed',
+                            shortlisted: 'pf-status-shortlisted',
+                            rejected: 'pf-status-rejected',
+                            interviewed: 'pf-status-interviewed',
                         };
                         appListEl.innerHTML = apps.map(a => {
                             const status = a.status || 'new';
                             const dateStr = a.submitted_at ? new Date(a.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                             return `
-                                <div class="flex items-center justify-between p-4 glass-card rounded-xl hover:border-purple-500/30 transition-all">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-bold text-sm text-heading truncate">${a.job_title}</div>
-                                        <div class="text-xs text-muted mt-0.5">Applied ${dateStr}</div>
+                                <div class="pf-app-item">
+                                    <div style="flex:1;min-width:0">
+                                        <div class="pf-app-title">${a.job_title}</div>
+                                        <div class="pf-app-date">Applied ${dateStr}</div>
                                     </div>
-                                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusStyles[status] || statusStyles.new}">${status}</span>
+                                    <span class="pf-app-status ${statusClasses[status] || statusClasses.new}">${status}</span>
                                 </div>
                             `;
                         }).join('');
@@ -613,7 +646,7 @@ export async function fetchDashboardData(userId) {
                 }
             } catch (err) {
                 console.error('Error loading applications:', err);
-                appListEl.innerHTML = '<div class="p-4 glass-card rounded-xl text-center text-muted text-sm">Unable to load applications</div>';
+                appListEl.innerHTML = '<div style="padding:16px;text-align:center;color:#999;font-size:13px">Unable to load applications</div>';
             }
         }
 

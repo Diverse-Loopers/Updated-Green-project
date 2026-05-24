@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "../../../app/login/login.css";
 import { supabase } from "@/lib/supabase";
 import { validateOrgEmail } from "@/lib/emailValidation";
@@ -18,6 +18,7 @@ function showMessage(msg, isError = false) {
 let tempEmailForOtp = '';
 
 export default function BusinessLoginPage() {
+    const [studentWarning, setStudentWarning] = useState(false);
     useEffect(() => {
         // Show error from middleware redirect
         const params = new URLSearchParams(window.location.search);
@@ -25,14 +26,20 @@ export default function BusinessLoginPage() {
             setTimeout(() => showMessage('This area is for business accounts only. Students should use the student login at /login', true), 300);
         }
 
-        // Check if already logged in AS A BUSINESS USER
+        // Check if already logged in
         supabase.auth.getUser().then(async ({ data: { user }, error }) => {
             if (error) {
                 await supabase.auth.signOut();
                 return;
             }
-            if (user && user?.user_metadata?.is_business === true) {
-                window.location.href = '/products/dashboard';
+            if (user) {
+                if (user?.user_metadata?.is_business === true) {
+                    // Valid business user — send to dashboard
+                    window.location.href = '/products/dashboard';
+                } else {
+                    // Student is logged in — show warning banner instead of looping
+                    setStudentWarning(true);
+                }
             }
         });
 
@@ -186,6 +193,53 @@ export default function BusinessLoginPage() {
                     <i className="bx bx-arrow-back"></i> Back
                 </a>
             </div>
+
+            {/* Student logged-in warning banner */}
+            {studentWarning && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#fff', borderRadius: 16, padding: '40px 32px',
+                        maxWidth: 420, width: '90%', textAlign: 'center',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+                        <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>
+                            You&apos;re logged in as a Student
+                        </h2>
+                        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: 28, lineHeight: 1.6 }}>
+                            This area is for <strong>Business accounts only</strong>. Your student account doesn&apos;t have access to the business dashboard.
+                            <br /><br />
+                            Sign out of your student account first, then create or log in to a business account.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <button
+                                onClick={async () => { await supabase.auth.signOut(); setStudentWarning(false); }}
+                                style={{
+                                    padding: '12px 24px', background: '#2563eb', color: '#fff',
+                                    border: 'none', borderRadius: 30, fontWeight: 700,
+                                    fontSize: '0.9rem', cursor: 'pointer'
+                                }}
+                            >
+                                Sign Out &amp; Use Business Account
+                            </button>
+                            <a
+                                href="/profile"
+                                style={{
+                                    padding: '12px 24px', background: '#f1f5f9', color: '#334155',
+                                    borderRadius: 30, fontWeight: 700,
+                                    fontSize: '0.9rem', textDecoration: 'none', display: 'block'
+                                }}
+                            >
+                                Go to My Student Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="auth-wrapper" id="authWrapper">
                 {/* LOGIN FORM */}

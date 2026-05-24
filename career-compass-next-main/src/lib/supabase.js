@@ -1,38 +1,37 @@
-import { createClient } from '@supabase/supabase-js';
+'use client';
 
-// Create a single instance that will be reused everywhere
+import { createBrowserClient } from '@supabase/ssr';
+
+// Create a single browser client instance that:
+// 1. Stores sessions in COOKIES (not just localStorage)
+//    → This means the middleware can read them server-side
+// 2. Auto-refreshes tokens
+// 3. Works for both students and business users
 let supabaseInstance = null;
 
 export function getSupabase() {
-  if (!supabaseInstance) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (supabaseInstance) return supabaseInstance;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn('Missing Supabase environment variables — running in offline mode.');
-      return null;
-    }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: typeof window !== 'undefined',
-        autoRefreshToken: true,
-      }
-    });
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn('Missing Supabase environment variables — running in offline mode.');
+    return null;
   }
 
+  supabaseInstance = createBrowserClient(supabaseUrl, supabaseKey);
   return supabaseInstance;
 }
 
-// Lazy getter — avoids calling createClient during SSR module evaluation
-// Falls back to a safe no-op stub when Supabase is not configured
+// Lazy proxy — returns no-op stubs if Supabase is not configured
 export const supabase = new Proxy({}, {
   get(_, prop) {
     const client = getSupabase();
     if (!client) {
-      // Return a no-op stub so callers don't crash when Supabase isn't configured
       if (prop === 'auth') {
         return {
+          getUser: async () => ({ data: { user: null }, error: null }),
           getSession: async () => ({ data: { session: null }, error: null }),
           onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
           signOut: async () => ({ error: null }),

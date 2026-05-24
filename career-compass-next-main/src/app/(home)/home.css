@@ -265,6 +265,8 @@
   text-align: center;
   font-family: 'Inter', sans-serif;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mobile-audience-btn.active {
   border-color: #00c851;
@@ -1611,5 +1613,6 @@
   .hero-title { font-size: 28px; }
   .section-title { font-size: 22px; }
   .section-inner { padding: 0 16px; }
-  .mobile-audience-btn { font-size: 12px; padding: 8px 6px; }
+  .mobile-audience-btn { font-size: 11px; padding: 8px 4px; white-space: nowrap; }
+  .mobile-audience-row { gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 }

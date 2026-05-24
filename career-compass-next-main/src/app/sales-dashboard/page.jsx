@@ -44,19 +44,31 @@ export default function SalesDashboardPage() {
   const [editingTpl, setEditingTpl] = useState(null);
   const [tplSaving, setTplSaving] = useState(false);
 
+  // Placement applications
+  const [placements, setPlacements] = useState([]);
+  const [placementStats, setPlacementStats] = useState({ total: 0, new: 0, reviewing: 0, shortlisted: 0, placed: 0 });
+  const [placementFilter, setPlacementFilter] = useState('all');
+  const [placementDetail, setPlacementDetail] = useState(null);
+
   useEffect(() => {
-    const session = localStorage.getItem('executive_session');
+    const session = sessionStorage.getItem('executive_session');
     if (!session) { router.push('/executive-login'); return; }
     setExec(JSON.parse(session));
     loadDashboardData();
   }, []);
 
+  // Helper: get auth headers for protected API calls
+  const authHeaders = () => ({
+    'Authorization': `Bearer ${sessionStorage.getItem('executive_token') || ''}`,
+    'Content-Type': 'application/json',
+  });
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
       const [payRes, settingsRes] = await Promise.all([
-        fetch('/api/payment/dashboard').then(r => r.json()),
-        fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get-settings' }) }).then(r => r.json()),
+        fetch('/api/payment/dashboard', { headers: authHeaders() }).then(r => r.json()),
+        fetch('/api/payment/dashboard', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'get-settings' }) }).then(r => r.json()),
       ]);
       if (payRes.success) { setPayments(payRes.payments); setStats(payRes.stats); setChart(payRes.chart); setCourseAnalytics(payRes.courseAnalytics || []); }
       if (settingsRes.success) setSettings(settingsRes.settings);
@@ -67,8 +79,8 @@ export default function SalesDashboardPage() {
   const loadBizData = async () => {
     try {
       const [subsRes, leadsRes] = await Promise.all([
-        fetch('/api/loopmail/business-dashboard?tab=subscriptions').then(r => r.json()),
-        fetch('/api/loopmail/business-dashboard?tab=leads').then(r => r.json()),
+        fetch('/api/loopmail/business-dashboard?tab=subscriptions', { headers: authHeaders() }).then(r => r.json()),
+        fetch('/api/loopmail/business-dashboard?tab=leads', { headers: authHeaders() }).then(r => r.json()),
       ]);
       if (subsRes.success) { setBizSubs(subsRes.subscriptions || []); setBizStats(subsRes.stats); }
       if (leadsRes.success) { setLeads(leadsRes.leads || []); setLeadStats(leadsRes.stats); }
@@ -77,6 +89,19 @@ export default function SalesDashboardPage() {
 
   useEffect(() => { if (activeTab === 'biz-payments' || activeTab === 'biz-leads') loadBizData(); }, [activeTab]);
   useEffect(() => { if (activeTab === 'email-templates') loadTemplates(); }, [activeTab]);
+  useEffect(() => { if (activeTab === 'placements') loadPlacements(); }, [activeTab]);
+
+  const loadPlacements = async () => {
+    try {
+      const res = await fetch('/api/placement', { headers: authHeaders() }).then(r => r.json());
+      if (res.success) { setPlacements(res.applications || []); setPlacementStats(res.stats); }
+    } catch {}
+  };
+
+  const updatePlacementStatus = async (id, status) => {
+    await fetch('/api/placement', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ id, status }) });
+    loadPlacements();
+  };
 
   const loadTemplates = async () => {
     try {
@@ -98,20 +123,20 @@ export default function SalesDashboardPage() {
     setTplSaving(false);
   };
 
-  const handleLogout = () => { localStorage.removeItem('executive_session'); router.push('/executive-login'); };
+  const handleLogout = () => { sessionStorage.removeItem('executive_session'); sessionStorage.removeItem('executive_token'); router.push('/executive-login'); };
 
   const saveGateway = async () => {
     if (!gwKey || !gwSecret) return;
     setSavingGw(true);
-    try { await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-settings', gateway_name: gwName, api_key: gwKey, api_secret: gwSecret }) }); setGwKey(''); setGwSecret(''); loadDashboardData(); } catch {}
+    try { await fetch('/api/payment/dashboard', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'save-settings', gateway_name: gwName, api_key: gwKey, api_secret: gwSecret }) }); setGwKey(''); setGwSecret(''); loadDashboardData(); } catch {}
     setSavingGw(false);
   };
 
-  const activateGateway = async (name) => { await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'activate-gateway', gateway_name: name }) }); loadDashboardData(); };
-  const deleteGateway = async (id) => { if (!confirm('Remove this gateway?')) return; await fetch('/api/payment/dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete-settings', id }) }); loadDashboardData(); };
+  const activateGateway = async (name) => { await fetch('/api/payment/dashboard', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'activate-gateway', gateway_name: name }) }); loadDashboardData(); };
+  const deleteGateway = async (id) => { if (!confirm('Remove this gateway?')) return; await fetch('/api/payment/dashboard', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete-settings', id }) }); loadDashboardData(); };
 
   const updateLeadStatus = async (leadId, status) => {
-    await fetch('/api/loopmail/business-dashboard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update-lead-status', lead_id: leadId, status }) });
+    await fetch('/api/loopmail/business-dashboard', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'update-lead-status', lead_id: leadId, status }) });
     loadBizData();
   };
 
@@ -137,6 +162,7 @@ export default function SalesDashboardPage() {
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'transactions', label: 'Transactions', icon: '💰' },
     { id: 'analytics', label: 'Course Analytics', icon: '📈' },
+    { id: 'placements', label: 'Placement Applications', icon: '🌎' },
     { id: 'biz-payments', label: 'Business Payments', icon: '🏢' },
     { id: 'biz-leads', label: 'Enterprise Leads', icon: '📋' },
     { id: 'email-templates', label: 'Email Templates', icon: '✉️' },
@@ -254,6 +280,110 @@ export default function SalesDashboardPage() {
               <tbody>{filteredBizSubs.map(s => (<tr key={s.id || s.user_id}><td><div className="sd-cell-name">{s.client_profiles?.full_name || '-'}</div><div className="sd-cell-sub">{s.client_profiles?.work_email || '-'}</div></td><td>{s.client_profiles?.company_name || '-'}</td><td><span className={`sd-badge sd-badge-${s.plan}`}>{s.plan}</span></td><td>₹{(s.amount_paid || 0).toLocaleString('en-IN')}</td><td style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{s.payment_id || '-'}</td><td><span className={`sd-badge sd-badge-${s.status}`}>{s.status}</span></td><td><span className={`sd-badge sd-badge-${s.onboarding_status}`}>{s.onboarding_status || 'pending'}</span></td><td>{s.updated_at ? new Date(s.updated_at).toLocaleDateString('en-IN') : '-'}</td></tr>))}
                 {filteredBizSubs.length === 0 && <tr><td colSpan={8} className="sd-empty">No subscriptions found</td></tr>}
               </tbody></table></div></div>
+          </div>
+        )}
+
+        {/* PLACEMENT APPLICATIONS */}
+        {activeTab === 'placements' && (
+          <div className="sd-content">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+              <h1 className="sd-page-title">🌎 Canada & USA Placement Applications</h1>
+              <button className="sd-btn sd-btn-sm sd-btn-primary" onClick={loadPlacements}>🔄 Refresh</button>
+            </div>
+            <div className="sd-stats-grid" style={{ marginBottom: 20 }}>
+              <div className="sd-stat-card"><p className="sd-stat-label">Total Applications</p><p className="sd-stat-value" style={{ color: '#3b82f6' }}>{placementStats.total}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">New</p><p className="sd-stat-value" style={{ color: '#f59e0b' }}>{placementStats.new}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Reviewing</p><p className="sd-stat-value" style={{ color: '#8b5cf6' }}>{placementStats.reviewing}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Shortlisted</p><p className="sd-stat-value" style={{ color: '#3b82f6' }}>{placementStats.shortlisted}</p></div>
+              <div className="sd-stat-card"><p className="sd-stat-label">Placed</p><p className="sd-stat-value" style={{ color: '#16a34a' }}>{placementStats.placed}</p></div>
+            </div>
+            <div className="sd-filter-tabs" style={{ marginBottom: 16 }}>
+              {[{ k: 'all', l: 'All' }, { k: 'new', l: 'New' }, { k: 'reviewing', l: 'Reviewing' }, { k: 'shortlisted', l: 'Shortlisted' }, { k: 'placed', l: 'Placed' }].map(f => (
+                <button key={f.k} className={`sd-filter-tab ${placementFilter === f.k ? 'active' : ''}`} onClick={() => setPlacementFilter(f.k)}>{f.l}</button>
+              ))}
+            </div>
+            <div className="sd-card">
+              <div className="sd-table-wrap">
+                <table className="sd-table">
+                  <thead><tr>
+                    <th>Name</th><th>Email</th><th>Contact</th><th>Visa</th><th>Tech Skills</th><th>Location</th><th>Status</th><th>Date</th><th>Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    {placements.filter(a => placementFilter === 'all' || a.status === placementFilter).map(a => (
+                      <tr key={a.id}>
+                        <td><div className="sd-cell-name">{a.full_name}</div></td>
+                        <td style={{ fontSize: '0.78rem' }}>{a.email}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{a.contact_number}</td>
+                        <td><span className="sd-gw-tag" style={{ fontSize: '0.7rem' }}>{a.visa_status || '—'}</span></td>
+                        <td style={{ maxWidth: 160, fontSize: '0.75rem', color: '#64748b' }}>{a.tech_skill_set || '—'}</td>
+                        <td style={{ fontSize: '0.75rem' }}>{a.current_location || '—'}</td>
+                        <td>
+                          <select
+                            value={a.status}
+                            onChange={e => updatePlacementStatus(a.id, e.target.value)}
+                            className="sd-badge"
+                            style={{ border: '1px solid #d1d5db', borderRadius: 6, padding: '3px 8px', fontSize: '0.72rem', cursor: 'pointer', background: a.status === 'placed' ? '#d1fae5' : a.status === 'shortlisted' ? '#dbeafe' : a.status === 'reviewing' ? '#ede9fe' : '#fef3c7' }}
+                          >
+                            <option value="new">New</option>
+                            <option value="reviewing">Reviewing</option>
+                            <option value="shortlisted">Shortlisted</option>
+                            <option value="placed">Placed</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        </td>
+                        <td style={{ fontSize: '0.75rem' }}>{new Date(a.created_at).toLocaleDateString('en-IN')}</td>
+                        <td>
+                          <button className="sd-btn sd-btn-sm sd-btn-info" onClick={() => setPlacementDetail(a)}>View</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {placements.filter(a => placementFilter === 'all' || a.status === placementFilter).length === 0 && (
+                      <tr><td colSpan={9} className="sd-empty">No placement applications found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Detail Modal */}
+            {placementDetail && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={e => { if (e.target === e.currentTarget) setPlacementDetail(null); }}>
+                <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 700, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 30px 60px rgba(0,0,0,0.3)' }}>
+                  <div style={{ background: 'linear-gradient(135deg, #1e3a5f, #2563eb)', padding: '20px 24px', position: 'sticky', top: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h3 style={{ color: '#fff', margin: 0, fontSize: '1.1rem' }}>🌎 {placementDetail.full_name}</h3>
+                        <p style={{ color: '#93c5fd', margin: '4px 0 0', fontSize: '0.8rem' }}>{placementDetail.email} · {placementDetail.visa_status}</p>
+                      </div>
+                      <button onClick={() => setPlacementDetail(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', fontSize: 16 }}>×</button>
+                    </div>
+                  </div>
+                  <div style={{ padding: '20px 24px' }}>
+                    {[
+                      ['📍 Location', placementDetail.current_location], ['📞 Contact', placementDetail.contact_number],
+                      ['📱 Alternate', placementDetail.alternate_contact], ['📧 Personal Email', placementDetail.personal_email],
+                      ['🎂 Date of Birth', placementDetail.date_of_birth], ['🔑 SIN/SSN Last 4', placementDetail.sin_ssn_last4],
+                      ['💼 Skype ID', placementDetail.skype_id], ['🌐 Citizenship', placementDetail.citizenship],
+                      ['📅 Vendor Call Availability', placementDetail.vendor_call_availability],
+                      ['💻 Tech Skills', placementDetail.tech_skill_set], ['🔗 LinkedIn', placementDetail.linkedin_url],
+                      ['🔐 LinkedIn Password', placementDetail.linkedin_password], ['🔐 Email Password', placementDetail.email_password],
+                      ['🎓 Master\'s Field', placementDetail.masters_field], ['🏛️ Master\'s University', placementDetail.masters_university],
+                      ['📅 Master\'s Dates', placementDetail.masters_dates], ['📊 Master\'s GPA', placementDetail.masters_gpa],
+                      ['🎓 Bachelor\'s Field', placementDetail.bachelors_field], ['🏛️ Bachelor\'s University', placementDetail.bachelors_university],
+                      ['📅 Bachelor\'s Dates', placementDetail.bachelors_dates], ['📊 Bachelor\'s GPA', placementDetail.bachelors_gpa],
+                      ['🚚 Open to Relocation', placementDetail.open_to_relocation ? 'Yes' : 'No'],
+                      ['🌐 Portfolio/GitHub', placementDetail.portfolio_url],
+                      ['🪪 ID Proof', placementDetail.id_proof_url ? <a href={placementDetail.id_proof_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>View Document</a> : 'Not uploaded'],
+                    ].map(([label, value]) => value ? (
+                      <div key={label} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '8px 0', fontSize: '0.82rem', gap: 12 }}>
+                        <span style={{ color: '#64748b', minWidth: 200, fontWeight: 500 }}>{label}</span>
+                        <span style={{ color: '#1e293b', wordBreak: 'break-word' }}>{value}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -26,7 +26,10 @@ export default function BusinessPage() {
     supabase.from('business_testimonials').select('*').eq('is_active', true).then(({ data }) => data && setTestimonials(data));
     supabase.from('business_hero').select('*').eq('is_active', true).limit(1).single().then(({ data }) => data && setHeroData(data));
     supabase.from('business_stats').select('*').eq('is_active', true).order('sort_order').then(({ data }) => data && setStats(data));
-    supabase.auth.getUser().then(({ data: { user } }) => { if (user) setAuthUser(user); });
+    supabase.auth.getUser().then(({ data: { user } }) => { 
+      // Only show Dashboard button if user is a verified business account
+      if (user?.user_metadata?.is_business === true) setAuthUser(user); 
+    });
 
     // Smooth scroll for anchor links
     const handleAnchorClick = (e) => {

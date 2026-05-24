@@ -1,12 +1,327 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import * as HomeLogic from '@/lib/pages/home';
 import "./(home)/home.css";
 import NavAuthButtons from '@/components/NavAuthButtons';
 import FooterAuthSection from '@/components/FooterAuthSection';
 import Footer from '@/components/ui/Footer';
 import { supabase } from '@/lib/supabase';
+
+
+/* ================================================================
+   PLACEMENT FORM FIELD HELPERS — defined outside component
+   so they don't remount on every keystroke
+   ================================================================ */
+function PlacementField({ label, name, type, placeholder, required, span2, value, onChange }) {
+  return (
+    <div style={{ gridColumn: span2 ? '1 / -1' : undefined }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}{required && <span style={{ color: '#e53e3e' }}> *</span>}
+      </label>
+      <input
+        type={type || 'text'}
+        value={value}
+        onChange={e => onChange(name, e.target.value)}
+        placeholder={placeholder}
+        required={required}
+        style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111', transition: 'border-color 0.15s' }}
+        onFocus={e => e.target.style.borderColor = '#00c851'}
+        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+      />
+    </div>
+  );
+}
+
+function PlacementSelect({ label, name, options, required, value, onChange }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}{required && <span style={{ color: '#e53e3e' }}> *</span>}
+      </label>
+      <select
+        value={value}
+        onChange={e => onChange(name, e.target.value)}
+        required={required}
+        style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', color: '#111', cursor: 'pointer', boxSizing: 'border-box' }}
+      >
+        <option value="">Select...</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function PlacementSectionLabel({ text, color }) {
+  const c = color || '#00c851';
+  return (
+    <div style={{ fontSize: 11, fontWeight: 700, color: c, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14, paddingBottom: 8, borderBottom: `2px solid ${c}20` }}>{text}</div>
+  );
+}
+
+/* ================================================================
+   CANADA & USA PLACEMENT ASSISTANCE SECTION + MODAL
+   ================================================================ */
+function PlacementSection() {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef(null);
+  const [idProofFile, setIdProofFile] = useState(null);
+  const [form, setForm] = useState({
+    full_name: '', current_location: '', citizenship: '', tech_skill_set: '',
+    contact_number: '', email: '', visa_status: '', linkedin_url: '',
+    linkedin_password: '', email_password: '', date_of_birth: '',
+    sin_ssn_last4: '', skype_id: '', vendor_call_availability: '',
+    masters_field: '', masters_university: '', masters_dates: '', masters_gpa: '',
+    bachelors_field: '', bachelors_university: '', bachelors_dates: '', bachelors_gpa: '',
+    open_to_relocation: '', alternate_contact: '', personal_email: '', portfolio_url: '',
+  });
+
+  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (idProofFile) fd.append('id_proof_file', idProofFile);
+      const res = await fetch('/api/placement', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Submission failed');
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message);
+    }
+    setSubmitting(false);
+  };
+
+  const closeModal = () => { setModalOpen(false); setTimeout(() => setSubmitted(false), 400); };
+
+
+
+
+  const offers = [
+    { title: 'ATS-Optimized Resume', desc: 'Professionally crafted resumes tailored to pass Applicant Tracking Systems used by top employers.' },
+    { title: 'Interview Preparation', desc: 'Technical and behavioral mock interviews with experienced recruiters and industry professionals.' },
+    { title: 'LinkedIn & Profile Optimization', desc: 'Complete profile revamp to maximize visibility with recruiters and hiring managers.' },
+    { title: 'Recruiter & Vendor Marketing', desc: 'Direct outreach to a network of verified vendors and recruiters across Canada and the USA.' },
+    { title: 'Multi-Platform Job Applications', desc: 'Applications submitted across job boards, portals, and direct company channels on your behalf.' },
+    { title: 'Vendor Call Support', desc: 'Real-time assistance during vendor calls to improve your chances of clearing the screening round.' },
+    { title: 'Post-Placement Guidance', desc: 'Support during onboarding, background checks, and the first 90 days in your new role.' },
+    { title: 'OPT / CPT / H1B Support', desc: 'Specialized support for candidates on work authorization — visa-aware job targeting.' },
+  ];
+
+  const eligible = [
+    'International Students in Canada & USA',
+    'OPT / CPT / H1B Candidates',
+    'Freshers & Experienced Professionals',
+    'Software, Data, Cloud, QA, DevOps & IT Roles',
+  ];
+
+  return (
+    <>
+      <section id="placement-assistance" style={{ background: '#fff', padding: '80px 0', borderTop: '1px solid #ebebeb' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px' }}>
+          <div className="section-header fade-up">
+            <div className="section-tag">International Placement Program</div>
+            <h2 className="section-title">Launch Your Career in Canada &amp; the USA</h2>
+            <p className="section-subtitle">
+              We help international students and IT professionals secure career opportunities through our dedicated Placement &amp; Staffing Support Program — from resume building to post-placement guidance.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 56, alignItems: 'center', marginBottom: 72 }} className="fade-up">
+            <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.1)', border: '1px solid #ebebeb' }}>
+              <img src="/placement-banner.png" alt="Canada and USA IT Placement Assistance" style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#00c851', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>End-to-End Support</div>
+              <h3 style={{ fontSize: 'clamp(22px, 2.5vw, 30px)', fontWeight: 800, color: '#111', marginBottom: 16, lineHeight: 1.25 }}>Your Path to a Tech Career Abroad Starts Here</h3>
+              <p style={{ fontSize: 15, color: '#666', lineHeight: 1.75, marginBottom: 24 }}>
+                Whether you are a recent graduate, pursuing your Masters, or looking for your next technology opportunity, our placement specialists provide end-to-end support tailored to your skills, visa status, and career goals.
+              </p>
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Opportunities Available For</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {eligible.map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, color: '#444', fontWeight: 500 }}>
+                      <span style={{ width: 20, height: 20, background: '#00c851', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <button onClick={() => setModalOpen(true)} className="btn-primary-hero" style={{ background: '#00c851', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+                  Apply for Placement Program
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </button>
+                <button onClick={() => setModalOpen(true)} className="btn-secondary-hero" style={{ cursor: 'pointer', fontSize: 14, border: '1.5px solid #ddd' }}>Start Your Career Journey</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="fade-up">
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <div className="section-tag">What We Offer</div>
+              <h3 className="section-title" style={{ fontSize: 'clamp(20px, 2.5vw, 30px)' }}>Comprehensive Placement Support</h3>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 20, marginBottom: 48 }}>
+              {offers.map((o, i) => (
+                <div key={i} className="prog-card" style={{ padding: 24 }}>
+                  <div style={{ width: 40, height: 40, background: '#f0fff6', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c851" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <h4 style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 8 }}>{o.title}</h4>
+                  <p style={{ fontSize: 13, color: '#777', lineHeight: 1.65 }}>{o.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: 'linear-gradient(135deg, #f0fff6 0%, #e8f5ff 100%)', border: '1px solid #d1fae5', borderRadius: 20, padding: 'clamp(24px, 4vw, 40px) clamp(20px, 4vw, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 280px' }}>
+                <h3 style={{ fontSize: 'clamp(18px, 3vw, 22px)', fontWeight: 800, color: '#111', marginBottom: 8 }}>Ready to Start Your International Career?</h3>
+                <p style={{ fontSize: 14, color: '#666', maxWidth: 520 }}>Submit your application today and our staffing team will review your profile and connect you with suitable opportunities.</p>
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%', maxWidth: 340 }}>
+                <button onClick={() => setModalOpen(true)} className="btn-primary-hero" style={{ background: '#00c851', border: 'none', cursor: 'pointer', fontSize: 14, flex: '1 1 auto' }}>Apply Now</button>
+                <button onClick={() => setModalOpen(true)} className="btn-secondary-hero" style={{ cursor: 'pointer', fontSize: 14, flex: '1 1 auto' }}>Get Placement Support</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {modalOpen && (
+        <div onClick={e => { if (e.target === e.currentTarget) closeModal(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', backdropFilter: 'blur(3px)', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 800, boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', margin: 'auto', animation: 'pslideIn 0.25s ease' }}>
+            <style>{`@keyframes pslideIn { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } } @keyframes pspin { to { transform:rotate(360deg); } }`}</style>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid #ebebeb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111', margin: 0 }}>Apply for Canada &amp; USA Placement Program</h2>
+                <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>Diverse Loopers Staffing &amp; Placement Support</p>
+              </div>
+              <button onClick={closeModal} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            {submitted ? (
+              <div style={{ padding: '60px 32px', textAlign: 'center' }}>
+                <div style={{ width: 64, height: 64, background: '#f0fff6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00c851" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <h3 style={{ fontSize: 22, fontWeight: 800, color: '#111', marginBottom: 12 }}>Application Submitted Successfully</h3>
+                <p style={{ fontSize: 14, color: '#666', maxWidth: 480, margin: '0 auto 28px', lineHeight: 1.7 }}>
+                  Thank you for applying to the Diverse Loopers Placement Program. Our recruitment team will review your profile and contact you shortly regarding the next steps.
+                </p>
+                <button onClick={closeModal} className="btn-primary-hero" style={{ background: '#00c851', border: 'none', cursor: 'pointer', fontSize: 14 }}>Close</button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div style={{ padding: '24px 32px', maxHeight: '68vh', overflowY: 'auto' }}>
+                  <p style={{ fontSize: 13, color: '#666', lineHeight: 1.65, marginBottom: 28, padding: '12px 16px', background: '#f7f9fc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    Fill out the form below to begin your placement assistance process. Our staffing team will review your profile and connect with you regarding suitable opportunities, training, and marketing support.
+                  </p>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <PlacementSectionLabel text="Personal Information" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                      <PlacementField label="Full Name" name="full_name" placeholder="John Smith" required  value={form.full_name} onChange={setField} />
+                      <PlacementField label="Email Address" name="email" type="email" placeholder="john@example.com" required  value={form.email} onChange={setField} />
+                      <PlacementField label="Contact Number" name="contact_number" type="tel" placeholder="+1 (647) 000-0000" required  value={form.contact_number} onChange={setField} />
+                      <PlacementField label="Alternate Contact" name="alternate_contact" type="tel" placeholder="+1 (647) 000-0001"  value={form.alternate_contact} onChange={setField} />
+                      <PlacementField label="Personal Email" name="personal_email" type="email" placeholder="personal@gmail.com"  value={form.personal_email} onChange={setField} />
+                      <PlacementField label="Date of Birth (MM-DD-YYYY)" name="date_of_birth" placeholder="01-15-1999"  value={form.date_of_birth} onChange={setField} />
+                      <PlacementField label="Current Location with ZIP/Postal Code" name="current_location" placeholder="Toronto, ON M5V 2T6" span2  value={form.current_location} onChange={setField} />
+                      <PlacementField label="Skype ID" name="skype_id" placeholder="john.smith"  value={form.skype_id} onChange={setField} />
+                      <PlacementField label="Availability for Vendor Calls" name="vendor_call_availability" placeholder="Weekdays 9am-5pm EST"  value={form.vendor_call_availability} onChange={setField} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <PlacementSectionLabel text="Professional Profile" color="#2563eb" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                      <PlacementField label="Technology / Skill Set" name="tech_skill_set" placeholder="Java, Spring Boot, AWS" span2  value={form.tech_skill_set} onChange={setField} />
+                      <PlacementSelect label="Visa Status" name="visa_status" required options={['OPT', 'CPT', 'H1B', 'H4 EAD', 'GC EAD', 'Green Card', 'Citizen', 'Student Visa', 'Work Permit (Canada)', 'PR (Canada)', 'Other']}  value={form.visa_status} onChange={setField} />
+                      <PlacementSelect label="Citizenship" name="citizenship" options={['USA', 'Canada', 'India', 'Other']}  value={form.citizenship} onChange={setField} />
+                      <PlacementSelect label="Open to Relocation" name="open_to_relocation" required options={['Yes', 'No']}  value={form.open_to_relocation} onChange={setField} />
+                      <PlacementField label="Last 4 Digits of SIN / SSN" name="sin_ssn_last4" placeholder="1234"  value={form.sin_ssn_last4} onChange={setField} />
+                      <PlacementField label="LinkedIn Profile URL" name="linkedin_url" type="url" placeholder="https://linkedin.com/in/yourprofile" span2  value={form.linkedin_url} onChange={setField} />
+                      <PlacementField label="LinkedIn Password (if applicable)" name="linkedin_password" type="password" placeholder="Enter LinkedIn password"  value={form.linkedin_password} onChange={setField} />
+                      <PlacementField label="Separate Email / LinkedIn Password" name="email_password" type="password" placeholder="Enter password"  value={form.email_password} onChange={setField} />
+                      <PlacementField label="Portfolio / GitHub / Website" name="portfolio_url" type="url" placeholder="https://github.com/yourprofile" span2  value={form.portfolio_url} onChange={setField} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <PlacementSectionLabel text="Master's Degree Details" color="#7c3aed" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                      <PlacementField label="Degree Field" name="masters_field" placeholder="Computer Science"  value={form.masters_field} onChange={setField} />
+                      <PlacementField label="University Name & Location" name="masters_university" placeholder="University of Toronto, Canada"  value={form.masters_university} onChange={setField} />
+                      <PlacementField label="Start & End Dates" name="masters_dates" placeholder="Sep 2022 - May 2024"  value={form.masters_dates} onChange={setField} />
+                      <PlacementField label="GPA" name="masters_gpa" placeholder="3.8 / 4.0"  value={form.masters_gpa} onChange={setField} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <PlacementSectionLabel text="Bachelor's Degree Details" color="#b45309" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+                      <PlacementField label="Degree Field" name="bachelors_field" placeholder="Information Technology"  value={form.bachelors_field} onChange={setField} />
+                      <PlacementField label="University Name & Location" name="bachelors_university" placeholder="Mumbai University, India"  value={form.bachelors_university} onChange={setField} />
+                      <PlacementField label="Start & End Dates" name="bachelors_dates" placeholder="Jun 2018 - May 2022"  value={form.bachelors_dates} onChange={setField} />
+                      <PlacementField label="GPA" name="bachelors_gpa" placeholder="8.5 / 10"  value={form.bachelors_gpa} onChange={setField} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <PlacementSectionLabel text="Identity Verification" color="#0d9488" />
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Upload Valid Photo ID Proof</label>
+                    <div onClick={() => fileRef.current?.click()}
+                      style={{ border: '2px dashed #e2e8f0', borderRadius: 12, padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#fafafa', transition: 'border-color 0.15s, background 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#00c851'; e.currentTarget.style.background = '#f0fff6'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fafafa'; }}>
+                      <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => setIdProofFile(e.target.files[0])} />
+                      {idProofFile ? (
+                        <p style={{ color: '#00c851', fontWeight: 700, fontSize: 13, margin: 0 }}>{idProofFile.name}</p>
+                      ) : (
+                        <>
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="1.5" style={{ marginBottom: 8 }}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                          <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Click to upload Passport, Driver License or Government ID</p>
+                          <p style={{ color: '#bbb', fontSize: 11, marginTop: 4 }}>JPG, PNG or PDF — Max 5MB</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f7f9fc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: '#777', lineHeight: 1.6 }}>
+                    <strong style={{ color: '#444' }}>Privacy Notice:</strong> Your information is securely handled and used only for recruitment, placement, and career support purposes by Diverse Loopers Pvt. Ltd. We do not share personal information with third parties without candidate consent.
+                  </div>
+                  {error && <div style={{ background: '#fff5f5', border: '1px solid #fed7d7', borderRadius: 8, padding: '10px 14px', color: '#c53030', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+                </div>
+                <div style={{ padding: '16px 32px', borderTop: '1px solid #ebebeb', display: 'flex', gap: 12, justifyContent: 'flex-end', background: '#fafafa' }}>
+                  <button type="button" onClick={closeModal} className="btn-secondary-hero" style={{ cursor: 'pointer', fontSize: 14, padding: '10px 24px' }}>Cancel</button>
+                  <button type="submit" disabled={submitting} className="btn-primary-hero" style={{ background: '#00c851', border: 'none', cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 14, opacity: submitting ? 0.75 : 1, padding: '10px 28px' }}>
+                    {submitting ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'pspin 0.8s linear infinite', display: 'inline-block' }} />
+                        Submitting...
+                      </span>
+                    ) : 'Submit Application'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function HomePage() {
   const [announcementVisible, setAnnouncementVisible] = useState(true);
@@ -802,6 +1117,9 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* ===== CANADA & USA PLACEMENT ===== */}
+        <PlacementSection />
 
         {/* ===== EXTRA FEATURES ===== */}
         <section className="extras-section">
