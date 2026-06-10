@@ -35,13 +35,14 @@ export async function POST(req) {
     }
 
     // Support both legacy plain-text passwords and new hashed passwords.
-    // If the stored password doesn't look like a SHA-256 hex (64 chars),
-    // treat it as plain text and auto-migrate to hashed on first successful login.
-    const isLegacyPlainText = exec.password && exec.password.length !== 64;
+    // A valid SHA-256 hex digest is exactly 64 hex characters.
+    // If stored password doesn't match that pattern, treat it as plain text
+    // and auto-migrate to hashed on first successful login.
+    const isValidHash = /^[a-f0-9]{64}$/i.test(exec.password);
     let passwordValid = false;
 
-    if (isLegacyPlainText) {
-      // Legacy plain-text comparison
+    if (!isValidHash) {
+      // Legacy plain-text comparison (or corrupted hash)
       passwordValid = exec.password === password;
       if (passwordValid) {
         // Auto-migrate to hashed password

@@ -546,7 +546,7 @@ export async function loadAttendance() {
             <td>${rec.employee_id}</td>
             <td>${empName}</td>
             <td>${rec.check_in_time}</td>
-            <td>${rec.face_verified ? 'âœ… Verified' : 'âŒ Failed'}</td>
+            <td>${rec.face_verified ? ' Verified' : ' Failed'}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -678,8 +678,8 @@ function updateBulkBar() {
         bar.style.display = 'flex';
         bar.innerHTML = `
             <span>${selectedApplicantIds.size} selected</span>
-            <button onclick="bulkUpdateStatus('shortlisted')" style="background:#d1fae5;color:#065f46;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">âœ… Shortlist All</button>
-            <button onclick="bulkUpdateStatus('rejected')" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">âŒ Reject All</button>
+            <button onclick="bulkUpdateStatus('shortlisted')" style="background:#d1fae5;color:#065f46;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;"> Shortlist All</button>
+            <button onclick="bulkUpdateStatus('rejected')" style="background:#fee2e2;color:#991b1b;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;"> Reject All</button>
             <button onclick="clearBulkSelection()" style="background:#fff;color:#64748b;border:1px solid #e2e8f0;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
         `;
     } else {
@@ -832,7 +832,7 @@ function openEmailCompose(appId) {
     if (!modal) return;
     
     document.getElementById('email-to').value = app.applicant_email;
-    document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} â€” Diverse Loopers`;
+    document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} at Diverse Loopers`;
     document.getElementById('email-body').value = `Dear ${app.applicant_name},\n\nThank you for applying for the ${app.job_title} position at Diverse Loopers.\n\n\n\nBest regards,\nHR Team\nDiverse Loopers`;
     
     modal.classList.remove('hidden');
@@ -972,7 +972,7 @@ function startDateTime() {
     if (!el) return;
     const update = () => {
         const now = new Date();
-        el.textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + '  â€¢  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        el.textContent = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + '  at  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     };
     update();
     setInterval(update, 30000);
