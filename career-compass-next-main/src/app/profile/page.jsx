@@ -208,12 +208,13 @@ export default function DashboardPage() {
       </header>
 
       {/* Desktop Nav */}
-      <nav className="guvi-nav" style={{ background: '#fff', borderBottom: '1px solid #e8e8e8', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+      <nav className="guvi-nav" >
+        <div className = "guvi-nav-inner">
+        <div className="guvi-nav-left">
           <a href="/" style={{ display: 'flex', alignItems: 'center' }}>
-            <img src="/Diverse Loopers Black BG (2).png" alt="Logo" style={{ height: 36, filter: 'invert(1)' }} />
+            <img src="/Diverse Loopers Black BG (2).png" alt="Logo" style={{ height: 44, filter: 'invert(1)' }} />
           </a>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div  className="guvi-nav-links">
             {[
               { href: '/', label: 'Home' },
               { href: '/courses', label: 'Courses' },
@@ -228,19 +229,20 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="guvi-nav-right">
           <button onClick={() => setShowAnalysisPicker(true)} className="pf-btn pf-btn-solid" style={{ padding: '6px 16px', fontSize: 12 }}>
             <SvgIcon d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" size={14} color="#fff" /> Analysis
           </button>
           <a href="/settings" className="pf-btn pf-btn-outline" style={{ padding: '6px 16px', fontSize: 12 }}>Settings</a>
           <button id="logout-button-desktop" style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: 24, cursor: 'pointer' }}>Logout</button>
         </div>
+        </div>
       </nav>
 
       <div className="profile-page">
         <div className="profile-container">
           {/* ========== LEFT COLUMN ========== */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24,  minWidth: 0, width: '100%'  }}>
             {/* Profile Banner Card */}
             <div className="pf-card">
               <div className="pf-banner" />
@@ -434,7 +436,8 @@ export default function DashboardPage() {
 
             {/* My Courses (expanded view) */}
             {!showMyCourses && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="pf-two-col-grid"
+>
                 <div className="pf-card" style={{ cursor: 'pointer' }} onClick={() => window.location.href = '/#hybrid-hustle'}>
                   <div className="pf-card-body" style={{ background: '#111', borderRadius: 16, color: '#fff' }}>
                     <h4 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Hybrid Hustle</h4>
