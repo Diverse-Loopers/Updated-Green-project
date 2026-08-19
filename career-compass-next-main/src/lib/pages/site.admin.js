@@ -7,7 +7,7 @@
 //     const dot = document.getElementById('theme-toggle-dot');
 //     const icon = document.getElementById('theme-icon');
 //     const text = document.getElementById('theme-text');
-    
+
 //     if (isDark) {
 //         document.documentElement.classList.add('dark');
 //         if (dot) dot.classList.add('translate-x-5');
@@ -19,11 +19,11 @@
 //         if (icon) icon.setAttribute('data-lucide', 'moon');
 //         if (text) text.textContent = 'Dark Mode';
 //     }
-    
+
 //     if (typeof window !== 'undefined' && window.lucide) {
 //         window.lucide.createIcons();
 //     }
-    
+
 //     localStorage.setItem('theme', isDark ? 'dark' : 'light');
 // }
 
@@ -35,7 +35,7 @@
 //             setTheme(isDark);
 //         };
 //     }
-    
+
 //     // Load saved theme
 //     if (localStorage.getItem('theme') === 'dark') {
 //         setTheme(true);
@@ -78,7 +78,7 @@
 //     if (modal) {
 //         modal.style.display = show ? 'flex' : 'none';
 //     }
-    
+
 //     if (show) {
 //         // Pre-fill email if user is logged in
 //         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -92,7 +92,7 @@
 
 // export async function handleHustlerFormSubmit(event) {
 //     event.preventDefault();
-    
+
 //     const btn = document.getElementById('hustler-submit-btn');
 //     const status = document.getElementById('hustler-form-status');
 
@@ -129,7 +129,7 @@
 //             setTimeout(() => toggleHustlerModal(false), 2000);
 //         }
 //     }
-    
+
 //     if (btn) {
 //         btn.disabled = false;
 //         btn.innerHTML = `Submit Application <i data-lucide="send" class="w-4 h-4"></i>`;
@@ -143,9 +143,9 @@
 // export function renderCompactRoadmap(roadmap) {
 //     const container = document.getElementById('roadmap-items-container');
 //     if (!container) return;
-    
+
 //     container.innerHTML = '';
-    
+
 //     roadmap.forEach((item, i) => {
 //         const isEven = i % 2 === 0;
 //         const node = document.createElement('div');
@@ -164,7 +164,7 @@
 //         `;
 //         container.appendChild(node);
 //     });
-    
+
 //     if (typeof window !== 'undefined' && window.lucide) {
 //         window.lucide.createIcons();
 //     }
@@ -180,19 +180,19 @@
 //             if (welcomeMsg) {
 //                 welcomeMsg.textContent = `Welcome back, ${profile.full_name.split(' ')[0]}!`;
 //             }
-            
+
 //             if (profile.avatar_url) {
 //                 const desktopAvatar = document.getElementById('desktop-avatar-img');
 //                 const mobileAvatar = document.getElementById('mobile-nav-img');
 //                 const desktopContainer = document.getElementById('desktop-profile-avatar');
 //                 const mobileContainer = document.getElementById('mobile-nav-avatar');
-                
+
 //                 if (desktopAvatar) desktopAvatar.src = profile.avatar_url;
 //                 if (mobileAvatar) mobileAvatar.src = profile.avatar_url;
 //                 if (desktopContainer) desktopContainer.classList.remove('hidden');
 //                 if (mobileContainer) mobileContainer.classList.remove('hidden');
 //             }
-            
+
 //             // Prefill modal name
 //             const hustlerNameInput = document.getElementById('hustler-name');
 //             if (hustlerNameInput) hustlerNameInput.value = profile.full_name;
@@ -202,8 +202,8 @@
 //         const { data: skills } = await supabase.from('user_skills').select('skill_name').eq('user_id', userId);
 //         const skillContainer = document.getElementById('skills-container');
 //         if (skillContainer) {
-//             skillContainer.innerHTML = (skills?.length) 
-//                 ? skills.map(s => `<span class="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-bold uppercase">${s.skill_name}</span>`).join('') 
+//             skillContainer.innerHTML = (skills?.length)
+//                 ? skills.map(s => `<span class="px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-bold uppercase">${s.skill_name}</span>`).join('')
 //                 : '<p class="text-xs text-slate-400">Add skills...</p>';
 //         }
 
@@ -213,7 +213,7 @@
 //             const roleNameEl = document.getElementById('target-role-name');
 //             const roleDescEl = document.getElementById('target-role-desc');
 //             const roadmapTitleEl = document.getElementById('roadmap-title');
-            
+
 //             if (roleNameEl) roleNameEl.textContent = role.role_name;
 //             if (roleDescEl) roleDescEl.textContent = role.description;
 //             if (roadmapTitleEl) roadmapTitleEl.innerHTML = `Path to <span class="text-primary">${role.role_name}</span>`;
@@ -224,7 +224,7 @@
 //         if (latest) {
 //             const matchText = document.getElementById('analysis-match-text');
 //             const circleFg = document.getElementById('analysis-circle-fg');
-            
+
 //             if (matchText) matchText.textContent = `${latest.match_percentage}%`;
 //             if (circleFg) circleFg.style.strokeDasharray = `${latest.match_percentage}, 100`;
 
@@ -239,14 +239,14 @@
 //         const { data: enroll } = await supabase.from('enrollments').select('*, courses(title)').eq('user_id', userId);
 //         if (enroll?.length) {
 //             const mainCourse = enroll[0];
-            
+
 //             const courseBadge = document.getElementById('course-count-badge');
 //             const attendanceValue = document.getElementById('attendance-value');
 //             const attendanceBar = document.getElementById('attendance-bar');
 //             const performanceValue = document.getElementById('performance-value');
 //             const performanceBar = document.getElementById('performance-bar');
 //             const suggestionsText = document.getElementById('suggestions-text');
-            
+
 //             if (courseBadge) courseBadge.textContent = `${enroll.length} Tracks`;
 //             if (attendanceValue) attendanceValue.textContent = `${mainCourse.attendance_percentage}%`;
 //             if (attendanceBar) attendanceBar.style.width = `${mainCourse.attendance_percentage}%`;
@@ -279,10 +279,10 @@
 //     // Set current date
 //     const dateEl = document.getElementById('current-date');
 //     if (dateEl) {
-//         dateEl.textContent = new Date().toLocaleDateString('en-US', { 
-//             weekday: 'long', 
-//             month: 'long', 
-//             day: 'numeric' 
+//         dateEl.textContent = new Date().toLocaleDateString('en-US', {
+//             weekday: 'long',
+//             month: 'long',
+//             day: 'numeric'
 //         });
 //     }
 
@@ -349,10 +349,10 @@ export function initLucideIcons() {
 export function setCurrentDate() {
     const dateEl = document.getElementById('current-date');
     if (dateEl) {
-        dateEl.textContent = new Date().toLocaleDateString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
-            year: 'numeric' 
+        dateEl.textContent = new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
         });
     }
 }
@@ -361,7 +361,7 @@ export function setCurrentDate() {
 export function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
-    
+
     if (sidebar) sidebar.classList.toggle('sidebar-open');
     if (overlay) overlay.classList.toggle('hidden');
 }
@@ -442,10 +442,10 @@ export function switchView(viewName) {
     const mainScrollArea = document.getElementById('main-scroll-area');
     if (mainScrollArea) mainScrollArea.scrollTop = 0;
 
-    if (viewName === 'dashboard') { 
-        loadDashboardStats(); 
-        loadActivityFeed(); 
-        loadSignupChartData(); 
+    if (viewName === 'dashboard') {
+        loadDashboardStats();
+        loadActivityFeed();
+        loadSignupChartData();
     }
     if (viewName === 'users') loadAllUsers();
     if (viewName === 'skills') loadAllSkills();
@@ -459,16 +459,31 @@ export function switchView(viewName) {
     if (viewName === 'business-cms') loadBusinessCMS();
     if (viewName === 'blog') loadBlogPosts();
     if (viewName === 'legal-cookies') loadLegalCookies();
-    
+
     initLucideIcons();
 }
 
 // --- Auth Guard ---
 export async function checkAuth() {
+    // CEO mode: auto-login via postMessage from CEO panel iframe
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ceo_mode') === 'true') {
+        window.addEventListener('message', async (e) => {
+            if (e.data?.type === 'ceo-auto-login' && e.data.email && e.data.password) {
+                await supabase.auth.signInWithPassword({
+                    email: e.data.email,
+                    password: e.data.password
+                });
+                window.location.href = '/site.admin';
+            }
+        });
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { 
-        window.location.href = '/admin'; 
-        return; 
+    if (!user) {
+        if (params.get('ceo_mode') === 'true') return; // Wait for postMessage
+        window.location.href = '/admin';
+        return;
     }
 
     const { data: adminCheck } = await supabase.from('admin_list').select('user_id').eq('user_id', user.id).limit(1);
@@ -486,9 +501,9 @@ async function uploadImage(file, bucket, prefix) {
     const fExt = file.name.split('.').pop();
     const fPath = `${prefix}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fExt}`;
     const { data, error } = await supabase.storage.from(bucket).upload(fPath, file);
-    if (error) { 
-        showMessageBox('Upload Error: ' + error.message); 
-        return null; 
+    if (error) {
+        showMessageBox('Upload Error: ' + error.message);
+        return null;
     }
     const { data: url } = supabase.storage.from(bucket).getPublicUrl(fPath);
     return url.publicUrl;
@@ -535,12 +550,12 @@ async function loadActivityFeed() {
 async function loadSignupChartData() {
     const { data, error } = await supabase.rpc('get_daily_user_signups');
     if (error || !data) return;
-    
+
     const grid = document.getElementById('chart-grid');
     const labels = document.getElementById('chart-labels');
-    
+
     if (!grid || !labels) return;
-    
+
     grid.innerHTML = '';
     labels.innerHTML = '';
 
@@ -624,8 +639,8 @@ async function loadAllCourses() {
             return `
             <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
                 <div class="h-40 bg-slate-100 relative overflow-hidden">
-                    <img 
-                        src="${c.image_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3'}" 
+                    <img
+                        src="${c.image_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3'}"
                         class="w-full h-full object-cover group-hover:scale-110 transition duration-700"
                         onerror="this.src='https://via.placeholder.com/400x200'"
                     >
@@ -1000,7 +1015,7 @@ export function editEvent(id) {
     if (eventSubmitBtn) eventSubmitBtn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Update Event`;
     if (eventCancelBtn) eventCancelBtn.style.display = 'inline-block';
     if (mainScrollArea) mainScrollArea.scrollTop = 0;
-    
+
     initLucideIcons();
 }
 
@@ -1023,9 +1038,9 @@ export async function handleEventFormSubmit(e) {
     const id = document.getElementById('event-id')?.value;
     const file = document.getElementById('event-image-upload')?.files[0];
     let url = document.getElementById('event-main-media-url')?.value;
-    
+
     if (file) url = await uploadImage(file, 'events-images', 'banners');
-    
+
     const toArray = (val) => val.split('\n').map(s => s.trim()).filter(s => s !== '');
 
     const payload = {
@@ -1041,19 +1056,19 @@ export async function handleEventFormSubmit(e) {
         what_you_will_gain: toArray(document.getElementById('event-gain')?.value || ''),
         gallery_urls: toArray(document.getElementById('event-gallery-urls')?.value || '')
     };
-    
-    const { error } = id 
-        ? await supabase.from('events').update(payload).eq('id', id) 
+
+    const { error } = id
+        ? await supabase.from('events').update(payload).eq('id', id)
         : await supabase.from('events').insert([payload]);
-    
-    if (!error) { 
-        showMessageBox(id ? 'Event updated.' : 'Event published successfully!'); 
-        resetEventForm(); 
-        loadAllEvents(); 
+
+    if (!error) {
+        showMessageBox(id ? 'Event updated.' : 'Event published successfully!');
+        resetEventForm();
+        loadAllEvents();
     } else {
         showMessageBox('Error: ' + error.message);
     }
-    
+
     if (btn) {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -1072,7 +1087,7 @@ export function resetEventForm() {
     if (eventFormTitle) eventFormTitle.textContent = "Create New Event";
     if (eventSubmitBtn) eventSubmitBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Publish Event`;
     if (eventCancelBtn) eventCancelBtn.style.display = 'none';
-    
+
     initLucideIcons();
 }
 
@@ -1099,25 +1114,25 @@ const ensureProtocol = (url) => {
 const formatImageUrl = (url) => {
     if (!url) return 'https://via.placeholder.com/100';
     let cleanUrl = url.trim();
-    
+
     if (cleanUrl.includes('drive.google.com')) {
         const fileMatch = cleanUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (fileMatch && fileMatch[1]) {
             return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
         }
-        
+
         const idMatch = cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (idMatch && idMatch[1]) {
             return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
         }
     }
-    
+
     return encodeURI(cleanUrl);
 };
 
 async function loadFameWall() {
     const { data, error } = await supabase.from('wall_of_fame').select('*').order('created_at', { ascending: false });
-    
+
     if (error) {
         console.error("Error loading fame wall:", error);
         return;
@@ -1132,27 +1147,27 @@ async function loadFameWall() {
         const safeImgUrl = formatImageUrl(item.image_url);
         const linkedin = ensureProtocol(item.linkedin_url);
         const project = ensureProtocol(item.project_link);
-        
+
         return `
         <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group text-center flex flex-col h-full">
             <button onclick="window.deleteFameEntry('${item.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            
+
             <div class="w-20 h-20 mx-auto rounded-full bg-slate-100 mb-4 overflow-hidden border-4 border-white shadow-lg">
                 <img src="${safeImgUrl}" referrerpolicy="no-referrer" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/100'">
             </div>
-            
+
             <h3 class="font-bold text-slate-900 text-lg">${escapeHtml(item.name)}</h3>
             <p class="text-xs font-bold text-primary uppercase tracking-wide mt-1 mb-2">${escapeHtml(item.role_track)}</p>
-            
+
             <p class="text-sm text-slate-500 line-clamp-2 mb-4 flex-grow">${escapeHtml(item.project_description)}</p>
-            
+
             <div class="flex justify-center gap-3 mt-auto">
                 ${linkedin ? `<a href="${linkedin}" target="_blank" class="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition"><i data-lucide="linkedin" class="w-4 h-4"></i></a>` : ''}
                 ${project ? `<a href="${project}" target="_blank" class="p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-800 hover:text-white transition"><i data-lucide="external-link" class="w-4 h-4"></i></a>` : ''}
             </div>
         </div>
     `}).join('');
-    
+
     initLucideIcons();
 }
 
@@ -1169,7 +1184,7 @@ export async function handleFameFormSubmit(e) {
         const fileInput = document.getElementById('fame-image-upload');
         const file = fileInput?.files[0];
         let imageUrl = document.getElementById('fame-image-url')?.value;
-        
+
         if (file) {
             const uploadedUrl = await uploadImage(file, 'course-images', 'fame');
             if (uploadedUrl) imageUrl = uploadedUrl;
@@ -1185,7 +1200,7 @@ export async function handleFameFormSubmit(e) {
         };
 
         const { error } = await supabase.from('wall_of_fame').insert([payload]);
-        
+
         if (error) {
             showMessageBox('Error adding to Fame Wall: ' + error.message);
         } else {
@@ -1246,7 +1261,7 @@ export function deleteFameEntry(id) {
 // export function editJobPosting(id) {
 //     const job = allJobPostings.find(item => item.id === id);
 //     if (!job) return;
-    
+
 //     const jobId = document.getElementById('job-id');
 //     const jobTitle = document.getElementById('job-title');
 //     const jobRole = document.getElementById('job-role');
@@ -1289,9 +1304,9 @@ export function deleteFameEntry(id) {
 //         btn.disabled = true;
 //         btn.textContent = "Processing...";
 //     }
-    
+
 //     const id = document.getElementById('job-id')?.value;
-    
+
 //     const payload = {
 //         title: document.getElementById('job-title')?.value,
 //         role: document.getElementById('job-role')?.value,
@@ -1300,19 +1315,19 @@ export function deleteFameEntry(id) {
 //         location: document.getElementById('job-location')?.value,
 //         stipend_salary: document.getElementById('job-stipend-salary')?.value
 //     };
-    
-//     const { error } = id 
-//         ? await supabase.from('jobs').update(payload).eq('id', id) 
+
+//     const { error } = id
+//         ? await supabase.from('jobs').update(payload).eq('id', id)
 //         : await supabase.from('jobs').insert([payload]);
-    
+
 //     if (error) {
 //         showMessageBox('Database Error: ' + error.message);
 //     } else {
-//         showMessageBox(id ? 'Job posting updated!' : 'Job posting published!'); 
-//         resetJobPostingForm(); 
+//         showMessageBox(id ? 'Job posting updated!' : 'Job posting published!');
+//         resetJobPostingForm();
 //         loadAllJobPostings();
 //     }
-    
+
 //     if (btn) {
 //         btn.disabled = false;
 //         btn.textContent = id ? "Apply Changes" : "Publish Job";
@@ -1362,7 +1377,7 @@ async function loadAllJobPostings() {
 //     console.log(`Editing job posting with ID: ${id}`);
 //     const job = allJobPostings.find(item => item.id === id);
 //     if (!job) return;
-    
+
 //     const jobId = document.getElementById('job-id');
 //     const jobTitle = document.getElementById('job-title');
 //     const jobDepartment = document.getElementById('job-department');
@@ -1384,21 +1399,21 @@ async function loadAllJobPostings() {
 //     if (jobType) jobType.value = job.type || 'Full Time';
 //     if (jobSalary) jobSalary.value = job.salary || '';
 //     if (jobEligibility) jobEligibility.value = job.eligibility || '';
-    
+
 //     // FIX: Handle responsibilities array properly
 //     if (jobResponsibility) {
-//         jobResponsibility.value = Array.isArray(job.responsibilities) 
-//             ? job.responsibilities.join(', ') 
+//         jobResponsibility.value = Array.isArray(job.responsibilities)
+//             ? job.responsibilities.join(', ')
 //             : (job.responsibilities || '');
 //     }
-    
+
 //     // FIX: Handle required_skills array properly
 //     if (jobRequiredSkills) {
-//         jobRequiredSkills.value = Array.isArray(job.required_skills) 
-//             ? job.required_skills.join(', ') 
+//         jobRequiredSkills.value = Array.isArray(job.required_skills)
+//             ? job.required_skills.join(', ')
 //             : (job.required_skills || '');
 //     }
-    
+
 //     if (jobStatus) jobStatus.value = job.status || 'draft';
 //     if (jobFormTitle) jobFormTitle.textContent = "Update Job Posting";
 //     if (jobSaveBtn) jobSaveBtn.textContent = "Apply Changes";
@@ -1419,9 +1434,9 @@ export function editJobPosting(id) {
         console.error('Job not found:', id);
         return;
     }
-    
+
     console.log('Job data:', job); // Debug log
-    
+
     const jobId = document.getElementById('job-id');
     const jobTitle = document.getElementById('job-title');
     const jobDepartment = document.getElementById('job-department');
@@ -1451,17 +1466,17 @@ export function editJobPosting(id) {
     if (jobType) jobType.value = job.type || 'Full Time';
     if (jobSalary) jobSalary.value = job.salary || '';
     if (jobEligibility) jobEligibility.value = job.eligibility || '';
-    
+
     // ✅ FIX: Convert array to comma-separated string
     if (jobResponsibility) {
         jobResponsibility.value = arrayToString(job.responsibilities);
     }
-    
+
     // ✅ FIX: Convert array to comma-separated string
     if (jobRequiredSkills) {
         jobRequiredSkills.value = arrayToString(job.required_skills);
     }
-    
+
     if (jobStatus) jobStatus.value = job.status || 'draft';
     if (jobFormTitle) jobFormTitle.textContent = "Update Job Posting";
     if (jobSaveBtn) jobSaveBtn.textContent = "Apply Changes";
@@ -1489,15 +1504,15 @@ export async function handleJobPostingFormSubmit(e) {
         btn.disabled = true;
         btn.textContent = "Processing...";
     }
-    
+
     const id = document.getElementById('job-id')?.value;
-    
+
     // Helper function to convert comma-separated string to array
     const toArray = (value) => {
         if (!value) return [];
         return value.split(',').map(s => s.trim()).filter(Boolean);
     };
-    
+
     const payload = {
         title: document.getElementById('job-title')?.value,
         department: document.getElementById('job-department')?.value,
@@ -1509,22 +1524,22 @@ export async function handleJobPostingFormSubmit(e) {
         required_skills: toArray(document.getElementById('job-required-skills')?.value),
         status: document.getElementById('job-status')?.value || 'draft'
     };
-    
+
     console.log('Payload being sent:', payload); // Debug log
-    
-    const { error } = id 
-        ? await supabase.from('jobs').update(payload).eq('id', id) 
+
+    const { error } = id
+        ? await supabase.from('jobs').update(payload).eq('id', id)
         : await supabase.from('jobs').insert([payload]);
-    
+
     if (error) {
         console.error('Supabase error:', error);
         showMessageBox('Database Error: ' + error.message);
     } else {
-        showMessageBox(id ? 'Job posting updated!' : 'Job posting published!'); 
-        resetJobPostingForm(); 
+        showMessageBox(id ? 'Job posting updated!' : 'Job posting published!');
+        resetJobPostingForm();
         loadAllJobPostings();
     }
-    
+
     if (btn) {
         btn.disabled = false;
         btn.textContent = id ? "Apply Changes" : "Publish Job";
@@ -1681,7 +1696,7 @@ async function loadAllCoupons() {
         allCourses = courses || [];
     }
     if (courseSelect) {
-        courseSelect.innerHTML = '<option value="">All Courses (Global)</option>' + 
+        courseSelect.innerHTML = '<option value="">All Courses (Global)</option>' +
             allCourses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
     }
 
@@ -1913,7 +1928,7 @@ async function loadLegalCookies() {
     // Load Cookie Stats
     const { count: accepted } = await supabase.from('cookie_consent_logs').select('*', { count: 'exact', head: true }).eq('action', 'accepted');
     const { count: rejected } = await supabase.from('cookie_consent_logs').select('*', { count: 'exact', head: true }).eq('action', 'rejected');
-    
+
     const accEl = document.getElementById('cookies-accepted-count');
     const rejEl = document.getElementById('cookies-rejected-count');
     if (accEl) accEl.textContent = accepted || 0;
@@ -1925,7 +1940,7 @@ async function loadLegalCookies() {
 
 async function loadLegalDocument(slug) {
     document.getElementById('legal-doc-slug').value = slug;
-    
+
     // UI Tab active state
     const btnPriv = document.getElementById('btn-edit-privacy');
     const btnTerms = document.getElementById('btn-edit-terms');
@@ -1940,7 +1955,7 @@ async function loadLegalDocument(slug) {
     }
 
     const { data, error } = await supabase.from('legal_documents').select('*').eq('slug', slug).single();
-    
+
     if (data) {
         document.getElementById('legal-doc-id').value = data.id;
         document.getElementById('legal-doc-title').value = data.title;
@@ -1954,21 +1969,21 @@ async function loadLegalDocument(slug) {
 
 async function handleLegalDocSave(e) {
     e.preventDefault();
-    
+
     const id = document.getElementById('legal-doc-id').value;
     const slug = document.getElementById('legal-doc-slug').value;
     const title = document.getElementById('legal-doc-title').value;
     const content = document.getElementById('legal-doc-content').value;
-    
+
     const payload = { slug, title, content };
-    
+
     let result;
     if (id) {
         result = await supabase.from('legal_documents').update(payload).eq('id', id);
     } else {
         result = await supabase.from('legal_documents').insert([payload]);
     }
-    
+
     if (result.error) {
         showMessageBox('Error saving document: ' + result.error.message);
     } else {
@@ -1989,10 +2004,10 @@ export function initAdminDashboardListeners() {
     // Legal & Cookies Listeners
     const legalDocForm = document.getElementById('legal-doc-form');
     if (legalDocForm) legalDocForm.onsubmit = handleLegalDocSave;
-    
+
     const btnPriv = document.getElementById('btn-edit-privacy');
     if (btnPriv) btnPriv.onclick = () => loadLegalDocument('privacy-policy');
-    
+
     const btnTerms = document.getElementById('btn-edit-terms');
     if (btnTerms) btnTerms.onclick = () => loadLegalDocument('terms-and-conditions');
 

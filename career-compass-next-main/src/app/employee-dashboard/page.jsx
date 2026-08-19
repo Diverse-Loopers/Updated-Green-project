@@ -79,6 +79,14 @@ export default function EmployeeDashboardPage() {
                   Apply Leave
                 </button>
               </li>
+              <li>
+                <button onClick={() => window.showSection && window.showSection('documents')}>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  My Documents
+                </button>
+              </li>
             </ul>
           </nav>
 
@@ -266,6 +274,19 @@ export default function EmployeeDashboardPage() {
                 </table>
               </div>
             </section>
+
+            {/* SECTION: DOCUMENTS */}
+            <section id="documents-section" className="hidden">
+              <div className="header">
+                <div>
+                  <h2>My Documents</h2>
+                  <p className="text-muted">View and download your issued documents</p>
+                </div>
+              </div>
+              <div id="my-documents-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                <p style={{ color: '#94a3b8', textAlign: 'center', gridColumn: '1/-1' }}>Loading documents...</p>
+              </div>
+            </section>
           </div>
         </main>
       </div>
@@ -353,6 +374,24 @@ export default function EmployeeDashboardPage() {
           </button>
         </div>
       </div>
+      {/* MODAL: SIGN DOCUMENT */}
+      <div id="sign-doc-modal" className="modal hidden">
+        <div className="modal-content" style={{ textAlign: 'left' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Upload Signed Document</h2>
+          <input type="hidden" id="sign-doc-id" />
+          <p id="sign-doc-title" style={{ color: '#6b7280', marginBottom: '1rem' }}></p>
+          <div className="input-group">
+            <label>Upload Signed Copy <span style={{ color: '#dc2626' }}>*</span></label>
+            <input type="file" id="sign-doc-file" accept="image/*,.pdf" required />
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Upload the signed version (PDF or image)</p>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-primary" onClick={() => window.handleSignDocument && window.handleSignDocument()}>Upload Signed Copy</button>
+            <button type="button" className="btn-secondary" onClick={() => window.closeModal && window.closeModal('sign-doc-modal')}>Cancel</button>
+          </div>
+        </div>
+      </div>
+
     </>
   );
 }

@@ -39,10 +39,21 @@ export default function CMODashboard() {
   const [runningCampaigns, setRunningCampaigns] = useState([]);
 
   useEffect(() => {
+    // CEO iframe mode: inject token from URL
+    const params = new URLSearchParams(window.location.search);
+    const ceoToken = params.get('ceo_token');
+    if (ceoToken) {
+      sessionStorage.setItem('executive_token', ceoToken);
+      try {
+        const payload = JSON.parse(atob(ceoToken));
+        sessionStorage.setItem('executive_session', JSON.stringify({ name: 'CEO', email: payload.email, role: payload.role }));
+      } catch(e) {}
+    }
+
     const s = sessionStorage.getItem('executive_session');
     if (!s) { router.push('/executive-login'); return; }
     const p = JSON.parse(s);
-    if (p.role !== 'cmo') { router.push('/executive-login'); return; }
+    if (p.role !== 'cmo' && p.role !== 'ceo' && p.role !== 'cmo_chief') { router.push('/executive-login'); return; }
     setExec(p);
   }, [router]);
 

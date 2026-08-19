@@ -33,6 +33,18 @@ export async function initEmployeeDashboard() {
     profile = empData;
     currentUser = session.user;
 
+    // 48-hour login block for ended employees
+    if (profile.is_active === false && profile.employment_ended_at) {
+        const endedAt = new Date(profile.employment_ended_at);
+        const hoursSinceEnd = (Date.now() - endedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceEnd >= 48) {
+            alert('Your employment has ended. Portal access has been revoked.');
+            await supabase.auth.signOut();
+            window.location.href = '/';
+            return;
+        }
+    }
+
     const welcomeName = document.getElementById('welcome-name');
     const sidebarName = document.getElementById('sidebar-user-name');
     const sidebarId = document.getElementById('sidebar-user-id');
@@ -96,6 +108,8 @@ export async function initEmployeeDashboard() {
         window.handleApplyLeave = handleApplyLeave;
         window.closeModal = closeModal;
         window.logoutUser = logoutUser;
+        window.openSignModal = openSignModal;
+        window.handleSignDocument = handleSignDocument;
     }
 }
 
@@ -177,12 +191,12 @@ async function markAllRead() {
 export function showSection(sectionId) {
     document.querySelectorAll('.nav-links button').forEach(btn => btn.classList.remove('active'));
 
-    ['dashboard', 'tasks', 'leaves'].forEach(id => {
+    ['dashboard', 'tasks', 'leaves', 'documents'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
     const buttons = document.querySelectorAll('.nav-links button');
-    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2 };
+    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2, 'documents': 3 };
     if (buttons[sectionIndex[sectionId]]) {
         buttons[sectionIndex[sectionId]].classList.add('active');
     }
@@ -197,6 +211,7 @@ export function showSection(sectionId) {
     if (sectionId === 'dashboard') loadDashboardStats();
     if (sectionId === 'tasks') loadMyTasks();
     if (sectionId === 'leaves') loadMyLeaves();
+    if (sectionId === 'documents') loadMyDocuments();
 }
 
 
@@ -415,7 +430,7 @@ async function loadMyTasks() {
                 <td style="max-width: 200px; white-space: normal;">${task.description || '-'}</td>
                 <td>${formatDate(task.assigned_at)}</td>
                 <td>${formatDate(task.deadline)}</td>
-               
+
                 <td>${priorityBadge}</td>
                 <td><span class="status-badge status-${task.status.toLowerCase()}">${task.status}</span></td>
                 <td>${action}</td>
@@ -529,5 +544,116 @@ export function closeModal(id) {
     document.getElementById(id)?.classList.add('hidden');
     if (id === 'camera-modal') {
         stopCamera();
+    }
+}
+
+/* ==========================
+   MY DOCUMENTS
+========================== */
+const DOC_TYPE_LABELS = { aadhaar: 'Aadhaar Card', pan: 'PAN Card', qualification: 'Highest Qualification', bank_details: 'Bank Details' };
+
+async function loadMyDocuments() {
+    const grid = document.getElementById('my-documents-grid');
+    if (!grid || !profile) return;
+    grid.innerHTML = '<p style="color:#94a3b8;text-align:center;grid-column:1/-1">Loading...</p>';
+
+    try {
+        const res = await fetch('/api/employees/issue-document?employee_id=' + profile.employee_id);
+        const data = await res.json();
+        const docs = data.success ? data.documents : [];
+
+        if (docs.length === 0) {
+            grid.innerHTML = '<div style="text-align:center;grid-column:1/-1;padding:3rem"><div style="font-size:3rem;margin-bottom:1rem">📄</div><p style="color:#94a3b8;font-size:1rem">No documents issued yet</p></div>';
+            return;
+        }
+
+        grid.innerHTML = docs.map(doc => {
+            const isImage = doc.file_url && /\.(png|jpg|jpeg|gif|webp)$/i.test(doc.file_url);
+            const isPdf = doc.file_url && /\.pdf$/i.test(doc.file_url);
+            const isHtml = doc.doc_type === 'template' || (doc.file_url && /\.html$/i.test(doc.file_url));
+
+            let preview = '';
+            if (isImage) {
+                preview = '<img src="' + doc.file_url + '" style="width:100%;height:150px;object-fit:cover;border-radius:8px 8px 0 0;" />';
+            } else if (isHtml) {
+                preview = '<div style="width:100%;height:150px;border-radius:8px 8px 0 0;overflow:hidden;position:relative;background:#fff;border-bottom:1px solid #e2e8f0">' +
+                    '<iframe src="/view-document/' + doc.id + '" style="width:400%;height:600px;border:none;transform:scale(0.25);transform-origin:top left;pointer-events:none"></iframe>' +
+                '</div>';
+            } else if (isPdf) {
+                preview = '<div style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#fef2f2,#fff1f2);border-radius:8px 8px 0 0">' +
+                    '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M9 15h6M9 11h6"/></svg>' +
+                    '<span style="font-size:11px;font-weight:700;color:#dc2626;margin-top:6px">PDF</span></div>';
+            } else {
+                preview = '<div style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#f0f9ff,#ede9fe);border-radius:8px 8px 0 0">' +
+                    '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6C5CE7" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M9 15h6M9 11h6"/></svg>' +
+                    '<span style="font-size:11px;font-weight:700;color:#6C5CE7;margin-top:6px">Document</span></div>';
+            }
+
+            let signSection = '';
+            if (doc.requires_signature && !doc.is_signed) {
+                signSection = '<button onclick="window.openSignModal(\'' + doc.id + '\', \'' + (doc.title || '').replace(/'/g, "\\'") + '\')" style="width:100%;padding:8px;border-radius:8px;border:1px solid #f59e0b;background:#fffbeb;color:#d97706;cursor:pointer;font-weight:600;font-size:12px;margin-top:8px">⚠️ Upload Signed Copy</button>';
+            } else if (doc.requires_signature && doc.is_signed) {
+                signSection = '<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span style="color:#16a34a;font-weight:600;font-size:12px">✅ Signed</span>' +
+                    (doc.signed_file_url ? '<a href="' + doc.signed_file_url + '" target="_blank" style="color:#6C5CE7;font-size:11px;text-decoration:none;font-weight:600">View Signed ↗</a>' : '') + '</div>';
+            }
+
+            const verifyBadge = doc.has_qr && doc.verification_code
+                ? '<div style="display:flex;align-items:center;gap:4px;margin-top:4px"><span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">✓ QR Verified</span></div>'
+                : '';
+
+            const viewUrl = isHtml ? '/view-document/' + doc.id : doc.file_url;
+
+            return '<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;position:relative;background:#fff">' +
+                preview +
+                '<div style="padding:1rem">' +
+                '<div style="font-weight:700;font-size:0.9rem;color:#1e293b;margin-bottom:4px">' + (doc.title || 'Document') + '</div>' +
+                '<div style="font-size:0.75rem;color:#94a3b8">Issued: ' + new Date(doc.issued_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + '</div>' +
+                verifyBadge +
+                '<div style="margin-top:10px;display:flex;gap:6px">' +
+                    '<a href="' + viewUrl + '" target="_blank" style="padding:6px 14px;border-radius:7px;background:#ede9fe;color:#6C5CE7;font-size:12px;font-weight:600;text-decoration:none">View ↗</a>' +
+                    '<a href="' + doc.file_url + '" download style="padding:6px 14px;border-radius:7px;background:#dbeafe;color:#2563eb;font-size:12px;font-weight:600;text-decoration:none">Download</a>' +
+                '</div>' +
+                signSection +
+                '</div>' +
+            '</div>';
+        }).join('');
+    } catch (err) {
+        grid.innerHTML = '<p style="color:#dc2626;text-align:center;grid-column:1/-1">Error loading documents</p>';
+    }
+}
+
+function openSignModal(docId, docTitle) {
+    document.getElementById('sign-doc-id').value = docId;
+    document.getElementById('sign-doc-title').textContent = 'Document: ' + docTitle;
+    const fileInput = document.getElementById('sign-doc-file');
+    if (fileInput) fileInput.value = '';
+    document.getElementById('sign-doc-modal')?.classList.remove('hidden');
+}
+
+async function handleSignDocument() {
+    const docId = document.getElementById('sign-doc-id')?.value;
+    const file = document.getElementById('sign-doc-file')?.files[0];
+
+    if (!docId || !file) return alert('Please select a file to upload');
+
+    try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('document_id', docId);
+        fd.append('employee_id', profile.employee_id);
+
+        const res = await fetch('/api/employees/sign-document', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (!result.success) {
+            alert('Error: ' + result.error);
+            return;
+        }
+
+        alert('Signed document uploaded successfully!');
+        closeModal('sign-doc-modal');
+        loadMyDocuments();
+    } catch (err) {
+        alert('Error uploading signed document: ' + err.message);
     }
 }
