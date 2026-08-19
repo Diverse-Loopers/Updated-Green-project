@@ -428,7 +428,6 @@ export async function handleAddEmployee(e) {
         }
 
         showToast("Employee Created & Face Data Saved!", "success");
- C:/Users/LENOVO/AppData/Local/Temp/shivansh-src_lib_pages_admin-dashboard.js
         closeModal('add-employee-modal');
         loadEmployees();
         e.target.reset();
