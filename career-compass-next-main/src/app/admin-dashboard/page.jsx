@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   // Executive management logic — runs after mount
   useEffect(() => {
     const ROLE_LABELS = {
+      ceo: 'Chief Executive Officer', cmo_chief: 'Chief Managing Officer',
       sales: 'Sales Executive', cfo: 'Chief Finance Officer',
       cso: 'Chief Staffing Officer', cmo: 'Chief Marketing Officer',
       coo: 'Chief Operations Officer', strategic_advisor: 'Strategic Advisor'
@@ -21,7 +22,9 @@ export default function AdminDashboard() {
 
     async function loadExecutives() {
       try {
-        const res = await fetch('/api/executives/manage');
+        const res = await fetch('/api/executives/manage', {
+          headers: { 'x-admin-key': 'hrms-admin-access' }
+        });
         const data = await res.json();
         if (data.success) { executivesData = data.executives; renderExecutives(); }
       } catch(e) { console.error(e); }
@@ -70,7 +73,7 @@ export default function AdminDashboard() {
       try {
         const res = await fetch('/api/executives/manage', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
           body: JSON.stringify(body)
         });
         const data = await res.json();
@@ -99,7 +102,7 @@ export default function AdminDashboard() {
     window.toggleExecStatus = async function(id, newStatus) {
       await fetch('/api/executives/manage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
         body: JSON.stringify({ action: 'update', id, is_active: newStatus })
       });
       loadExecutives();
@@ -110,7 +113,7 @@ export default function AdminDashboard() {
       if (!newPass) return;
       await fetch('/api/executives/manage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
         body: JSON.stringify({ action: 'update-password', id, password: newPass })
       });
       alert('Password updated.');
@@ -120,18 +123,17 @@ export default function AdminDashboard() {
       if (!confirm('Delete this executive?')) return;
       await fetch('/api/executives/manage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
         body: JSON.stringify({ action: 'delete', id })
       });
       loadExecutives();
     };
 
-    // Hook into showSection to auto-load executives
-    const origShow = window.showSection;
-    window.showSection = function(section) {
-      if (origShow) origShow(section);
-      if (section === 'executives') loadExecutives();
-    };
+    // Expose loadExecutives globally for showSection in admin-dashboard.js
+    window._loadExecutives = loadExecutives;
+
+    // Initial load
+    loadExecutives();
   }, []);  return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -177,9 +179,9 @@ export default function AdminDashboard() {
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
               Job Applicants
             </button>
-            <button onClick={() => window.showSection && window.showSection('executives')}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-              Executives
+            <button onClick={() => window.showSection && window.showSection('templates')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              Document Templates
             </button>
             <button onClick={() => window.logoutAdmin && window.logoutAdmin()} style={{ marginTop: "auto", color: "#ef4444" }}>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -286,6 +288,7 @@ export default function AdminDashboard() {
                     <th>Name</th>
                     <th>Role</th>
                     <th>Email</th>
+                    <th>Documents</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -425,11 +428,71 @@ export default function AdminDashboard() {
             </div>
           </section>
 
+          {/* SECTION: DOCUMENT TEMPLATES */}
+          <section id="templates-section" className="hidden">
+            <div className="section-header">
+              <h2>Document Templates</h2>
+              <button className="btn-primary" onClick={() => window.openTemplateEditor && window.openTemplateEditor()}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Add Template
+              </button>
+            </div>
+            <div id="templates-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+              <p style={{ color: '#94a3b8', textAlign: 'center', gridColumn: '1/-1' }}>Loading templates...</p>
+            </div>
+          </section>
+
           </div>{/* end content-area */}
         </main>
       </div>
 
       {/* MODAL: ADD EMPLOYEE */}
+
+      {/* MODAL: EDIT TEMPLATE */}
+      <div id="edit-template-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'edit-template-modal') window.closeModal && window.closeModal('edit-template-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '800px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('edit-template-modal')}>✕</button>
+          <div className="modal-header">
+            <h2 id="template-editor-title">Add Template</h2>
+          </div>
+          <input type="hidden" id="edit-template-id" />
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="input-group">
+                <label>Template Name <span style={{ color: '#dc2626' }}>*</span></label>
+                <input type="text" id="tpl-name" placeholder="e.g. Offer Letter" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+              <div className="input-group">
+                <label>Category</label>
+                <select id="tpl-category" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <option value="certificate">Certificate</option>
+                  <option value="letter">Letter</option>
+                  <option value="agreement">Agreement</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                <input type="checkbox" id="tpl-requires-signature" /> Requires Employee Signature
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                <input type="checkbox" id="tpl-has-qr" defaultChecked /> Include QR Code
+              </label>
+            </div>
+            <div className="input-group">
+              <label>HTML Content <span style={{ color: '#dc2626' }}>*</span></label>
+              <textarea id="tpl-html" rows={12} placeholder="Paste HTML template here..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}></textarea>
+            </div>
+            <div style={{ background: '#f8f7ff', borderRadius: '8px', padding: '12px 16px', fontSize: '0.8rem', color: '#6C5CE7' }}>
+              <strong>Available Placeholders:</strong> {'{{name}}'} {'{{employee_id}}'} {'{{designation}}'} {'{{department}}'} {'{{join_date}}'} {'{{date}}'} {'{{company}}'} {'{{qr_code}}'} {'{{verification_code}}'}
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('edit-template-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.saveTemplate && window.saveTemplate()}>Save Template</button>
+          </div>
+        </div>
+      </div>
       <div id="add-employee-modal" className="modal hidden">
         <div className="modal-content premium-modal">
           <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('add-employee-modal')}>✕</button>
@@ -472,6 +535,22 @@ export default function AdminDashboard() {
                 <p style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "5px" }}>
                   Upload a clear front-facing photo.
                 </p>
+              </div>
+              <div className="input-group">
+                <label>Aadhaar Card <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional)</span></label>
+                <input type="file" id="new-emp-aadhaar" accept="image/*,.pdf" />
+              </div>
+              <div className="input-group">
+                <label>PAN Card <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional)</span></label>
+                <input type="file" id="new-emp-pan" accept="image/*,.pdf" />
+              </div>
+              <div className="input-group">
+                <label>Highest Qualification <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional)</span></label>
+                <input type="file" id="new-emp-qualification" accept="image/*,.pdf" />
+              </div>
+              <div className="input-group">
+                <label>Bank Details <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional)</span></label>
+                <input type="file" id="new-emp-bank" accept="image/*,.pdf" />
               </div>
             </div>
 
@@ -667,6 +746,8 @@ export default function AdminDashboard() {
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px' }}>Role *</label>
                 <select id="exec-role" required className="form-input" style={{ width: '100%' }}>
+                  <option value="ceo">Chief Executive Officer (CEO)</option>
+                  <option value="cmo_chief">Chief Managing Officer</option>
                   <option value="sales">Sales Executive</option>
                   <option value="cfo">Chief Finance Officer</option>
                   <option value="cso">Chief Staffing Officer</option>
@@ -691,6 +772,248 @@ export default function AdminDashboard() {
               }}>Cancel</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      {/* MODAL: UPLOAD DOCUMENTS */}
+      <div id="upload-docs-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'upload-docs-modal') window.closeModal && window.closeModal('upload-docs-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '560px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('upload-docs-modal')}>✕</button>
+          <div className="modal-header">
+            <h2>📄 Upload Documents</h2>
+            <p className="modal-subtitle" id="upload-docs-emp-info">Employee</p>
+          </div>
+          <input type="hidden" id="upload-docs-emp-id" />
+          <div id="upload-docs-container" style={{ padding: '1.5rem' }}>
+            <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading...</p>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('upload-docs-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.handleUploadDocs && window.handleUploadDocs()}>Upload Documents</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: EMPLOYEE DETAIL */}
+      <div id="employee-detail-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'employee-detail-modal') window.closeModal && window.closeModal('employee-detail-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('employee-detail-modal')}>✕</button>
+
+          {/* Header */}
+          <div className="modal-header" style={{ paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <h2 id="emp-detail-name" style={{ margin: 0 }}>Employee Name</h2>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span id="emp-detail-id" style={{ background: '#ede9fe', color: '#6C5CE7', padding: '2px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700 }}>ID</span>
+                  <span id="emp-detail-dept" style={{ background: '#dbeafe', color: '#2563eb', padding: '2px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600 }}>Dept</span>
+                  <span id="emp-detail-designation" style={{ background: '#f0fdf4', color: '#16a34a', padding: '2px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600 }}>Role</span>
+                  <span id="emp-detail-email" style={{ color: '#6b7280', fontSize: '0.8rem' }}>email</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid #f1f5f9', padding: '0 1.5rem', flexWrap: 'wrap' }}>
+            <button className="emp-detail-tab active" data-tab="overview" onClick={() => window.switchDetailTab && window.switchDetailTab('overview')} style={{ padding: '0.65rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#6C5CE7', borderBottom: '2px solid #6C5CE7', marginBottom: '-2px' }}>Overview</button>
+            <button className="emp-detail-tab" data-tab="tasks" onClick={() => window.switchDetailTab && window.switchDetailTab('tasks')} style={{ padding: '0.65rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' }}>Tasks</button>
+            <button className="emp-detail-tab" data-tab="leaves" onClick={() => window.switchDetailTab && window.switchDetailTab('leaves')} style={{ padding: '0.65rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' }}>Leaves</button>
+            <button className="emp-detail-tab" data-tab="attendance" onClick={() => window.switchDetailTab && window.switchDetailTab('attendance')} style={{ padding: '0.65rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' }}>Attendance</button>
+            <button className="emp-detail-tab" data-tab="documents" onClick={() => window.switchDetailTab && window.switchDetailTab('documents')} style={{ padding: '0.65rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' }}>Documents</button>
+          </div>
+
+          {/* Tab Content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+            {/* Overview Tab */}
+            <div id="emp-detail-content-overview">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: '#f8f7ff', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6C5CE7' }} id="emp-stat-total-tasks">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Total Tasks</div>
+                </div>
+                <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#16a34a' }} id="emp-stat-completed-tasks">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Completed</div>
+                </div>
+                <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }} id="emp-stat-pending-tasks">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Pending</div>
+                </div>
+                <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626' }} id="emp-stat-rejected-tasks">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Rejected</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2563eb' }} id="emp-stat-total-leaves">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Total Leaves</div>
+                </div>
+                <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#16a34a' }} id="emp-stat-approved-leaves">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Approved</div>
+                </div>
+                <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626' }} id="emp-stat-rejected-leaves">0</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Rejected</div>
+                </div>
+                <div style={{ background: '#f8f7ff', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6C5CE7' }} id="emp-stat-attendance-pct">0%</div>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600 }}>Attendance</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tasks Tab */}
+            <div id="emp-detail-content-tasks" style={{ display: 'none' }}>
+              <div className="table-container">
+                <table style={{ width: '100%' }}>
+                  <thead><tr><th>Title</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Submission</th></tr></thead>
+                  <tbody id="emp-tasks-tbody"><tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Leaves Tab */}
+            <div id="emp-detail-content-leaves" style={{ display: 'none' }}>
+              <div className="table-container">
+                <table style={{ width: '100%' }}>
+                  <thead><tr><th>Start Date</th><th>End Date</th><th>Reason</th><th>Status</th><th>Remarks</th></tr></thead>
+                  <tbody id="emp-leaves-tbody"><tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Attendance Tab */}
+            <div id="emp-detail-content-attendance" style={{ display: 'none' }}>
+              <div className="table-container">
+                <table style={{ width: '100%' }}>
+                  <thead><tr><th>Date</th><th>Check-In Time</th><th>Face Verified</th><th>Status</th></tr></thead>
+                  <tbody id="emp-attendance-tbody"><tr><td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>Loading...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Documents Tab */}
+            <div id="emp-detail-content-documents" style={{ display: 'none' }}>
+              <div id="emp-docs-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <p style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center' }}>Loading...</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="modal-actions" style={{ borderTop: '1px solid #f1f5f9', padding: '1rem 1.5rem', flexWrap: 'wrap' }}>
+            <button type="button" className="btn-secondary" onClick={() => window.closeModal && window.closeModal('employee-detail-modal')}>Close</button>
+            <button type="button" className="btn-primary" onClick={() => window.openIssueDocModal && window.openIssueDocModal()} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>📜 Issue Document</button>
+            <button type="button" className="btn-primary" id="emp-detail-email-btn" onClick={() => window.openEmployeeEmail && window.openEmployeeEmail()} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              Send Email
+            </button>
+            <button type="button" style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #dc2626', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => window.openEndEmploymentModal && window.openEndEmploymentModal()}>🚫 End Employment</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: ISSUE DOCUMENT */}
+      <div id="issue-doc-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'issue-doc-modal') window.closeModal && window.closeModal('issue-doc-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '620px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('issue-doc-modal')}>✕</button>
+          <div className="modal-header">
+            <h2>📜 Issue Document</h2>
+            <p className="modal-subtitle" id="issue-doc-emp-info">Employee</p>
+          </div>
+          <input type="hidden" id="issue-doc-emp-id" />
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '2px solid #f1f5f9', padding: '0 1.5rem' }}>
+            <button className="issue-doc-tab active" data-tab="template" onClick={() => window.switchIssueTab && window.switchIssueTab('template')} style={{ padding: '0.6rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#6C5CE7', borderBottom: '2px solid #6C5CE7', marginBottom: '-2px' }}>From Template</button>
+            <button className="issue-doc-tab" data-tab="custom" onClick={() => window.switchIssueTab && window.switchIssueTab('custom')} style={{ padding: '0.6rem 1.2rem', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' }}>Custom Document</button>
+          </div>
+
+          {/* Template Tab */}
+          <div id="issue-doc-template-tab" style={{ padding: '1.5rem' }}>
+            <div className="input-group">
+              <label>Select Template</label>
+              <select id="issue-doc-template-select" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <option value="">Loading templates...</option>
+              </select>
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Joining Date <span style={{ color: '#dc2626' }}>*</span></label>
+              <input type="date" id="issue-doc-join-date" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Email Subject <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional — auto-generated if empty)</span></label>
+              <input type="text" id="issue-tpl-email-subject" placeholder="Leave empty for default" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Email Body <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional)</span></label>
+              <textarea id="issue-tpl-email-body" rows={3} placeholder="Leave empty for default" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical' }}></textarea>
+            </div>
+          </div>
+
+          {/* Custom Tab */}
+          <div id="issue-doc-custom-tab" style={{ padding: '1.5rem', display: 'none' }}>
+            <div className="input-group">
+              <label>Document Title <span style={{ color: '#dc2626' }}>*</span></label>
+              <input type="text" id="issue-custom-title" placeholder="e.g. Performance Report" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Upload Document <span style={{ color: '#dc2626' }}>*</span></label>
+              <input type="file" id="issue-custom-file" accept="image/*,.pdf,.doc,.docx" />
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Email Subject <span style={{ color: '#dc2626' }}>*</span></label>
+              <input type="text" id="issue-custom-email-subject" placeholder="Subject for the email" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Email Body <span style={{ color: '#dc2626' }}>*</span></label>
+              <textarea id="issue-custom-email-body" rows={4} placeholder="Write the email content..." style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical' }}></textarea>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('issue-doc-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" id="issue-doc-submit-btn" onClick={() => window.handleIssueDocument && window.handleIssueDocument()}>Issue Document</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: END EMPLOYMENT */}
+      <div id="end-employment-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'end-employment-modal') window.closeModal && window.closeModal('end-employment-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '560px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('end-employment-modal')}>✕</button>
+          <div className="modal-header" style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)', margin: '-1.5rem -1.5rem 1.5rem', padding: '1.5rem', borderRadius: '12px 12px 0 0' }}>
+            <h2 style={{ color: '#fff', margin: 0 }}>🚫 End Employment</h2>
+            <p style={{ color: '#fecaca', margin: '0.25rem 0 0', fontSize: '0.85rem' }} id="end-emp-info">Employee</p>
+          </div>
+          <input type="hidden" id="end-emp-id" />
+
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <div className="input-group">
+              <label>Reason for Ending Employment <span style={{ color: '#dc2626' }}>*</span></label>
+              <textarea id="end-emp-reason" rows={3} placeholder="Internship completed / Contract ended / Terminated..." style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical' }} required></textarea>
+            </div>
+
+            <div style={{ margin: '1rem 0' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>Issued Documents</label>
+              <div id="end-emp-docs-list" style={{ maxHeight: '120px', overflowY: 'auto', marginTop: '0.5rem', border: '1px solid #f1f5f9', borderRadius: '8px', padding: '8px' }}>
+                <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: 0 }}>Loading...</p>
+              </div>
+            </div>
+
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label style={{ fontSize: '0.85rem' }}>Type <strong style={{ color: '#dc2626' }} id="end-emp-confirm-text">{'"end employment of Employee Name"'}</strong> to confirm</label>
+              <input type="text" id="end-emp-confirmation" placeholder="Type confirmation text..." style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }} />
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('end-employment-modal')}>Cancel</button>
+            <button type="button" style={{ padding: '0.5rem 1.5rem', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700 }} onClick={() => window.handleEndEmployment && window.handleEndEmployment()}>End Employment</button>
+          </div>
         </div>
       </div>
 

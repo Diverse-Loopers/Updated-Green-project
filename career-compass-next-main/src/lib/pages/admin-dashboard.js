@@ -13,15 +13,15 @@ let notificationIntervalId = null;
 export function showSection(sectionId) {
     // Update Sidebar
     document.querySelectorAll('.nav-links button')?.forEach(btn => btn.classList.remove('active'));
-    
+
     const navBtns = document.querySelectorAll('.nav-links button');
-    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4, executives: 5 };
+    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4, templates: 5 };
     if (navBtns[indexMap[sectionId]]) {
         navBtns[indexMap[sectionId]].classList.add('active');
     }
 
     // Show Section
-    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'executives'].forEach(id => {
+    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'templates'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
@@ -31,7 +31,8 @@ export function showSection(sectionId) {
     if (sectionId === 'tasks') loadTasks();
     if (sectionId === 'attendance') loadAttendance();
     if (sectionId === 'leaves') loadLeaves();
-    if (sectionId === 'applicants') loadJobApplicants(); 
+    if (sectionId === 'applicants') loadJobApplicants();
+    if (sectionId === 'templates') { loadDocumentTemplates().then(() => renderTemplatesGrid()); }
 
     loadAdminStats();
     fetchNotifications();
@@ -251,43 +252,64 @@ export async function loadFaceModels() {
    EMPLOYEES
 ========================== */
 async function loadEmployees() {
-    const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-    if (error) return showToast('Error loading employees: ' + error.message, 'error');
-
+    const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
+    if (error) return showToast('Error loading employees', 'error');
     employeesCache = data || [];
+
+    // Fetch document counts for all employees
+    let docCountsMap = {};
+    try {
+        const { data: allDocs } = await supabase.from('employee_documents').select('employee_id, doc_type');
+        if (allDocs) {
+            allDocs.forEach(d => {
+                if (!docCountsMap[d.employee_id]) docCountsMap[d.employee_id] = new Set();
+                docCountsMap[d.employee_id].add(d.doc_type);
+            });
+        }
+    } catch(e) { console.error('Error fetching doc counts:', e); }
+
     const tbody = document.querySelector('#employees-table tbody');
-    if (!tbody) return;
+    if (tbody) {
+        tbody.innerHTML = '';
+        employeesCache.forEach(emp => {
+            const docCount = docCountsMap[emp.employee_id] ? docCountsMap[emp.employee_id].size : 0;
+            const docTotal = 4;
+            let docBadge = '';
+            if (docCount === docTotal) {
+                docBadge = '<span style="background:#d1fae5;color:#059669;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">✅ ' + docCount + '/' + docTotal + '</span>';
+            } else if (docCount > 0) {
+                docBadge = '<span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">⚠️ ' + docCount + '/' + docTotal + '</span> ' +
+                    '<button onclick="window.uploadMissingDocs(\'' + emp.employee_id + '\', \'' + (emp.full_name || '') + '\')" style="padding:2px 8px;border-radius:5px;border:1px solid #d97706;background:#fffbeb;color:#d97706;cursor:pointer;font-size:10px;font-weight:600;margin-left:4px">Upload</button>';
+            } else {
+                docBadge = '<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">❌ 0/' + docTotal + '</span> ' +
+                    '<button onclick="window.uploadMissingDocs(\'' + emp.employee_id + '\', \'' + (emp.full_name || '') + '\')" style="padding:2px 8px;border-radius:5px;border:1px solid #dc2626;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:10px;font-weight:600;margin-left:4px">Upload</button>';
+            }
 
-    tbody.innerHTML = '';
+            const row = document.createElement('tr');
+            row.innerHTML =
+                '<td>' + emp.employee_id + '</td>' +
+                '<td><a href="#" onclick="event.preventDefault();window.viewEmployeeDetail(\'' + emp.employee_id + '\')" style="color:#6C5CE7;font-weight:600;text-decoration:none;cursor:pointer">' + (emp.full_name || '-') + '</a></td>' +
+                '<td>' + (emp.role || 'employee') + '</td>' +
+                '<td>' + (emp.email || '-') + '</td>' +
+                '<td>' + docBadge + '</td>' +
+                '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+                    '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#6C5CE7" onclick="window.viewEmployeeDetail(\'' + emp.employee_id + '\')">View</button>' +
+                    '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#f59e0b" onclick="window.openResetPassword(\'' + emp.id + '\')">Reset Pass</button>' +
+                    '<button class="btn-secondary" style="font-size:0.75rem;padding:0.2rem 0.5rem" onclick="window.deleteEmployee(\'' + emp.id + '\')">Delete</button>' +
+                '</td>';
+            tbody.appendChild(row);
+        });
+    }
 
-    employeesCache.forEach(emp => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${emp.employee_id}</td>
-            <td>${emp.full_name}</td>
-            <td>${emp.role}</td>
-            <td>${emp.email || '-'}</td>
-            <td>
-                <button class="btn-primary" style="font-size: 0.8rem; padding: 0.25rem 0.5rem; background: #f59e0b;" onclick="window.openResetPassword('${emp.id}')">Reset Pass</button>
-                <button class="btn-secondary" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;" onclick="window.deleteEmployee('${emp.id}')">Delete</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    // Populate Task Assignment Dropdown
-    const select = document.getElementById('task-assign-to');
-    if (select) {
-        select.innerHTML = '';
+    // Populate task assignment dropdown
+    const taskSelect = document.getElementById('task-assign-to');
+    if (taskSelect) {
+        taskSelect.innerHTML = '';
         employeesCache.filter(e => e.role !== 'admin').forEach(emp => {
             const opt = document.createElement('option');
             opt.value = emp.employee_id;
-            opt.textContent = `${emp.full_name} (${emp.employee_id})`;
-            select.appendChild(opt);
+            opt.textContent = emp.employee_id + ' - ' + emp.full_name;
+            taskSelect.appendChild(opt);
         });
     }
 }
@@ -363,7 +385,50 @@ export async function handleAddEmployee(e) {
 
         if (faceError) throw faceError;
 
+        // Upload documents if any were selected
+        const docFiles = [
+            { type: 'aadhaar', file: document.getElementById('new-emp-aadhaar')?.files[0] },
+            { type: 'pan', file: document.getElementById('new-emp-pan')?.files[0] },
+            { type: 'qualification', file: document.getElementById('new-emp-qualification')?.files[0] },
+            { type: 'bank_details', file: document.getElementById('new-emp-bank')?.files[0] },
+        ].filter(d => d.file);
+
+        if (docFiles.length > 0) {
+            showToast(`Uploading ${docFiles.length} document(s)...`, 'info');
+            let uploaded = 0;
+
+            for (const doc of docFiles) {
+                try {
+                    const fd = new FormData();
+                    fd.append('file', doc.file);
+                    fd.append('employee_id', empId);
+                    fd.append('doc_type', doc.type);
+
+                    const uploadResponse = await fetch('/api/employees/documents', {
+                        method: 'POST',
+                        body: fd
+                    });
+
+                    if (uploadResponse.ok) {
+                        uploaded++;
+                    } else {
+                        console.error(`Failed to upload ${doc.type}:`, await uploadResponse.text());
+                    }
+                } catch (docErr) {
+                    console.error(`Failed to upload ${doc.type}:`, docErr);
+                }
+            }
+
+            if (uploaded < docFiles.length) {
+                showToast(
+                    `Employee created but ${docFiles.length - uploaded} document(s) failed to upload`,
+                    'warning'
+                );
+            }
+        }
+
         showToast("Employee Created & Face Data Saved!", "success");
+ C:/Users/LENOVO/AppData/Local/Temp/shivansh-src_lib_pages_admin-dashboard.js
         closeModal('add-employee-modal');
         loadEmployees();
         e.target.reset();
@@ -390,25 +455,23 @@ export function openResetPassword(userId) {
 
 export async function handleResetPassword(e) {
     e.preventDefault();
-    
+
     const newPass = document.getElementById('reset-new-pass')?.value;
     if (!newPass || newPass.length < 6) return showToast("Password must be at least 6 characters", "error");
 
     showToast("Resetting password...", "info");
 
     try {
-        const { data: emp, error: empError} = await supabase
-            .from('employees')
-            .select('employee_id, email')
-            .eq('id', currentResetUserId)
-            .single();
+        const res = await fetch('/api/employees/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: currentResetUserId, new_password: newPass })
+        });
+        const result = await res.json();
 
-        if (empError || !emp) throw new Error("Could not find employee record.");
+        if (!result.success) throw new Error(result.error);
 
-        // Note: Password reset requires service role key - this is a placeholder
-        // In production, you'd need a server-side endpoint for this
-        showToast("Password reset requires admin API access. Please implement server-side endpoint.", "error");
-        
+        showToast(result.message || 'Password reset successful!', 'success');
         closeModal('reset-password-modal');
         document.getElementById('reset-password-form')?.reset();
 
@@ -590,11 +653,11 @@ async function loadLeaves() {
 
 export async function updateLeave(id, status) {
     if (!confirm(`Mark leave as ${status}?`)) return;
-    
+
     const { data: leaveData } = await supabase.from('leaves').select('employee_id').eq('id', id).single();
-    
+
     const { error } = await supabase.from('leaves').update({ status }).eq('id', id);
-    
+
     if (error) {
         showToast(error.message, 'error');
     } else {
@@ -827,14 +890,14 @@ async function updateAppStatus(appId, newStatus) {
 function openEmailCompose(appId) {
     const app = applicantsCache.find(a => String(a.id) === String(appId));
     if (!app) return;
-    
+
     const modal = document.getElementById('email-compose-modal');
     if (!modal) return;
-    
+
     document.getElementById('email-to').value = app.applicant_email;
     document.getElementById('email-subject').value = `Regarding your application for ${app.job_title} at Diverse Loopers`;
     document.getElementById('email-body').value = `Dear ${app.applicant_name},\n\nThank you for applying for the ${app.job_title} position at Diverse Loopers.\n\n\n\nBest regards,\nHR Team\nDiverse Loopers`;
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -843,12 +906,12 @@ async function sendEmailFromDashboard() {
     const subject = document.getElementById('email-subject').value;
     const body = document.getElementById('email-body').value.replace(/\n/g, '<br>');
     const sendBtn = document.getElementById('send-email-btn');
-    
+
     if (!to || !subject || !body) return showToast('Fill all fields', 'error');
-    
+
     sendBtn.disabled = true;
     sendBtn.textContent = 'Sending...';
-    
+
     try {
         const res = await fetch('/api/send-email', {
             method: 'POST',
@@ -865,7 +928,7 @@ async function sendEmailFromDashboard() {
     } catch (err) {
         showToast('Error sending email', 'error');
     }
-    
+
     sendBtn.disabled = false;
     sendBtn.textContent = 'Send Email';
 }
@@ -958,9 +1021,9 @@ function searchDashboard(query) {
             row.style.display = text.includes(q) ? '' : 'none';
         });
     } else if (activeSection.id === 'applicants-section') {
-        const filtered = applicantsCache.filter(a => 
-            a.applicant_name?.toLowerCase().includes(q) || 
-            a.job_title?.toLowerCase().includes(q) || 
+        const filtered = applicantsCache.filter(a =>
+            a.applicant_name?.toLowerCase().includes(q) ||
+            a.job_title?.toLowerCase().includes(q) ||
             a.applicant_email?.toLowerCase().includes(q)
         );
         renderApplicantCards(filtered, document.getElementById('status-filter')?.value || 'all');
@@ -1046,7 +1109,7 @@ function loadAdminProfile() {
 export async function viewApplicantDetails(appId) {
     // Convert to integer
     const numericId = parseInt(appId, 10);
-    
+
     if (isNaN(numericId)) {
         showToast('Invalid application ID', 'error');
         return;
@@ -1113,7 +1176,7 @@ export async function viewApplicantDetails(appId) {
 //     if (!confirm('Are you sure you want to delete this application?')) return;
 
 //     const { error } = await supabase.from('applications').delete().eq('id', id);
-    
+
 //     if (error) {
 //         showToast(error.message, 'error');
 //     } else {
@@ -1125,16 +1188,16 @@ export async function viewApplicantDetails(appId) {
 export async function deleteApplicant(id) {
     // Convert string ID to integer
     const numericId = parseInt(id, 10);
-    
+
     console.log('=== DELETE APPLICANT DEBUG ===');
     console.log('Received ID:', id, 'Type:', typeof id);
     console.log('Converted ID:', numericId, 'Type:', typeof numericId);
-    
+
     if (isNaN(numericId)) {
         showToast('Invalid application ID', 'error');
         return;
     }
-    
+
     if (!confirm('Are you sure you want to delete this application?')) return;
 
     try {
@@ -1172,10 +1235,599 @@ export async function deleteApplicant(id) {
 
         showToast('Application deleted successfully', 'success');
         loadJobApplicants();
-        
+
     } catch (err) {
         console.error('Unexpected error:', err);
         showToast('Unexpected error: ' + err.message, 'error');
+    }
+}
+
+/* ==========================
+   EMPLOYEE DETAIL VIEW
+========================== */
+const DOC_TYPE_LABELS = { aadhaar: 'Aadhaar Card', pan: 'PAN Card', qualification: 'Highest Qualification', bank_details: 'Bank Details' };
+
+async function viewEmployeeDetail(employeeId) {
+    const emp = employeesCache.find(e => e.employee_id === employeeId);
+    if (!emp) return showToast('Employee not found', 'error');
+
+    // Fill header
+    document.getElementById('emp-detail-name').textContent = emp.full_name || '-';
+    document.getElementById('emp-detail-id').textContent = emp.employee_id;
+    document.getElementById('emp-detail-dept').textContent = emp.department || 'N/A';
+    document.getElementById('emp-detail-designation').textContent = emp.designation || 'N/A';
+    document.getElementById('emp-detail-email').textContent = emp.email || '-';
+
+    // Store email for send email button
+    window._currentDetailEmployee = emp;
+
+    // Reset to overview tab
+    switchDetailTab('overview');
+
+    // Show modal
+    document.getElementById('employee-detail-modal')?.classList.remove('hidden');
+
+    // Fetch all data in parallel
+    const [tasksRes, leavesRes, attendanceRes, docsRes] = await Promise.all([
+        supabase.from('tasks').select('*').eq('employee_id', employeeId).order('assigned_at', { ascending: false }),
+        supabase.from('leaves').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }),
+        supabase.from('attendance').select('*').eq('employee_id', employeeId).order('date', { ascending: false }),
+        fetch('/api/employees/documents?employee_id=' + employeeId).then(r => r.json())
+    ]);
+
+    const tasks = tasksRes.data || [];
+    const leaves = leavesRes.data || [];
+    const attendance = attendanceRes.data || [];
+    const docs = docsRes.success ? docsRes.documents : [];
+    const missingDocs = docsRes.success ? docsRes.missing : ['aadhaar', 'pan', 'qualification', 'bank_details'];
+
+    // --- Overview Stats ---
+    document.getElementById('emp-stat-total-tasks').textContent = tasks.length;
+    document.getElementById('emp-stat-completed-tasks').textContent = tasks.filter(t => t.status === 'Completed').length;
+    document.getElementById('emp-stat-pending-tasks').textContent = tasks.filter(t => t.status === 'Pending').length;
+    document.getElementById('emp-stat-rejected-tasks').textContent = tasks.filter(t => t.status === 'Rejected').length;
+    document.getElementById('emp-stat-total-leaves').textContent = leaves.length;
+    document.getElementById('emp-stat-approved-leaves').textContent = leaves.filter(l => l.status === 'Approved').length;
+    document.getElementById('emp-stat-rejected-leaves').textContent = leaves.filter(l => l.status === 'Rejected').length;
+
+    // Attendance percentage (this month)
+    const now = new Date();
+    const daysPassed = now.getDate();
+    const thisMonthAttendance = attendance.filter(a => {
+        const d = new Date(a.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+    const pct = daysPassed > 0 ? Math.round((thisMonthAttendance / daysPassed) * 100) : 0;
+    document.getElementById('emp-stat-attendance-pct').textContent = pct + '%';
+
+    // --- Tasks Tab ---
+    const tasksTbody = document.getElementById('emp-tasks-tbody');
+    if (tasksTbody) {
+        if (tasks.length === 0) {
+            tasksTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:2rem">No tasks assigned yet</td></tr>';
+        } else {
+            tasksTbody.innerHTML = tasks.map(t => {
+                const statusColors = { Pending: '#f59e0b', Submitted: '#3b82f6', Completed: '#16a34a', Rejected: '#dc2626' };
+                const priorityColors = { Low: '#6b7280', Medium: '#f59e0b', High: '#dc2626' };
+                const sc = statusColors[t.status] || '#6b7280';
+                const pc = priorityColors[t.priority] || '#6b7280';
+                return '<tr>' +
+                    '<td><strong>' + (t.title || '-') + '</strong>' + (t.description ? '<br><small style="color:#94a3b8">' + t.description.substring(0, 60) + '</small>' : '') + '</td>' +
+                    '<td>' + (t.deadline ? formatDate(t.deadline) : '-') + '</td>' +
+                    '<td><span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:' + pc + '20;color:' + pc + '">' + (t.priority || 'Medium') + '</span></td>' +
+                    '<td><span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:' + sc + '20;color:' + sc + '">' + (t.status || 'Pending') + '</span></td>' +
+                    '<td>' + (t.submission_link ? '<a href="' + t.submission_link + '" target="_blank" style="color:#6C5CE7;font-size:12px">View ↗</a>' : '<span style="color:#cbd5e1;font-size:12px">—</span>') + '</td>' +
+                '</tr>';
+            }).join('');
+        }
+    }
+
+    // --- Leaves Tab ---
+    const leavesTbody = document.getElementById('emp-leaves-tbody');
+    if (leavesTbody) {
+        if (leaves.length === 0) {
+            leavesTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:2rem">No leave applications</td></tr>';
+        } else {
+            leavesTbody.innerHTML = leaves.map(l => {
+                const statusColors = { Pending: '#f59e0b', Approved: '#16a34a', Rejected: '#dc2626' };
+                const sc = statusColors[l.status] || '#6b7280';
+                return '<tr>' +
+                    '<td>' + formatDate(l.start_date) + '</td>' +
+                    '<td>' + formatDate(l.end_date) + '</td>' +
+                    '<td>' + (l.reason || '-') + '</td>' +
+                    '<td><span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:' + sc + '20;color:' + sc + '">' + (l.status || 'Pending') + '</span></td>' +
+                    '<td>' + (l.admin_remarks || '<span style="color:#cbd5e1">—</span>') + '</td>' +
+                '</tr>';
+            }).join('');
+        }
+    }
+
+    // --- Attendance Tab ---
+    const attTbody = document.getElementById('emp-attendance-tbody');
+    if (attTbody) {
+        if (attendance.length === 0) {
+            attTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:2rem">No attendance records</td></tr>';
+        } else {
+            attTbody.innerHTML = attendance.map(a => {
+                return '<tr>' +
+                    '<td>' + formatDate(a.date) + '</td>' +
+                    '<td>' + (a.check_in_time || '-') + '</td>' +
+                    '<td>' + (a.face_verified ? '<span style="color:#16a34a;font-weight:600">✓ Verified</span>' : '<span style="color:#dc2626;font-weight:600">✗ Failed</span>') + '</td>' +
+                    '<td><span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#d1fae5;color:#059669">' + (a.status || 'Present') + '</span></td>' +
+                '</tr>';
+            }).join('');
+        }
+    }
+
+    // --- Documents Tab ---
+    renderDocumentsGrid(docs, missingDocs, employeeId);
+}
+
+function renderDocumentsGrid(docs, missingDocs, employeeId) {
+    const grid = document.getElementById('emp-docs-grid');
+    if (!grid) return;
+
+    let html = '';
+
+    // Render uploaded documents
+    docs.forEach(doc => {
+        const isImage = doc.file_type && doc.file_type.startsWith('image/');
+        const isPdf = doc.file_type && doc.file_type.includes('pdf');
+        const icon = isImage ? '🖼️' : isPdf ? '📄' : '📎';
+        const preview = isImage
+            ? '<img src="' + doc.file_url + '" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-bottom:8px" />'
+            : '<div style="height:100px;display:flex;align-items:center;justify-content:center;background:#f8fafc;border-radius:6px;margin-bottom:8px;font-size:2.5rem">' + icon + '</div>';
+
+        html += '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;position:relative">' +
+            preview +
+            '<div style="font-weight:600;font-size:0.82rem;color:#1e293b">' + (DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type) + '</div>' +
+            '<div style="font-size:0.7rem;color:#94a3b8;margin-top:2px">' + doc.file_name + '</div>' +
+            '<div style="margin-top:8px;display:flex;gap:6px">' +
+                '<a href="' + doc.file_url + '" target="_blank" style="padding:3px 10px;border-radius:6px;background:#ede9fe;color:#6C5CE7;font-size:11px;font-weight:600;text-decoration:none">View ↗</a>' +
+                '<a href="' + doc.file_url + '" download style="padding:3px 10px;border-radius:6px;background:#dbeafe;color:#2563eb;font-size:11px;font-weight:600;text-decoration:none">Download</a>' +
+            '</div>' +
+        '</div>';
+    });
+
+    // Render missing documents with upload prompt
+    missingDocs.forEach(type => {
+        html += '<div style="border:2px dashed #e2e8f0;border-radius:12px;padding:1rem;text-align:center;background:#fafafa">' +
+            '<div style="height:100px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#cbd5e1">📁</div>' +
+            '<div style="font-weight:600;font-size:0.82rem;color:#94a3b8">' + (DOC_TYPE_LABELS[type] || type) + '</div>' +
+            '<div style="font-size:0.7rem;color:#cbd5e1;margin:4px 0 8px">Not uploaded</div>' +
+            '<button onclick="window.uploadMissingDocs(\'' + employeeId + '\', \'\')" style="padding:4px 12px;border-radius:6px;border:1px solid #6C5CE7;background:#f8f7ff;color:#6C5CE7;cursor:pointer;font-size:11px;font-weight:600">Upload</button>' +
+        '</div>';
+    });
+
+    grid.innerHTML = html || '<p style="color:#94a3b8;grid-column:1/-1;text-align:center">No documents</p>';
+}
+
+function switchDetailTab(tabName) {
+    const tabs = ['overview', 'tasks', 'leaves', 'attendance', 'documents'];
+
+    // Update tab buttons
+    document.querySelectorAll('.emp-detail-tab').forEach(btn => {
+        const isActive = btn.getAttribute('data-tab') === tabName;
+        btn.style.color = isActive ? '#6C5CE7' : '#94a3b8';
+        btn.style.borderBottomColor = isActive ? '#6C5CE7' : 'transparent';
+        if (isActive) btn.classList.add('active'); else btn.classList.remove('active');
+    });
+
+    // Show/hide content
+    tabs.forEach(t => {
+        const el = document.getElementById('emp-detail-content-' + t);
+        if (el) el.style.display = t === tabName ? 'block' : 'none';
+    });
+}
+
+/* ==========================
+   UPLOAD MISSING DOCUMENTS
+========================== */
+async function uploadMissingDocs(employeeId, empName) {
+    const emp = employeesCache.find(e => e.employee_id === employeeId);
+    const name = empName || (emp ? emp.full_name : employeeId);
+
+    document.getElementById('upload-docs-emp-id').value = employeeId;
+    document.getElementById('upload-docs-emp-info').textContent = name + ' (' + employeeId + ')';
+
+    const container = document.getElementById('upload-docs-container');
+    container.innerHTML = '<p style="color:#94a3b8;text-align:center">Loading documents...</p>';
+
+    document.getElementById('upload-docs-modal')?.classList.remove('hidden');
+
+    // Fetch existing docs
+    try {
+        const res = await fetch('/api/employees/documents?employee_id=' + employeeId);
+        const data = await res.json();
+        const missing = data.success ? data.missing : ['aadhaar', 'pan', 'qualification', 'bank_details'];
+
+        if (missing.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2rem"><div style="font-size:3rem;margin-bottom:0.5rem">✅</div><p style="color:#059669;font-weight:600">All documents are uploaded!</p></div>';
+            return;
+        }
+
+        let html = '<div style="display:flex;flex-direction:column;gap:1rem">';
+        missing.forEach(type => {
+            html += '<div class="input-group">' +
+                '<label>' + (DOC_TYPE_LABELS[type] || type) + ' <span style="color:#dc2626;font-weight:700">*Missing</span></label>' +
+                '<input type="file" id="upload-doc-' + type + '" accept="image/*,.pdf" />' +
+            '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<p style="color:#dc2626;text-align:center">Error loading documents</p>';
+    }
+}
+
+async function handleUploadDocs() {
+    const employeeId = document.getElementById('upload-docs-emp-id')?.value;
+    if (!employeeId) return showToast('No employee selected', 'error');
+
+    const docTypes = ['aadhaar', 'pan', 'qualification', 'bank_details'];
+    const filesToUpload = [];
+
+    docTypes.forEach(type => {
+        const input = document.getElementById('upload-doc-' + type);
+        if (input && input.files && input.files[0]) {
+            filesToUpload.push({ type, file: input.files[0] });
+        }
+    });
+
+    if (filesToUpload.length === 0) return showToast('Please select at least one file to upload', 'error');
+
+    showToast('Uploading ' + filesToUpload.length + ' document(s)...', 'info');
+
+    let uploaded = 0;
+    for (const doc of filesToUpload) {
+        try {
+            const fd = new FormData();
+            fd.append('file', doc.file);
+            fd.append('employee_id', employeeId);
+            fd.append('doc_type', doc.type);
+            const res = await fetch('/api/employees/documents', { method: 'POST', body: fd });
+            const result = await res.json();
+            if (result.success) uploaded++;
+            else console.error('Upload failed for ' + doc.type + ':', result.error);
+        } catch (err) {
+            console.error('Upload error for ' + doc.type + ':', err);
+        }
+    }
+
+    if (uploaded === filesToUpload.length) {
+        showToast('All documents uploaded successfully!', 'success');
+    } else {
+        showToast(uploaded + '/' + filesToUpload.length + ' documents uploaded. Some failed.', 'warning');
+    }
+
+    closeModal('upload-docs-modal');
+    loadEmployees(); // Refresh documents column
+
+    // If employee detail modal is open, refresh it
+    if (!document.getElementById('employee-detail-modal')?.classList.contains('hidden')) {
+        viewEmployeeDetail(employeeId);
+    }
+}
+
+/* ==========================
+   DIRECT EMAIL FROM EMPLOYEE DETAIL
+========================== */
+function openEmployeeEmail(emailArg, nameArg) {
+    const emp = window._currentDetailEmployee;
+    const email = emailArg || (emp ? emp.email : '');
+    const name = nameArg || (emp ? emp.full_name : '');
+
+    if (!email) return showToast('No email address available', 'error');
+
+    document.getElementById('email-to').value = email;
+    document.getElementById('email-subject').value = '';
+    document.getElementById('email-body').value = 'Hi ' + name + ',\n\n\n\nBest regards,\nHR Team\nDiverse Loopers';
+    document.getElementById('email-compose-modal')?.classList.remove('hidden');
+}
+
+/* ==========================
+   TEMPLATE MANAGEMENT
+========================== */
+function renderTemplatesGrid() {
+    const grid = document.getElementById('templates-grid');
+    if (!grid) return;
+
+    if (templatesCache.length === 0) {
+        grid.innerHTML = '<div style="text-align:center;grid-column:1/-1;padding:3rem"><div style="font-size:3rem;margin-bottom:1rem">📄</div><p style="color:#94a3b8">No templates yet. Click "Add Template" to create one.</p></div>';
+        return;
+    }
+
+    const categoryIcons = { certificate: '🏆', letter: '📝', agreement: '📋' };
+
+    grid.innerHTML = templatesCache.map(t => {
+        const icon = categoryIcons[t.category] || '📄';
+        const badges = [];
+        if (t.requires_signature) badges.push('<span style="background:#fffbeb;color:#d97706;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">✍️ Signature</span>');
+        if (t.has_qr) badges.push('<span style="background:#d1fae5;color:#059669;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700">QR Code</span>');
+
+        return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:1.2rem;background:#fff;position:relative">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+                '<div style="font-size:2rem">' + icon + '</div>' +
+                '<div><div style="font-weight:700;color:#1e293b;font-size:0.95rem">' + t.name + '</div>' +
+                '<div style="font-size:0.75rem;color:#94a3b8;text-transform:capitalize">' + (t.category || 'certificate') + '</div></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">' + badges.join('') + '</div>' +
+            '<div style="display:flex;gap:6px;margin-top:8px">' +
+                '<button onclick="window.editTemplate(\'' + t.id + '\')" style="padding:5px 12px;border-radius:6px;border:1px solid #6C5CE7;background:#f8f7ff;color:#6C5CE7;cursor:pointer;font-size:11px;font-weight:600">Edit</button>' +
+                '<button onclick="window.deleteTemplate(\'' + t.id + '\', \'' + t.name.replace(/'/g, "\\'") + '\')" style="padding:5px 12px;border-radius:6px;border:1px solid #dc2626;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600">Delete</button>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+function openTemplateEditor(templateId) {
+    document.getElementById('edit-template-id').value = '';
+    document.getElementById('tpl-name').value = '';
+    document.getElementById('tpl-category').value = 'certificate';
+    document.getElementById('tpl-html').value = '';
+    document.getElementById('tpl-requires-signature').checked = false;
+    document.getElementById('tpl-has-qr').checked = true;
+    document.getElementById('template-editor-title').textContent = 'Add Template';
+    document.getElementById('edit-template-modal')?.classList.remove('hidden');
+}
+
+function editTemplate(templateId) {
+    const tpl = templatesCache.find(t => t.id === templateId);
+    if (!tpl) return showToast('Template not found', 'error');
+
+    document.getElementById('edit-template-id').value = tpl.id;
+    document.getElementById('tpl-name').value = tpl.name;
+    document.getElementById('tpl-category').value = tpl.category || 'certificate';
+    document.getElementById('tpl-html').value = tpl.html_content;
+    document.getElementById('tpl-requires-signature').checked = tpl.requires_signature;
+    document.getElementById('tpl-has-qr').checked = tpl.has_qr;
+    document.getElementById('template-editor-title').textContent = 'Edit Template: ' + tpl.name;
+    document.getElementById('edit-template-modal')?.classList.remove('hidden');
+}
+
+async function saveTemplate() {
+    const id = document.getElementById('edit-template-id')?.value || null;
+    const name = document.getElementById('tpl-name')?.value;
+    const category = document.getElementById('tpl-category')?.value;
+    const html_content = document.getElementById('tpl-html')?.value;
+    const requires_signature = document.getElementById('tpl-requires-signature')?.checked;
+    const has_qr = document.getElementById('tpl-has-qr')?.checked;
+
+    if (!name) return showToast('Template name is required', 'error');
+    if (!html_content) return showToast('HTML content is required', 'error');
+
+    try {
+        const res = await fetch('/api/employees/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id || undefined, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '_'), category, html_content, requires_signature, has_qr })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+
+        showToast(id ? 'Template updated!' : 'Template created!', 'success');
+        closeModal('edit-template-modal');
+        await loadDocumentTemplates();
+        renderTemplatesGrid();
+    } catch (err) {
+        showToast(err.message || 'Failed to save template', 'error');
+    }
+}
+
+async function deleteTemplate(templateId, templateName) {
+    if (!confirm('Delete template "' + templateName + '"? This cannot be undone.')) return;
+
+    try {
+        const res = await fetch('/api/employees/templates', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: templateId })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+
+        showToast('Template deleted!', 'success');
+        await loadDocumentTemplates();
+        renderTemplatesGrid();
+    } catch (err) {
+        showToast(err.message || 'Failed to delete template', 'error');
+    }
+}
+
+/* ==========================
+   ISSUE DOCUMENT
+========================== */
+let templatesCache = [];
+
+async function loadDocumentTemplates() {
+    try {
+        const res = await fetch('/api/employees/templates');
+        const data = await res.json();
+        templatesCache = data.success ? data.templates : [];
+    } catch(e) { console.error('Error loading templates:', e); }
+}
+
+function openIssueDocModal() {
+    const emp = window._currentDetailEmployee;
+    if (!emp) return showToast('No employee selected', 'error');
+
+    document.getElementById('issue-doc-emp-id').value = emp.employee_id;
+    document.getElementById('issue-doc-emp-info').textContent = emp.full_name + ' (' + emp.employee_id + ')';
+
+    // Reset fields
+    document.getElementById('issue-doc-join-date').value = '';
+    document.getElementById('issue-tpl-email-subject').value = '';
+    document.getElementById('issue-tpl-email-body').value = '';
+    document.getElementById('issue-custom-title').value = '';
+    document.getElementById('issue-custom-email-subject').value = '';
+    document.getElementById('issue-custom-email-body').value = '';
+    const fileInput = document.getElementById('issue-custom-file');
+    if (fileInput) fileInput.value = '';
+
+    // Load templates into dropdown
+    const select = document.getElementById('issue-doc-template-select');
+    if (select) {
+        if (templatesCache.length === 0) {
+            select.innerHTML = '<option value="">No templates available</option>';
+        } else {
+            select.innerHTML = templatesCache.map(t =>
+                '<option value="' + t.id + '">' + t.name + (t.requires_signature ? ' (Requires Signature)' : '') + '</option>'
+            ).join('');
+        }
+    }
+
+    switchIssueTab('template');
+    document.getElementById('issue-doc-modal')?.classList.remove('hidden');
+}
+
+function switchIssueTab(tab) {
+    document.querySelectorAll('.issue-doc-tab').forEach(btn => {
+        const isActive = btn.getAttribute('data-tab') === tab;
+        btn.style.color = isActive ? '#6C5CE7' : '#94a3b8';
+        btn.style.borderBottomColor = isActive ? '#6C5CE7' : 'transparent';
+    });
+    document.getElementById('issue-doc-template-tab').style.display = tab === 'template' ? 'block' : 'none';
+    document.getElementById('issue-doc-custom-tab').style.display = tab === 'custom' ? 'block' : 'none';
+    window._currentIssueTab = tab;
+}
+
+async function handleIssueDocument() {
+    const employeeId = document.getElementById('issue-doc-emp-id')?.value;
+    if (!employeeId) return showToast('No employee selected', 'error');
+
+    const tab = window._currentIssueTab || 'template';
+    const btn = document.getElementById('issue-doc-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Issuing...';
+
+    try {
+        if (tab === 'template') {
+            const templateId = document.getElementById('issue-doc-template-select')?.value;
+            const joinDate = document.getElementById('issue-doc-join-date')?.value;
+            if (!templateId) { showToast('Please select a template', 'error'); return; }
+            if (!joinDate) { showToast('Please enter joining date', 'error'); return; }
+
+            const res = await fetch('/api/employees/issue-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employee_id: employeeId,
+                    template_id: templateId,
+                    join_date: new Date(joinDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    email_subject: document.getElementById('issue-tpl-email-subject')?.value || '',
+                    email_body: document.getElementById('issue-tpl-email-body')?.value || ''
+                })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            showToast('Document issued & email sent!', 'success');
+        } else {
+            const title = document.getElementById('issue-custom-title')?.value;
+            const file = document.getElementById('issue-custom-file')?.files[0];
+            const subject = document.getElementById('issue-custom-email-subject')?.value;
+            const body = document.getElementById('issue-custom-email-body')?.value;
+
+            if (!title) { showToast('Please enter document title', 'error'); return; }
+            if (!file) { showToast('Please select a file', 'error'); return; }
+            if (!subject) { showToast('Please enter email subject', 'error'); return; }
+            if (!body) { showToast('Please enter email body', 'error'); return; }
+
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('employee_id', employeeId);
+            fd.append('title', title);
+            fd.append('email_subject', subject);
+            fd.append('email_body', body);
+
+            const res = await fetch('/api/employees/issue-document', { method: 'POST', body: fd });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            showToast('Document issued & email sent!', 'success');
+        }
+
+        closeModal('issue-doc-modal');
+        // Refresh employee detail if open
+        if (!document.getElementById('employee-detail-modal')?.classList.contains('hidden')) {
+            viewEmployeeDetail(employeeId);
+        }
+    } catch (err) {
+        showToast(err.message || 'Failed to issue document', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Issue Document';
+    }
+}
+
+/* ==========================
+   END EMPLOYMENT
+========================== */
+async function openEndEmploymentModal() {
+    const emp = window._currentDetailEmployee;
+    if (!emp) return showToast('No employee selected', 'error');
+
+    document.getElementById('end-emp-id').value = emp.employee_id;
+    document.getElementById('end-emp-info').textContent = emp.full_name + ' (' + emp.employee_id + ')';
+    document.getElementById('end-emp-confirm-text').textContent = '"end employment of ' + emp.full_name + '"';
+    document.getElementById('end-emp-reason').value = '';
+    document.getElementById('end-emp-confirmation').value = '';
+
+    // Fetch issued documents
+    const docsList = document.getElementById('end-emp-docs-list');
+    docsList.innerHTML = '<p style="color:#94a3b8;font-size:0.8rem;margin:0">Loading...</p>';
+
+    document.getElementById('end-employment-modal')?.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/employees/issue-document?employee_id=' + emp.employee_id);
+        const data = await res.json();
+        const docs = data.success ? data.documents : [];
+
+        if (docs.length === 0) {
+            docsList.innerHTML = '<p style="color:#94a3b8;font-size:0.8rem;margin:0">No documents issued</p>';
+        } else {
+            docsList.innerHTML = docs.map(d =>
+                '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:0.8rem">' +
+                '<span style="color:#1e293b">' + d.title + '</span>' +
+                '<span style="color:#94a3b8">' + new Date(d.issued_at).toLocaleDateString('en-IN') + '</span>' +
+                '</div>'
+            ).join('');
+        }
+    } catch(e) {
+        docsList.innerHTML = '<p style="color:#dc2626;font-size:0.8rem;margin:0">Error loading documents</p>';
+    }
+}
+
+async function handleEndEmployment() {
+    const employeeId = document.getElementById('end-emp-id')?.value;
+    const reason = document.getElementById('end-emp-reason')?.value;
+    const confirmation = document.getElementById('end-emp-confirmation')?.value;
+    const emp = window._currentDetailEmployee;
+
+    if (!reason) return showToast('Please enter a reason', 'error');
+    if (!confirmation) return showToast('Please type the confirmation text', 'error');
+
+    const expected = 'end employment of ' + (emp ? emp.full_name : '');
+    if (confirmation.toLowerCase().trim() !== expected.toLowerCase()) {
+        return showToast('Confirmation text does not match. Please type: "' + expected + '"', 'error');
+    }
+
+    try {
+        showToast('Processing end employment...', 'info');
+        const res = await fetch('/api/employees/end-employment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employee_id: employeeId, reason, confirmation_text: confirmation })
+        });
+        const result = await res.json();
+
+        if (!result.success) throw new Error(result.error);
+
+        showToast(result.message, 'success');
+        closeModal('end-employment-modal');
+        closeModal('employee-detail-modal');
+        loadEmployees();
+    } catch (err) {
+        showToast(err.message || 'Failed to end employment', 'error');
     }
 }
 
@@ -1193,7 +1845,7 @@ export function initAdminDashboard() {
 // function initDashboardCore() {
 //     showSection('employees');
 //     loadEmployees();
-    
+
 //     setTimeout(() => {
 //         loadFaceModels();
 //     }, 500);
@@ -1241,7 +1893,7 @@ export function initAdminDashboard() {
 //         window.handleAssignTask = handleAssignTask;
 //         window.reviewTask = reviewTask;
 //         window.updateLeave = updateLeave;
-//         window.viewApplicantDetails = viewApplicantDetails; 
+//         window.viewApplicantDetails = viewApplicantDetails;
 //     window.deleteApplicant = deleteApplicant;
 //     }
 // }
@@ -1249,8 +1901,24 @@ export function initAdminDashboard() {
 function initDashboardCore() {
     // AUTH CHECK - must run first
     (async () => {
+        // CEO mode: auto-login via postMessage from CEO panel iframe
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('ceo_mode') === 'true') {
+            window.addEventListener('message', async (e) => {
+                if (e.data?.type === 'ceo-auto-login' && e.data.email && e.data.password) {
+                    await supabase.auth.signInWithPassword({
+                        email: e.data.email,
+                        password: e.data.password
+                    });
+                    // Reload to bypass the auth check below
+                    window.location.href = '/admin-dashboard';
+                }
+            });
+        }
+
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+            if (params.get('ceo_mode') === 'true') return; // Wait for postMessage
             window.location.href = '/hrms-login';
             return;
         }
@@ -1272,7 +1940,7 @@ function initDashboardCore() {
         loadEmployees();
         startDateTime();
         loadAdminProfile();
-        
+
         setTimeout(() => {
             loadFaceModels();
         }, 500);
@@ -1333,6 +2001,23 @@ function initDashboardCore() {
             window.viewApplicantDetails = viewApplicantDetails;
             window.deleteApplicant = deleteApplicant;
             window.sendEmailFromDashboard = sendEmailFromDashboard;
+            window.viewEmployeeDetail = viewEmployeeDetail;
+            window.switchDetailTab = switchDetailTab;
+            window.uploadMissingDocs = uploadMissingDocs;
+            window.handleUploadDocs = handleUploadDocs;
+            window.openEmployeeEmail = openEmployeeEmail;
+            window.openIssueDocModal = openIssueDocModal;
+            window.switchIssueTab = switchIssueTab;
+            window.handleIssueDocument = handleIssueDocument;
+            window.openEndEmploymentModal = openEndEmploymentModal;
+            window.handleEndEmployment = handleEndEmployment;
+            window.openTemplateEditor = openTemplateEditor;
+            window.editTemplate = editTemplate;
+            window.saveTemplate = saveTemplate;
+            window.deleteTemplate = deleteTemplate;
+
+            // Load document templates
+            loadDocumentTemplates();
             window.updateAppStatus = updateAppStatus;
             window.searchDashboard = searchDashboard;
         }

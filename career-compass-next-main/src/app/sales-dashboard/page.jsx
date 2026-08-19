@@ -51,6 +51,17 @@ export default function SalesDashboardPage() {
   const [placementDetail, setPlacementDetail] = useState(null);
 
   useEffect(() => {
+    // CEO iframe mode: inject token from URL
+    const params = new URLSearchParams(window.location.search);
+    const ceoToken = params.get('ceo_token');
+    if (ceoToken) {
+      sessionStorage.setItem('executive_token', ceoToken);
+      try {
+        const payload = JSON.parse(atob(ceoToken));
+        sessionStorage.setItem('executive_session', JSON.stringify({ name: 'CEO', email: payload.email, role: payload.role }));
+      } catch(e) {}
+    }
+
     const session = sessionStorage.getItem('executive_session');
     if (!session) { router.push('/executive-login'); return; }
     setExec(JSON.parse(session));
