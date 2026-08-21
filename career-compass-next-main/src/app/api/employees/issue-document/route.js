@@ -90,6 +90,28 @@ async function handleTemplateDocument(request) {
     const verifyUrl = `${baseUrl}/verify/${verificationCode}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
 
+    // Fetch employee's manager
+    let managerName = '', managerDesignation = '', managerSignatureUrl = '', projectName = '';
+    const { data: mgrAssignment } = await supabaseAdmin
+        .from('employee_managers')
+        .select('manager_id')
+        .eq('employee_id', employee_id)
+        .maybeSingle();
+    
+    if (mgrAssignment?.manager_id) {
+        const { data: mgr } = await supabaseAdmin
+            .from('managers')
+            .select('name, designation, signature_url, project_name')
+            .eq('id', mgrAssignment.manager_id)
+            .maybeSingle();
+        if (mgr) {
+            managerName = mgr.name || '';
+            managerDesignation = mgr.designation || '';
+            managerSignatureUrl = mgr.signature_url || '';
+            projectName = mgr.project_name || '';
+        }
+    }
+
     // Fill template placeholders
     const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const templateData = {
@@ -104,6 +126,10 @@ async function handleTemplateDocument(request) {
         qr_code: tpl.has_qr ? `<img src="${qrUrl}" alt="QR Verification" style="width:120px;height:120px;" />` : '',
         verification_url: verifyUrl,
         verification_code: verificationCode,
+        reporting_manager: managerName,
+        manager_designation: managerDesignation,
+        manager_signature: managerSignatureUrl ? `<img src="${managerSignatureUrl}" alt="Manager Signature" style="max-height:60px;" />` : '',
+        project_name: projectName,
     };
 
     const filledHtml = fillTemplate(tpl.html_content, templateData);

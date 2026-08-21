@@ -191,12 +191,12 @@ async function markAllRead() {
 export function showSection(sectionId) {
     document.querySelectorAll('.nav-links button').forEach(btn => btn.classList.remove('active'));
 
-    ['dashboard', 'tasks', 'leaves', 'documents'].forEach(id => {
+    ['dashboard', 'tasks', 'leaves', 'documents', 'ratings', 'emp-announcements'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
     const buttons = document.querySelectorAll('.nav-links button');
-    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2, 'documents': 3 };
+    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2, 'documents': 3, 'ratings': 4, 'emp-announcements': 5 };
     if (buttons[sectionIndex[sectionId]]) {
         buttons[sectionIndex[sectionId]].classList.add('active');
     }
@@ -212,6 +212,8 @@ export function showSection(sectionId) {
     if (sectionId === 'tasks') loadMyTasks();
     if (sectionId === 'leaves') loadMyLeaves();
     if (sectionId === 'documents') loadMyDocuments();
+    if (sectionId === 'ratings') loadMyRatings();
+    if (sectionId === 'emp-announcements') loadMyAnnouncements();
 }
 
 
@@ -655,5 +657,109 @@ async function handleSignDocument() {
         loadMyDocuments();
     } catch (err) {
         alert('Error uploading signed document: ' + err.message);
+    }
+}
+
+/* ==========================
+   MY RATINGS
+========================== */
+async function loadMyRatings() {
+    const container = document.getElementById('my-ratings-list');
+    if (!container || !profile) return;
+    container.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading ratings...</p>';
+
+    // Load manager info
+    try {
+        const { data: assignment } = await supabase
+            .from('employee_managers')
+            .select('manager_id')
+            .eq('employee_id', profile.employee_id)
+            .maybeSingle();
+        
+        if (assignment?.manager_id) {
+            const { data: mgr } = await supabase
+                .from('managers')
+                .select('name, designation')
+                .eq('id', assignment.manager_id)
+                .maybeSingle();
+            if (mgr) {
+                const infoDiv = document.getElementById('emp-manager-info');
+                const nameEl = document.getElementById('emp-manager-name');
+                const desigEl = document.getElementById('emp-manager-designation');
+                if (infoDiv) infoDiv.style.display = 'block';
+                if (nameEl) nameEl.textContent = mgr.name;
+                if (desigEl) desigEl.textContent = mgr.designation || '';
+            }
+        }
+    } catch (e) {}
+
+    // Load ratings
+    try {
+        const { data: ratings } = await supabase
+            .from('ratings')
+            .select('*')
+            .eq('employee_id', profile.employee_id)
+            .order('month', { ascending: false });
+
+        if (!ratings?.length) {
+            container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">No ratings available yet.</p>';
+            return;
+        }
+
+        container.innerHTML = ratings.map(r => {
+            const color = r.rating >= 70 ? '#059669' : r.rating >= 40 ? '#d97706' : '#dc2626';
+            const bg = r.rating >= 70 ? '#ecfdf5' : r.rating >= 40 ? '#fffbeb' : '#fef2f2';
+            const monthLabel = new Date(r.month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            return `
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                        <div style="font-weight:700;font-size:0.9rem;color:#0f172a">${monthLabel}</div>
+                        <div style="font-size:0.8rem;color:#94a3b8;margin-top:2px">Rated by: ${r.rated_by} (${r.rated_by_role})</div>
+                        ${r.comments ? `<div style="font-size:0.8rem;color:#64748b;margin-top:4px;font-style:italic">"${r.comments}"</div>` : ''}
+                    </div>
+                    <div style="background:${bg};color:${color};padding:6px 16px;border-radius:100px;font-weight:800;font-size:1.1rem">
+                        ${r.rating}<span style="font-size:0.7rem;font-weight:500">/100</span>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc2626">Error loading ratings</p>';
+    }
+}
+
+/* ==========================
+   MY ANNOUNCEMENTS
+========================== */
+async function loadMyAnnouncements() {
+    const container = document.getElementById('emp-announcements-list');
+    if (!container || !profile) return;
+    container.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading announcements...</p>';
+
+    try {
+        // Fetch announcements relevant to this employee (team + org-wide)
+        const res = await fetch(`/api/announcements?employee_id=${profile.employee_id}`, {
+            headers: { 'x-admin-key': 'hrms-admin-access' }
+        });
+        const data = await res.json();
+
+        if (!data.success || !data.announcements?.length) {
+            container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">No announcements yet.</p>';
+            return;
+        }
+
+        container.innerHTML = data.announcements.map(a => `
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;margin-bottom:0.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                    <h4 style="margin:0;font-size:0.95rem;font-weight:700;color:#0f172a">${a.title}</h4>
+                    <span style="font-size:0.7rem;color:#94a3b8">${new Date(a.created_at).toLocaleDateString('en-IN')}</span>
+                </div>
+                <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">${a.message}</p>
+                <div style="margin-top:0.5rem;font-size:0.75rem;color:#94a3b8">
+                    ${a.scope === 'all' ? '🌐 Organization' : '👥 Team'} · Posted by ${a.posted_by}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc2626">Error loading announcements</p>';
     }
 }

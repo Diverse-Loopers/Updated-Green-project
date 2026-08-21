@@ -15,13 +15,13 @@ export function showSection(sectionId) {
     document.querySelectorAll('.nav-links button')?.forEach(btn => btn.classList.remove('active'));
 
     const navBtns = document.querySelectorAll('.nav-links button');
-    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4, templates: 5 };
+    const indexMap = { employees: 0, tasks: 1, attendance: 2, leaves: 3, applicants: 4, templates: 5, managers: 6, ratings: 7, announcements: 8 };
     if (navBtns[indexMap[sectionId]]) {
         navBtns[indexMap[sectionId]].classList.add('active');
     }
 
     // Show Section
-    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'templates'].forEach(id => {
+    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'templates', 'managers', 'ratings', 'announcements'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
@@ -33,6 +33,9 @@ export function showSection(sectionId) {
     if (sectionId === 'leaves') loadLeaves();
     if (sectionId === 'applicants') loadJobApplicants();
     if (sectionId === 'templates') { loadDocumentTemplates().then(() => renderTemplatesGrid()); }
+    if (sectionId === 'managers') { if (window.loadManagers) window.loadManagers(); }
+    if (sectionId === 'ratings') { if (window.loadHRRatings) window.loadHRRatings(); }
+    if (sectionId === 'announcements') { if (window.loadHRAnnouncements) window.loadHRAnnouncements(); }
 
     loadAdminStats();
     fetchNotifications();
@@ -1981,6 +1984,412 @@ function initDashboardCore() {
             statusFilter.addEventListener('change', (e) => renderApplicantCards(applicantsCache, e.target.value));
         }
 
+/* ==========================
+   TEMPLATE LIVE PREVIEW
+========================== */
+function updateTemplatePreview() {
+    const html = document.getElementById('tpl-html')?.value || '';
+    const frame = document.getElementById('tpl-preview-frame');
+    if (!frame) return;
+    
+    // Replace placeholders with sample data
+    const sampleData = {
+        name: 'John Doe',
+        employee_id: 'AB123',
+        designation: 'Software Developer',
+        department: 'IT',
+        email: 'john@example.com',
+        join_date: '1 January 2026',
+        date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+        company: 'Diverse Loopers',
+        qr_code: '<div style="width:120px;height:120px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px dashed #94a3b8;font-size:0.7rem;color:#64748b">[QR Code]</div>',
+        verification_url: 'https://diverseloopers.com/verify/sample',
+        verification_code: 'SAMPLE-CODE-1234',
+        reporting_manager: 'Jane Manager',
+        manager_designation: 'Project Manager',
+        manager_signature: '<div style="width:100px;height:40px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px dashed #94a3b8;font-size:0.65rem;color:#64748b">[Signature]</div>',
+        project_name: 'Project Alpha',
+    };
+    
+    let preview = html;
+    for (const [key, val] of Object.entries(sampleData)) {
+        preview = preview.replace(new RegExp(`{{${key}}}`, 'g'), val);
+    }
+    
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(preview);
+    doc.close();
+}
+
+/* ==========================
+   MANAGERS CRUD
+========================== */
+let managersCache = [];
+
+async function loadManagers() {
+    try {
+        const res = await fetch('/api/managers', { headers: { 'x-admin-key': 'hrms-admin-access' } });
+        const data = await res.json();
+        if (data.success) {
+            managersCache = data.managers || [];
+            renderManagers();
+        }
+    } catch (e) { console.error('Load managers error:', e); }
+}
+
+function renderManagers() {
+    const tbody = document.getElementById('managers-table-body');
+    if (!tbody) return;
+    if (!managersCache.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:2rem">No managers found. Click "Add Manager" to create one.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = managersCache.map(m => `
+        <tr>
+            <td><strong>${m.name}</strong>${m.employee_id ? `<br><span style="font-size:0.75rem;color:#94a3b8">${m.employee_id}</span>` : ''}</td>
+            <td>${m.email}</td>
+            <td>${m.designation || '-'}</td>
+            <td>${m.project_name || '-'}</td>
+            <td><span style="background:#eff6ff;color:#2563eb;padding:2px 10px;border-radius:100px;font-size:0.8rem;font-weight:600">${m.team_count || 0}</span></td>
+            <td>${m.signature_url ? '<span style="color:#059669;font-size:0.8rem">✓ Uploaded</span>' : '<span style="color:#94a3b8;font-size:0.8rem">None</span>'}</td>
+            <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <button onclick="window.openManagerModal('${m.id}')" style="padding:4px 10px;font-size:0.75rem;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">Edit</button>
+                    <button onclick="window.openAssignEmployeesModal('${m.id}')" style="padding:4px 10px;font-size:0.75rem;background:#eff6ff;color:#4f46e5;border:1px solid #c7d2fe;border-radius:6px;cursor:pointer">Team</button>
+                    <button onclick="window.deleteManager('${m.id}')" style="padding:4px 10px;font-size:0.75rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;cursor:pointer">Delete</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openManagerModal(editId) {
+    const modal = document.getElementById('manager-modal');
+    const title = document.getElementById('manager-modal-title');
+    const idField = document.getElementById('edit-manager-id');
+    if (!modal) return;
+    
+    // Populate employee dropdown
+    const empSelect = document.getElementById('mgr-employee-select');
+    if (empSelect) {
+        empSelect.innerHTML = '<option value="">-- External Manager (not an employee) --</option>';
+        (employeesCache || []).filter(e => e.is_active).forEach(e => {
+            empSelect.innerHTML += `<option value="${e.employee_id}">${e.full_name} (${e.employee_id})</option>`;
+        });
+        empSelect.onchange = () => {
+            const emp = employeesCache.find(e => e.employee_id === empSelect.value);
+            if (emp) {
+                document.getElementById('mgr-name').value = emp.full_name;
+                document.getElementById('mgr-email').value = emp.email;
+                document.getElementById('mgr-designation').value = emp.designation || '';
+            }
+        };
+    }
+    
+    if (editId) {
+        const m = managersCache.find(x => x.id === editId);
+        if (m) {
+            title.textContent = 'Edit Manager';
+            idField.value = m.id;
+            document.getElementById('mgr-name').value = m.name;
+            document.getElementById('mgr-email').value = m.email;
+            document.getElementById('mgr-designation').value = m.designation || '';
+            document.getElementById('mgr-project').value = m.project_name || '';
+            if (m.employee_id && empSelect) empSelect.value = m.employee_id;
+            const sigPreview = document.getElementById('mgr-signature-preview');
+            if (m.signature_url && sigPreview) { sigPreview.src = m.signature_url; sigPreview.style.display = 'block'; }
+        }
+    } else {
+        title.textContent = 'Add Manager';
+        idField.value = '';
+        document.getElementById('mgr-name').value = '';
+        document.getElementById('mgr-email').value = '';
+        document.getElementById('mgr-designation').value = '';
+        document.getElementById('mgr-project').value = '';
+        document.getElementById('mgr-password').value = '';
+        const sigPreview = document.getElementById('mgr-signature-preview');
+        if (sigPreview) { sigPreview.src = ''; sigPreview.style.display = 'none'; }
+    }
+    modal.classList.remove('hidden');
+}
+
+async function saveManager() {
+    const id = document.getElementById('edit-manager-id')?.value;
+    const name = document.getElementById('mgr-name')?.value?.trim();
+    const email = document.getElementById('mgr-email')?.value?.trim();
+    const designation = document.getElementById('mgr-designation')?.value?.trim();
+    const project_name = document.getElementById('mgr-project')?.value?.trim();
+    const password = document.getElementById('mgr-password')?.value?.trim();
+    const employee_id = document.getElementById('mgr-employee-select')?.value || null;
+    
+    if (!name || !email) { showToast('Name and email are required', 'error'); return; }
+    
+    // Handle signature file
+    let signature_base64 = null;
+    const sigFile = document.getElementById('mgr-signature')?.files?.[0];
+    if (sigFile) {
+        signature_base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(sigFile);
+        });
+    }
+    
+    try {
+        const body = {
+            action: id ? 'update' : 'create',
+            name, email, designation, project_name, employee_id,
+            ...(id && { id }),
+            ...(signature_base64 && { signature_base64 }),
+            ...(password && { password }),
+        };
+        const res = await fetch('/api/managers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(id ? 'Manager updated!' : 'Manager created!', 'success');
+            closeModal('manager-modal');
+            loadManagers();
+        } else {
+            showToast(data.error || 'Failed', 'error');
+        }
+    } catch (e) { showToast('Error saving manager', 'error'); }
+}
+
+async function deleteManager(id) {
+    if (!confirm('Are you sure you want to remove this manager?')) return;
+    try {
+        const res = await fetch('/api/managers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+            body: JSON.stringify({ action: 'delete', id })
+        });
+        const data = await res.json();
+        if (data.success) { showToast('Manager removed', 'success'); loadManagers(); }
+        else showToast(data.error || 'Failed', 'error');
+    } catch (e) { showToast('Error', 'error'); }
+}
+
+async function openAssignEmployeesModal(managerId) {
+    document.getElementById('assign-manager-id').value = managerId;
+    const list = document.getElementById('assign-employees-list');
+    list.innerHTML = '<p style="color:#94a3b8">Loading...</p>';
+    document.getElementById('assign-employees-modal')?.classList.remove('hidden');
+    
+    // Get current assignments
+    let currentAssignments = [];
+    try {
+        const res = await fetch(`/api/managers/team?manager_id=${managerId}`, { headers: { 'x-admin-key': 'hrms-admin-access' } });
+        const data = await res.json();
+        if (data.success) currentAssignments = (data.team || []).map(t => t.employee_id);
+    } catch (e) {}
+    
+    const activeEmps = (employeesCache || []).filter(e => e.is_active);
+    if (!activeEmps.length) { list.innerHTML = '<p style="color:#94a3b8">No active employees found.</p>'; return; }
+    
+    list.innerHTML = activeEmps.map(e => `
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9;cursor:pointer">
+            <input type="checkbox" value="${e.employee_id}" class="assign-emp-check" ${currentAssignments.includes(e.employee_id) ? 'checked' : ''} />
+            <span style="font-weight:600;font-size:0.85rem">${e.full_name}</span>
+            <span style="font-size:0.75rem;color:#94a3b8">${e.employee_id} · ${e.department || ''}</span>
+        </label>
+    `).join('');
+}
+
+async function saveAssignments() {
+    const managerId = document.getElementById('assign-manager-id')?.value;
+    const checks = document.querySelectorAll('.assign-emp-check:checked');
+    const employee_ids = Array.from(checks).map(c => c.value);
+    
+    try {
+        const res = await fetch('/api/managers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+            body: JSON.stringify({ action: 'assign-employees', manager_id: managerId, employee_ids })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Assigned ${employee_ids.length} employees`, 'success');
+            closeModal('assign-employees-modal');
+            loadManagers();
+        } else showToast(data.error || 'Failed', 'error');
+    } catch (e) { showToast('Error', 'error'); }
+}
+
+/* ==========================
+   HR RATINGS
+========================== */
+async function loadHRRatings() {
+    const monthSelect = document.getElementById('hr-rating-month');
+    const content = document.getElementById('hr-ratings-content');
+    if (!monthSelect || !content) return;
+    
+    // Populate month options
+    const now = new Date();
+    monthSelect.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        monthSelect.innerHTML += `<option value="${val}">${label}</option>`;
+    }
+    monthSelect.onchange = () => fetchRatingsForMonth(monthSelect.value);
+    fetchRatingsForMonth(monthSelect.value);
+}
+
+async function fetchRatingsForMonth(month) {
+    const content = document.getElementById('hr-ratings-content');
+    if (!content) return;
+    content.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading ratings...</p>';
+    
+    try {
+        const res = await fetch(`/api/ratings?month=${month}`, { headers: { 'x-admin-key': 'hrms-admin-access' } });
+        const data = await res.json();
+        if (!data.success || !data.ratings?.length) {
+            content.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">No ratings found for this month.</p>';
+            return;
+        }
+        content.innerHTML = `
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Employee</th><th>Rated By</th><th>Role</th><th>Rating</th><th>Comments</th></tr></thead>
+                    <tbody>${data.ratings.map(r => `
+                        <tr>
+                            <td>${r.employee_id}</td>
+                            <td>${r.rated_by}</td>
+                            <td><span style="text-transform:capitalize">${r.rated_by_role}</span></td>
+                            <td><strong style="color:${r.rating >= 70 ? '#059669' : r.rating >= 40 ? '#d97706' : '#dc2626'}">${r.rating}/100</strong></td>
+                            <td>${r.comments || '-'}</td>
+                        </tr>
+                    `).join('')}</tbody>
+                </table>
+            </div>`;
+    } catch (e) { content.innerHTML = '<p style="color:#dc2626">Error loading ratings</p>'; }
+}
+
+function openHRRatingForm() {
+    const modal = document.getElementById('hr-rating-modal');
+    const monthInput = document.getElementById('hr-rating-month-input');
+    const body = document.getElementById('hr-rating-form-body');
+    if (!modal) return;
+    
+    const now = new Date();
+    monthInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    
+    // Build rating form for all employees + managers
+    const allPeople = [...(employeesCache || []).filter(e => e.is_active)];
+    // Also add managers
+    managersCache.forEach(m => {
+        if (!allPeople.find(e => e.employee_id === m.employee_id)) {
+            allPeople.push({ employee_id: m.employee_id || m.id, full_name: m.name + ' (Manager)', designation: m.designation });
+        }
+    });
+    
+    body.innerHTML = allPeople.map(e => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:0.85rem">${e.full_name}</div>
+                <div style="font-size:0.75rem;color:#94a3b8">${e.employee_id} · ${e.designation || ''}</div>
+            </div>
+            <input type="range" min="0" max="100" value="50" class="hr-rating-slider" data-emp="${e.employee_id}" style="width:100px" oninput="this.nextElementSibling.textContent=this.value" />
+            <span style="font-weight:700;font-size:0.85rem;width:30px;text-align:center">50</span>
+            <input type="text" placeholder="Comments" class="hr-rating-comment" data-emp="${e.employee_id}" style="width:120px;padding:4px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:0.8rem" />
+        </div>
+    `).join('');
+    
+    modal.classList.remove('hidden');
+}
+
+async function submitHRRatings() {
+    const month = document.getElementById('hr-rating-month-input')?.value;
+    if (!month) { showToast('Select a month', 'error'); return; }
+    
+    const sliders = document.querySelectorAll('.hr-rating-slider');
+    const ratings = [];
+    sliders.forEach(s => {
+        const comment = document.querySelector(`.hr-rating-comment[data-emp="${s.dataset.emp}"]`);
+        ratings.push({
+            employee_id: s.dataset.emp,
+            rating: parseInt(s.value),
+            comments: comment?.value?.trim() || ''
+        });
+    });
+    
+    try {
+        const res = await fetch('/api/ratings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+            body: JSON.stringify({ ratings, month, rated_by: 'HR', rated_by_role: 'hr' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Ratings submitted!', 'success');
+            closeModal('hr-rating-modal');
+            loadHRRatings();
+        } else showToast(data.error || 'Failed', 'error');
+    } catch (e) { showToast('Error submitting ratings', 'error'); }
+}
+
+/* ==========================
+   HR ANNOUNCEMENTS
+========================== */
+async function loadHRAnnouncements() {
+    const container = document.getElementById('announcements-list');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading...</p>';
+    
+    try {
+        const res = await fetch('/api/announcements?scope=all', { headers: { 'x-admin-key': 'hrms-admin-access' } });
+        const data = await res.json();
+        if (!data.success || !data.announcements?.length) {
+            container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">No announcements yet.</p>';
+            return;
+        }
+        container.innerHTML = data.announcements.map(a => `
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;margin-bottom:0.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                    <h4 style="margin:0;font-size:0.95rem;font-weight:700">${a.title}</h4>
+                    <span style="font-size:0.7rem;color:#94a3b8">${new Date(a.created_at).toLocaleDateString('en-IN')}</span>
+                </div>
+                <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">${a.message}</p>
+                <div style="margin-top:0.5rem;font-size:0.75rem;color:#94a3b8">Posted by ${a.posted_by} (${a.posted_by_role}) · ${a.scope === 'all' ? 'All Employees' : 'Team'}</div>
+            </div>
+        `).join('');
+    } catch (e) { container.innerHTML = '<p style="color:#dc2626">Error loading announcements</p>'; }
+}
+
+function openAnnouncementForm() {
+    document.getElementById('ann-title').value = '';
+    document.getElementById('ann-message').value = '';
+    document.getElementById('announcement-modal')?.classList.remove('hidden');
+}
+
+async function postAnnouncement() {
+    const title = document.getElementById('ann-title')?.value?.trim();
+    const message = document.getElementById('ann-message')?.value?.trim();
+    const scope = document.getElementById('ann-scope')?.value || 'all';
+    
+    if (!title || !message) { showToast('Title and message are required', 'error'); return; }
+    
+    try {
+        const res = await fetch('/api/announcements', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+            body: JSON.stringify({ title, message, posted_by: 'HR Admin', posted_by_role: 'hr', scope })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Announcement posted!', 'success');
+            closeModal('announcement-modal');
+            loadHRAnnouncements();
+        } else showToast(data.error || 'Failed', 'error');
+    } catch (e) { showToast('Error posting', 'error'); }
+}
+
         if (typeof window !== 'undefined') {
             window.showSection = showSection;
             window.toggleNotifications = toggleNotifications;
@@ -2019,6 +2428,20 @@ function initDashboardCore() {
             loadDocumentTemplates();
             window.updateAppStatus = updateAppStatus;
             window.searchDashboard = searchDashboard;
+            // Manager, Rating, Announcement functions
+            window.loadManagers = loadManagers;
+            window.openManagerModal = openManagerModal;
+            window.saveManager = saveManager;
+            window.deleteManager = deleteManager;
+            window.openAssignEmployeesModal = openAssignEmployeesModal;
+            window.saveAssignments = saveAssignments;
+            window.loadHRRatings = loadHRRatings;
+            window.openHRRatingForm = openHRRatingForm;
+            window.submitHRRatings = submitHRRatings;
+            window.loadHRAnnouncements = loadHRAnnouncements;
+            window.openAnnouncementForm = openAnnouncementForm;
+            window.postAnnouncement = postAnnouncement;
+            window.updateTemplatePreview = updateTemplatePreview;
         }
     })();
 }
