@@ -7,6 +7,7 @@ import './executive-login.css';
 const ROLE_ROUTES = {
   ceo: '/ceo-dashboard',
   cmo_chief: '/ceo-dashboard',
+  manager: '/manager-dashboard',
   sales: '/sales-dashboard',
   cfo: '/sales-dashboard',
   cso: '/sales-dashboard',

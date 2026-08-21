@@ -183,6 +183,18 @@ export default function AdminDashboard() {
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
               Document Templates
             </button>
+            <button onClick={() => window.showSection && window.showSection('managers')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Managers
+            </button>
+            <button onClick={() => window.showSection && window.showSection('ratings')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+              Ratings
+            </button>
+            <button onClick={() => window.showSection && window.showSection('announcements')}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+              Announcements
+            </button>
             <button onClick={() => window.logoutAdmin && window.logoutAdmin()} style={{ marginTop: "auto", color: "#ef4444" }}>
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               Logout
@@ -442,6 +454,66 @@ export default function AdminDashboard() {
             </div>
           </section>
 
+          {/* MANAGERS SECTION */}
+          <section id="managers-section" className="hidden">
+            <div className="section-header">
+              <h2>Project Managers</h2>
+              <button className="btn-primary" onClick={() => window.openManagerModal && window.openManagerModal()}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Add Manager
+              </button>
+            </div>
+            <div className="table-container" style={{ marginTop: '1rem' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Designation</th>
+                    <th>Project</th>
+                    <th>Team Size</th>
+                    <th>Signature</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="managers-table-body">
+                  <tr><td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8' }}>Loading managers...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* RATINGS SECTION */}
+          <section id="ratings-section" className="hidden">
+            <div className="section-header">
+              <h2>Employee Ratings</h2>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <select id="hr-rating-month" style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
+                </select>
+                <button className="btn-primary" onClick={() => window.openHRRatingForm && window.openHRRatingForm()}>
+                  Rate Employees
+                </button>
+              </div>
+            </div>
+            <div id="hr-ratings-content" style={{ marginTop: '1rem' }}>
+              <p style={{ color: '#94a3b8', textAlign: 'center' }}>Select a month to view ratings...</p>
+            </div>
+          </section>
+
+          {/* ANNOUNCEMENTS SECTION */}
+          <section id="announcements-section" className="hidden">
+            <div className="section-header">
+              <h2>Announcements</h2>
+              <button className="btn-primary" onClick={() => window.openAnnouncementForm && window.openAnnouncementForm()}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                New Announcement
+              </button>
+            </div>
+            <div id="announcements-list" style={{ marginTop: '1rem' }}>
+              <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading announcements...</p>
+            </div>
+          </section>
+
           </div>{/* end content-area */}
         </main>
       </div>
@@ -481,10 +553,19 @@ export default function AdminDashboard() {
             </div>
             <div className="input-group">
               <label>HTML Content <span style={{ color: '#dc2626' }}>*</span></label>
-              <textarea id="tpl-html" rows={12} placeholder="Paste HTML template here..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}></textarea>
+              <textarea id="tpl-html" rows={12} placeholder="Paste HTML template here..." onInput={() => window.updateTemplatePreview && window.updateTemplatePreview()} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}></textarea>
+            </div>
+            <div className="input-group">
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Live Preview</span>
+                <button type="button" onClick={() => window.updateTemplatePreview && window.updateTemplatePreview()} style={{ padding: '4px 12px', fontSize: '0.75rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>↻ Refresh</button>
+              </label>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
+                <iframe id="tpl-preview-frame" style={{ width: '100%', height: '300px', border: 'none' }} title="Template Preview"></iframe>
+              </div>
             </div>
             <div style={{ background: '#f8f7ff', borderRadius: '8px', padding: '12px 16px', fontSize: '0.8rem', color: '#6C5CE7' }}>
-              <strong>Available Placeholders:</strong> {'{{name}}'} {'{{employee_id}}'} {'{{designation}}'} {'{{department}}'} {'{{join_date}}'} {'{{date}}'} {'{{company}}'} {'{{qr_code}}'} {'{{verification_code}}'}
+              <strong>Available Placeholders:</strong> {'{{name}}'} {'{{employee_id}}'} {'{{designation}}'} {'{{department}}'} {'{{join_date}}'} {'{{date}}'} {'{{company}}'} {'{{qr_code}}'} {'{{verification_code}}'} {'{{reporting_manager}}'} {'{{manager_designation}}'} {'{{manager_signature}}'} {'{{project_name}}'}
             </div>
           </div>
           <div className="modal-actions">
@@ -1013,6 +1094,132 @@ export default function AdminDashboard() {
           <div className="modal-actions">
             <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('end-employment-modal')}>Cancel</button>
             <button type="button" style={{ padding: '0.5rem 1.5rem', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700 }} onClick={() => window.handleEndEmployment && window.handleEndEmployment()}>End Employment</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: ADD/EDIT MANAGER */}
+      <div id="manager-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'manager-modal') window.closeModal && window.closeModal('manager-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '600px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('manager-modal')}>✕</button>
+          <div className="modal-header">
+            <h2 id="manager-modal-title">Add Manager</h2>
+          </div>
+          <input type="hidden" id="edit-manager-id" />
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="input-group">
+              <label>Select Existing Employee (optional)</label>
+              <select id="mgr-employee-select" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <option value="">-- External Manager (not an employee) --</option>
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="input-group">
+                <label>Full Name <span style={{ color: '#dc2626' }}>*</span></label>
+                <input type="text" id="mgr-name" placeholder="Manager name" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+              <div className="input-group">
+                <label>Email <span style={{ color: '#dc2626' }}>*</span></label>
+                <input type="email" id="mgr-email" placeholder="manager@email.com" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="input-group">
+                <label>Designation</label>
+                <input type="text" id="mgr-designation" placeholder="e.g. Senior Project Manager" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+              <div className="input-group">
+                <label>Project Name</label>
+                <input type="text" id="mgr-project" placeholder="e.g. Project Alpha" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+            </div>
+            <div className="input-group">
+              <label>Login Password (for executive login)</label>
+              <input type="text" id="mgr-password" placeholder="Default: manager-access-2026" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group">
+              <label>Signature Upload</label>
+              <input type="file" id="mgr-signature" accept="image/*" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              <img id="mgr-signature-preview" src="" alt="" style={{ display: 'none', maxHeight: '60px', marginTop: '8px', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px' }} />
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('manager-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.saveManager && window.saveManager()}>Save Manager</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: ASSIGN EMPLOYEES TO MANAGER */}
+      <div id="assign-employees-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'assign-employees-modal') window.closeModal && window.closeModal('assign-employees-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '500px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('assign-employees-modal')}>✕</button>
+          <div className="modal-header">
+            <h2>Assign Employees</h2>
+          </div>
+          <input type="hidden" id="assign-manager-id" />
+          <div style={{ padding: '1.5rem' }}>
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>Select employees to assign to this manager:</p>
+            <div id="assign-employees-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <p style={{ color: '#94a3b8' }}>Loading employees...</p>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('assign-employees-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.saveAssignments && window.saveAssignments()}>Save Assignments</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: HR RATING FORM */}
+      <div id="hr-rating-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'hr-rating-modal') window.closeModal && window.closeModal('hr-rating-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '700px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('hr-rating-modal')}>✕</button>
+          <div className="modal-header">
+            <h2>Rate Employees & Managers</h2>
+          </div>
+          <div style={{ padding: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Month:</label>
+              <input type="month" id="hr-rating-month-input" style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div id="hr-rating-form-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading...</p>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('hr-rating-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.submitHRRatings && window.submitHRRatings()}>Submit Ratings</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: POST ANNOUNCEMENT */}
+      <div id="announcement-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'announcement-modal') window.closeModal && window.closeModal('announcement-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '550px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('announcement-modal')}>✕</button>
+          <div className="modal-header">
+            <h2>New Announcement</h2>
+          </div>
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="input-group">
+              <label>Title <span style={{ color: '#dc2626' }}>*</span></label>
+              <input type="text" id="ann-title" placeholder="Announcement title" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div className="input-group">
+              <label>Message <span style={{ color: '#dc2626' }}>*</span></label>
+              <textarea id="ann-message" rows={5} placeholder="Write your announcement..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical' }}></textarea>
+            </div>
+            <div className="input-group">
+              <label>Scope</label>
+              <select id="ann-scope" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <option value="all">All Employees (Organization-wide)</option>
+              </select>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('announcement-modal')}>Cancel</button>
+            <button type="button" className="btn-primary" onClick={() => window.postAnnouncement && window.postAnnouncement()}>Post Announcement</button>
           </div>
         </div>
       </div>
