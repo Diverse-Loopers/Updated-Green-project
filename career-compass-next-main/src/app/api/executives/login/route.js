@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createExecutiveToken, verifyPassword, hashPassword } from '@/lib/executive-auth';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 export async function POST(req) {
   try {
@@ -18,6 +20,15 @@ export async function POST(req) {
       );
     }
 
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      console.error('Missing Supabase environment variables on server.');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Database environment variables (SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL) are missing in Vercel settings.' },
+        { status: 500 }
+      );
+    }
+
     const cleanEmail = email.toLowerCase().trim();
 
     // Look up executive by email (case-insensitive)
@@ -27,8 +38,16 @@ export async function POST(req) {
       .ilike('email', cleanEmail)
       .maybeSingle();
 
-    if (error || !exec) {
-      console.warn('Executive lookup failed for:', cleanEmail, error?.message);
+    if (error) {
+      console.warn('Executive lookup error for:', cleanEmail, error.message);
+      return NextResponse.json(
+        { success: false, error: `Database error during login: ${error.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (!exec) {
+      console.warn('Executive not found:', cleanEmail);
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }

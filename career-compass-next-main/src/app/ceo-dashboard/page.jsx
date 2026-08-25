@@ -131,7 +131,7 @@ export default function CEODashboardPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-extrabold text-slate-900" id="topbar-title">Dashboard</h1>
-                <p className="text-sm text-slate-400 mt-0.5" id="topbar-subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <p className="text-sm text-slate-400 mt-0.5" id="topbar-subtitle" suppressHydrationWarning>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

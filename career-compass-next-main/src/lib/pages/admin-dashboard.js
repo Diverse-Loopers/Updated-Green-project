@@ -1883,7 +1883,11 @@ async function handleIssueDocument() {
             });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
-            showToast('Document issued & email sent!', 'success');
+            if (result.email_sent === false && result.email_error) {
+                showToast('Document issued! (Email warning: ' + result.email_error + ')', 'warning');
+            } else {
+                showToast('Document issued & email sent!', 'success');
+            }
         } else {
             const title = document.getElementById('issue-custom-title')?.value;
             const file = document.getElementById('issue-custom-file')?.files[0];
@@ -1906,7 +1910,11 @@ async function handleIssueDocument() {
             const res = await fetch('/api/employees/issue-document', { method: 'POST', body: fd });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
-            showToast('Document issued & email sent!', 'success');
+            if (result.email_sent === false && result.email_error) {
+                showToast('Document issued! (Email warning: ' + result.email_error + ')', 'warning');
+            } else {
+                showToast('Document issued & email sent!', 'success');
+            }
         }
 
         closeModal('issue-doc-modal');
