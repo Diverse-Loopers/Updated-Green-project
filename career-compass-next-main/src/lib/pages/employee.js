@@ -191,12 +191,12 @@ async function markAllRead() {
 export function showSection(sectionId) {
     document.querySelectorAll('.nav-links button').forEach(btn => btn.classList.remove('active'));
 
-    ['dashboard', 'tasks', 'leaves', 'documents', 'ratings', 'emp-announcements'].forEach(id => {
+    ['dashboard', 'tasks', 'leaves', 'documents', 'ratings', 'emp-announcements', 'placement-students'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
     const buttons = document.querySelectorAll('.nav-links button');
-    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2, 'documents': 3, 'ratings': 4, 'emp-announcements': 5 };
+    const sectionIndex = { 'dashboard': 0, 'tasks': 1, 'leaves': 2, 'documents': 3, 'ratings': 4, 'emp-announcements': 5, 'placement-students': 6 };
     if (buttons[sectionIndex[sectionId]]) {
         buttons[sectionIndex[sectionId]].classList.add('active');
     }
@@ -214,6 +214,7 @@ export function showSection(sectionId) {
     if (sectionId === 'documents') loadMyDocuments();
     if (sectionId === 'ratings') loadMyRatings();
     if (sectionId === 'emp-announcements') loadMyAnnouncements();
+    if (sectionId === 'placement-students') loadMyPlacementStudents();
 }
 
 
@@ -762,4 +763,263 @@ async function loadMyAnnouncements() {
     } catch (e) {
         container.innerHTML = '<p style="color:#dc2626">Error loading announcements</p>';
     }
+}
+
+/* ==========================
+   PLACEMENT STUDENTS & CHAT
+========================== */
+async function loadMyPlacementStudents() {
+    const container = document.getElementById('my-placement-students-list');
+    if (!container || !profile) return;
+    container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">Loading assigned students...</p>';
+
+    try {
+        const { data: allStudents, error } = await supabase
+            .from('placement_students')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Filter students where current employee is in marketing, hr, support, or manager list
+        const myEmpId = profile.employee_id;
+        const students = (allStudents || []).filter(s => {
+            const mList = Array.isArray(s.marketing_person_ids) ? s.marketing_person_ids : (s.marketing_person_id ? [s.marketing_person_id] : []);
+            const hList = Array.isArray(s.hr_person_ids) ? s.hr_person_ids : (s.hr_person_id ? [s.hr_person_id] : []);
+            const sList = Array.isArray(s.support_person_ids) ? s.support_person_ids : (s.support_person_id ? [s.support_person_id] : []);
+            const mgrList = Array.isArray(s.manager_person_ids) ? s.manager_person_ids : (s.manager_person_id ? [s.manager_person_id] : []);
+
+            return mList.includes(myEmpId) || hList.includes(myEmpId) || sList.includes(myEmpId) || mgrList.includes(myEmpId);
+        });
+
+        if (students.length === 0) {
+            container.innerHTML = `
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:2.5rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:8px">👥</div>
+                    <h3 style="font-size:1.05rem;color:#0f172a;margin:0 0 6px">No Placement Students Assigned</h3>
+                    <p style="color:#64748b;font-size:0.85rem;margin:0">Outreach tracker sheets and daily application logging are active only for assigned Marketing and HR staff.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1.25rem;">
+                ${students.map(s => {
+                    const mList = Array.isArray(s.marketing_person_ids) ? s.marketing_person_ids : (s.marketing_person_id ? [s.marketing_person_id] : []);
+                    const hList = Array.isArray(s.hr_person_ids) ? s.hr_person_ids : (s.hr_person_id ? [s.hr_person_id] : []);
+                    const sList = Array.isArray(s.support_person_ids) ? s.support_person_ids : (s.support_person_id ? [s.support_person_id] : []);
+                    const mgrList = Array.isArray(s.manager_person_ids) ? s.manager_person_ids : (s.manager_person_id ? [s.manager_person_id] : []);
+
+                    const isMarketing = mList.includes(myEmpId);
+                    const isHR = hList.includes(myEmpId);
+                    const isSupport = sList.includes(myEmpId);
+                    const isManager = mgrList.includes(myEmpId);
+
+                    let roleBadge = 'Team Member';
+                    if (isMarketing) roleBadge = '🎯 Marketing & Outreach Lead';
+                    else if (isHR) roleBadge = '🤝 HR Representative';
+                    else if (isSupport) roleBadge = '🛟 Placement Support';
+                    else if (isManager) roleBadge = '👔 Program Manager';
+
+                    return `
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                        <div>
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+                                <div>
+                                    <h4 style="margin:0;font-size:1.05rem;font-weight:700;color:#0f172a">${s.full_name}</h4>
+                                    <div style="font-size:0.75rem;font-family:monospace;color:#64748b;margin-top:2px">${s.student_id} · ${s.email}</div>
+                                </div>
+                                <span style="background:#ecfdf5;color:#059669;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700">${s.status || 'Active'}</span>
+                            </div>
+
+                            <div style="margin:10px 0;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;font-size:0.8rem;">
+                                <div style="color:#475569;margin-bottom:3px"><strong>Target:</strong> ${s.target_roles || 'Software Developer'}</div>
+                                <div style="color:#475569;margin-bottom:3px"><strong>Address:</strong> ${s.city ? `${s.city}, ` : ''}${s.country || 'India'}</div>
+                                ${s.marketing_email ? `<div style="color:#475569"><strong>Outreach Email:</strong> ${s.marketing_email}</div>` : ''}
+                            </div>
+
+                            <div style="font-size:0.75rem;color:#6366f1;font-weight:700;margin-bottom:12px">
+                                Your Assignment: ${roleBadge}
+                            </div>
+
+                            ${s.spreadsheet_url ? `
+                                <div style="margin-bottom:12px">
+                                    <a href="${s.spreadsheet_url}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.8rem">
+                                        📊 Open Google Spreadsheet Tracker ↗
+                                    </a>
+                                </div>
+                            ` : `
+                                <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:12px;font-style:italic">
+                                    No spreadsheet link attached by sales team.
+                                </div>
+                            `}
+                        </div>
+
+                        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                            ${isMarketing ? `
+                                <button onclick="window.openEmpBatchLog('${s.id}', '${s.full_name}', '${s.target_roles || 'Software Engineer'}')" class="btn-primary" style="width:100%;font-size:0.82rem;padding:9px 12px;background:#10b981;border-color:#10b981">
+                                    ⚡ Quick Log Today's Applications
+                                </button>
+                            ` : ''}
+
+                            <button onclick="window.openEmpChatWithStudent('${s.id}', '${s.full_name}', '${roleBadge}')" class="btn-primary" style="width:100%;font-size:0.82rem;padding:9px 12px;background:#6C5CE7">
+                                💬 Open Chat with Student
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+    } catch (err) {
+        console.error('Error loading placement students:', err);
+        container.innerHTML = '<p style="color:#dc2626">Error loading placement students.</p>';
+    }
+}
+
+async function openEmpBatchLog(studentId, studentName, targetRole) {
+    const modal = document.getElementById('emp-batch-log-modal');
+    if (!modal) return;
+
+    document.getElementById('emp-batch-student-id').value = studentId;
+    document.getElementById('emp-batch-student-title').textContent = `⚡ Log Applications: ${studentName}`;
+    document.getElementById('emp-batch-role').value = targetRole || '';
+    document.getElementById('emp-batch-easy-count').value = '0';
+    document.getElementById('emp-batch-long-count').value = '0';
+    document.getElementById('emp-batch-notes').value = '';
+    document.getElementById('emp-batch-date').value = new Date().toISOString().split('T')[0];
+
+    modal.classList.remove('hidden');
+}
+
+async function handleEmpSubmitBatchLog(e) {
+    e.preventDefault();
+    const studentId = document.getElementById('emp-batch-student-id')?.value;
+    const date = document.getElementById('emp-batch-date')?.value || new Date().toISOString().split('T')[0];
+    const easyCount = Number(document.getElementById('emp-batch-easy-count')?.value || 0);
+    const longCount = Number(document.getElementById('emp-batch-long-count')?.value || 0);
+    const role = document.getElementById('emp-batch-role')?.value || 'Software Engineer';
+    const notes = document.getElementById('emp-batch-notes')?.value || '';
+
+    if (!studentId) return;
+
+    if (easyCount <= 0 && longCount <= 0) {
+        alert('Please enter at least 1 Easy Apply or Long Form application.');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/placement-program/applications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'batch_counts',
+                student_id: studentId,
+                applied_date: date,
+                easy_apply_count: easyCount,
+                long_form_count: longCount,
+                job_role: role,
+                notes: notes,
+                logged_by: profile ? `${profile.full_name} (${profile.employee_id})` : 'Marketing Executive'
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Logged ${easyCount} Easy Apply & ${longCount} Long Form applications!`, 'success');
+            if (typeof window.closeModal === 'function') {
+                window.closeModal('emp-batch-log-modal');
+            }
+        } else {
+            showToast(data.error || 'Failed to log applications', 'error');
+        }
+    } catch (err) {
+        showToast('Error saving applications: ' + err.message, 'error');
+    }
+}
+
+async function openEmpChatWithStudent(studentId, studentName, myRole) {
+    const modal = document.getElementById('emp-student-chat-modal');
+    if (!modal) return;
+
+    document.getElementById('emp-chat-student-id').value = studentId;
+    document.getElementById('emp-chat-student-name').textContent = `💬 Chat with ${studentName}`;
+    document.getElementById('emp-chat-student-role').textContent = `Assigned as ${myRole}`;
+    document.getElementById('emp-chat-input').value = '';
+
+    modal.classList.remove('hidden');
+    loadEmpChatMessages(studentId);
+}
+
+async function loadEmpChatMessages(studentId) {
+    const box = document.getElementById('emp-chat-messages-box');
+    if (!box) return;
+
+    try {
+        const res = await fetch(`/api/placement-program/messages?student_id=${studentId}&employee_id=${profile.employee_id}`);
+        const data = await res.json();
+        const msgs = data.messages || [];
+
+        if (msgs.length === 0) {
+            box.innerHTML = '<p style="color:#94a3b8;text-align:center;margin:auto;font-size:0.85rem">No messages yet. Send a message to start conversation with the student.</p>';
+            return;
+        }
+
+        box.innerHTML = msgs.map(m => {
+            const isMe = m.sender_type === 'employee';
+            const bg = isMe ? '#6C5CE7' : '#ffffff';
+            const color = isMe ? '#ffffff' : '#1e293b';
+            const align = isMe ? 'flex-end' : 'flex-start';
+            const border = isMe ? 'none' : '1px solid #e2e8f0';
+
+            return `
+            <div style="align-self:${align};max-width:80%;background:${bg};color:${color};border:${border};padding:8px 12px;border-radius:10px;font-size:0.82rem;line-height:1.4">
+                <div style="font-size:0.68rem;opacity:0.75;margin-bottom:2px">${isMe ? 'You' : m.sender_name}</div>
+                <div>${m.message}</div>
+            </div>`;
+        }).join('');
+
+        box.scrollTop = box.scrollHeight;
+    } catch (err) {
+        box.innerHTML = '<p style="color:#dc2626;text-align:center">Error loading messages</p>';
+    }
+}
+
+async function handleEmpSendMsg(e) {
+    e.preventDefault();
+    const studentId = document.getElementById('emp-chat-student-id')?.value;
+    const input = document.getElementById('emp-chat-input');
+    const msg = input?.value?.trim();
+
+    if (!studentId || !msg || !profile) return;
+
+    try {
+        const res = await fetch('/api/placement-program/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_id: studentId,
+                sender_type: 'employee',
+                sender_id: profile.employee_id,
+                sender_name: profile.full_name,
+                message: msg
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (input) input.value = '';
+            loadEmpChatMessages(studentId);
+        } else {
+            showToast(data.error || 'Failed to send', 'error');
+        }
+    } catch (err) {
+        showToast('Error sending message', 'error');
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.loadMyPlacementStudents = loadMyPlacementStudents;
+    window.openEmpChatWithStudent = openEmpChatWithStudent;
+    window.handleEmpSendMsg = handleEmpSendMsg;
+    window.openEmpBatchLog = openEmpBatchLog;
+    window.handleEmpSubmitBatchLog = handleEmpSubmitBatchLog;
 }

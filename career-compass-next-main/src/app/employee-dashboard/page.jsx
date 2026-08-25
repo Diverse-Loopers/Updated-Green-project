@@ -103,6 +103,15 @@ export default function EmployeeDashboardPage() {
                   Announcements
                 </button>
               </li>
+              <li>
+                <button onClick={() => window.showSection && window.showSection('placement-students')}>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                  </svg>
+                  Placement Students
+                </button>
+              </li>
             </ul>
           </nav>
 
@@ -332,8 +341,96 @@ export default function EmployeeDashboardPage() {
                 <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading announcements...</p>
               </div>
             </section>
+
+            {/* SECTION: PLACEMENT STUDENTS */}
+            <section id="placement-students-section" className="hidden">
+              <div className="header">
+                <div>
+                  <h2>My Assigned Placement Students</h2>
+                  <p className="text-muted">Students assigned to you for Marketing, Support, HR, or Management</p>
+                </div>
+              </div>
+              <div id="my-placement-students-list" style={{ marginTop: '1rem' }}>
+                <p style={{ color: '#94a3b8', textAlign: 'center' }}>Loading assigned students...</p>
+              </div>
+            </section>
           </div>
         </main>
+      </div>
+
+      {/* MODAL: CHAT WITH STUDENT */}
+      <div id="emp-student-chat-modal" className="modal hidden">
+        <div className="modal-content" style={{ textAlign: 'left', maxWidth: '560px', padding: 0, overflow: 'hidden' }}>
+          <div style={{ background: '#1e293b', color: '#fff', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 id="emp-chat-student-name" style={{ margin: 0, fontSize: '1rem', color: '#fff' }}>Student Chat</h3>
+              <p id="emp-chat-student-role" style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>-</p>
+            </div>
+            <button onClick={() => window.closeModal && window.closeModal('emp-student-chat-modal')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer' }}>×</button>
+          </div>
+          <div id="emp-chat-messages-box" style={{ height: '350px', overflowY: 'auto', padding: '16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ color: '#94a3b8', textAlign: 'center', margin: 'auto' }}>Loading messages...</p>
+          </div>
+          <form id="emp-chat-form" onSubmit={(e) => window.handleEmpSendMsg && window.handleEmpSendMsg(e)} style={{ padding: '12px 16px', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px' }}>
+            <input type="hidden" id="emp-chat-student-id" />
+            <input type="text" id="emp-chat-input" placeholder="Type your reply to student..." required style={{ flex: 1, padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.85rem' }} />
+            <button type="submit" className="btn-primary" style={{ padding: '10px 18px' }}>Send</button>
+          </form>
+        </div>
+      </div>
+
+      {/* MODAL: DAILY APPLICATION BATCH LOGGER (For Marketing Staff) */}
+      <div id="emp-batch-log-modal" className="modal hidden">
+        <div className="modal-content" style={{ textAlign: 'left', maxWidth: '520px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+            <div>
+              <h3 id="emp-batch-student-title" style={{ margin: 0, fontSize: '1.05rem', color: '#0f172a' }}>⚡ Log Daily Applications</h3>
+              <p id="emp-batch-student-sub" style={{ margin: '3px 0 0', fontSize: '0.75rem', color: '#64748b' }}>Update daily Easy Apply & Long Form outreach numbers</p>
+            </div>
+            <button onClick={() => window.closeModal && window.closeModal('emp-batch-log-modal')} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '20px', cursor: 'pointer' }}>×</button>
+          </div>
+
+          <form id="emp-batch-log-form" onSubmit={(e) => window.handleEmpSubmitBatchLog && window.handleEmpSubmitBatchLog(e)}>
+            <input type="hidden" id="emp-batch-student-id" />
+            
+            <div className="input-group" style={{ marginBottom: '12px' }}>
+              <label>Outreach Date *</label>
+              <input type="date" id="emp-batch-date" required defaultValue={new Date().toISOString().split('T')[0]} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="input-group">
+                <label>⚡ Easy Apply Count *</label>
+                <input type="number" id="emp-batch-easy-count" min="0" defaultValue="0" required />
+                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '2px 0 0' }}>LinkedIn / Indeed fast apply</p>
+              </div>
+              <div className="input-group">
+                <label>📋 Long Form Count *</label>
+                <input type="number" id="emp-batch-long-count" min="0" defaultValue="0" required />
+                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '2px 0 0' }}>Workday / Portals</p>
+              </div>
+            </div>
+
+            <div className="input-group" style={{ marginBottom: '16px' }}>
+              <label>Target Role / Focus</label>
+              <input type="text" id="emp-batch-role" placeholder="e.g. Full Stack Developer / Data Analyst" />
+            </div>
+
+            <div className="input-group" style={{ marginBottom: '16px' }}>
+              <label>Notes / Remarks</label>
+              <textarea id="emp-batch-notes" rows={2} placeholder="e.g. Applied via US remote portals, updated tracker sheet"></textarea>
+            </div>
+
+            <div className="modal-actions">
+              <button type="submit" className="btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>
+                Save Today's Application Outreach
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => window.closeModal && window.closeModal('emp-batch-log-modal')}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       {/* MODAL: SUBMIT TASK */}

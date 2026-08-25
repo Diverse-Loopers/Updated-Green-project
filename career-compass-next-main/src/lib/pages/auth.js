@@ -78,59 +78,66 @@ export async function handleEmployeeLogin() {
         return;
     }
 
-    // 1. Try Login with Magic Email (Standard for New Users)
-    const magicEmail = `${empId}@hrms.local`.toLowerCase();
+    // Candidate emails to attempt login with
+    const candidateEmails = [];
+    if (empId.includes('@')) {
+        candidateEmails.push(empId.toLowerCase());
+    } else {
+        candidateEmails.push(`${empId.toLowerCase()}@diverseloopers.com`);
+        candidateEmails.push(`${empId.toLowerCase()}@hrms.local`);
+    }
 
-    let { data, error } = await supabase.auth.signInWithPassword({
-        email: magicEmail,
-        password: password
-    });
-
-    if (error) {
-        console.log("Magic Email Login failed, checking for legacy contact email...");
-
-        // 2. Fallback: Check for Legacy Contact Email
-        // Fetch the registered email for this ID from the public table
-        const { data: empData, error: dbError } = await supabase
+    // Lookup contact email from employees table
+    try {
+        const { data: empData } = await supabase
             .from('employees')
             .select('email')
             .eq('employee_id', empId)
-            .single();
+            .maybeSingle();
 
-        if (empData && empData.email && empData.email.toLowerCase() !== magicEmail) {
-            console.log("Found legacy email:", empData.email);
-            // Try Login with Contact Email
-            const { data: legacyData, error: legacyError } = await supabase.auth.signInWithPassword({
-                email: empData.email,
-                password: password
-            });
+        if (empData?.email && !candidateEmails.includes(empData.email.toLowerCase())) {
+            candidateEmails.push(empData.email.toLowerCase());
+        }
+    } catch (dbErr) {
+        console.warn('Could not query employee email:', dbErr.message);
+    }
 
-            if (!legacyError) {
-                error = null; // Clear error if legacy login works
-                data = legacyData;
-            } else {
-                console.error("Legacy login also failed:", legacyError);
-            }
+    let authData = null;
+    let authError = null;
+
+    for (const email of candidateEmails) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+        if (!error && data?.user) {
+            authData = data;
+            authError = null;
+            break;
+        } else {
+            authError = error;
         }
     }
 
-    if (error) {
-        console.error(error);
-        if (empError) empError.textContent = 'Login Failed: Invalid Credentials';
-    } else {
-        // Check if they are actually an employee (optional extra check)
-        // Check if they are a trainer
-        const { data: trainerCheck } = await supabase
-            .from('trainers')
-            .select('trainer_id')
-            .eq('user_id', data.user?.id)
-            .single();
+    if (authError || !authData) {
+        console.error('Employee login failed:', authError);
+        if (empError) empError.textContent = 'Login Failed: Invalid ID or Password';
+        return;
+    }
 
-        if (trainerCheck) {
-            window.location.href = '/trainer-dashboard';
-        } else {
-            window.location.href = '/employee-dashboard';
-        }
+    const data = authData;
+    // Check if they are actually an employee (optional extra check)
+    // Check if they are a trainer
+    const { data: trainerCheck } = await supabase
+        .from('trainers')
+        .select('trainer_id')
+        .eq('user_id', data.user?.id)
+        .single();
+
+    if (trainerCheck) {
+        window.location.href = '/trainer-dashboard';
+    } else {
+        window.location.href = '/employee-dashboard';
     }
 }
 

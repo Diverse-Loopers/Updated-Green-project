@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { verifyHRMSSecurityPassword } from '@/lib/hrms-security';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -22,7 +23,16 @@ function getTransporter() {
 
 export async function POST(request) {
     try {
-        const { employee_id, reason, confirmation_text } = await request.json();
+        const { employee_id, reason, confirmation_text, auth_password } = await request.json();
+
+        // Verify HRMS Security Authorization Password
+        const authCheck = await verifyHRMSSecurityPassword(auth_password);
+        if (!authCheck.valid) {
+            return NextResponse.json(
+                { success: false, error: authCheck.error || 'HRMS Security Authorization Password is required.' },
+                { status: 403 }
+            );
+        }
 
         if (!employee_id || !reason || !confirmation_text) {
             return NextResponse.json({ success: false, error: 'employee_id, reason, and confirmation_text are required' }, { status: 400 });

@@ -41,12 +41,12 @@ export async function GET(request) {
             );
         }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayIso = today.toISOString();
-        const todayDateStr = todayIso.split('T')[0];
+        const now = new Date();
+        const todayUtcStr = now.toISOString().split('T')[0];
+        const istDateStr = new Date(now.getTime() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const todayIso = now.toISOString();
 
-        const sevenDaysAgo = new Date(today);
+        const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const sevenDaysAgoIso = sevenDaysAgo.toISOString();
 
@@ -68,14 +68,19 @@ export async function GET(request) {
             profilesNewWeek,
             employeesTotal,
             employeesActive,
+            employeesListResult,
             executivesTotal,
             executivesActive,
+            executivesListResult,
             trainersTotal,
             trainersActive,
+            trainersListResult,
             paymentsTotal,
             paymentsCount,
+            paymentsListResult,
             subscriptions,
             coursesTotal,
+            coursesListResult,
             enrollmentsTotal,
             tasksResult,
             applicationsResult,
@@ -84,9 +89,10 @@ export async function GET(request) {
             documentsTotal,
             documentsPending,
             attendanceToday,
-            leavesToday
+            leavesToday,
+            clientProfilesResult
         ] = await Promise.all([
-            // profiles
+            // profiles counts
             safeQuery(() => supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true })),
             safeQuery(() => supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true }).eq('user_metadata->>is_business', 'true')),
             safeQuery(() => supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', todayIso)),
@@ -95,31 +101,36 @@ export async function GET(request) {
             // employees
             safeQuery(() => supabaseAdmin.from('employees').select('id', { count: 'exact', head: true })),
             safeQuery(() => supabaseAdmin.from('employees').select('id', { count: 'exact', head: true }).eq('is_active', true)),
+            safeQuery(() => supabaseAdmin.from('employees').select('id, employee_id, full_name, email, role, department, designation, is_active').order('full_name')),
 
             // executives
             safeQuery(() => supabaseAdmin.from('executives').select('id', { count: 'exact', head: true })),
             safeQuery(() => supabaseAdmin.from('executives').select('id', { count: 'exact', head: true }).eq('is_active', true)),
+            safeQuery(() => supabaseAdmin.from('executives').select('id, name, email, role, phone, is_active').order('name')),
 
             // trainers
             safeQuery(() => supabaseAdmin.from('trainers').select('id', { count: 'exact', head: true })),
             safeQuery(() => supabaseAdmin.from('trainers').select('id', { count: 'exact', head: true }).eq('is_active', true)),
+            safeQuery(() => supabaseAdmin.from('trainers').select('id, full_name, email, specialization, is_active').order('full_name')),
 
             // payments
             safeQuery(() => supabaseAdmin.from('payments').select('amount').eq('status', 'paid')),
             safeQuery(() => supabaseAdmin.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'paid')),
+            safeQuery(() => supabaseAdmin.from('payments').select('id, user_email, course_title, amount, currency, status, paid_at').order('paid_at', { ascending: false }).limit(30)),
 
             // subscriptions
             safeQuery(() => supabaseAdmin.from('client_subscriptions').select('amount_paid')),
 
             // courses & enrollments
             safeQuery(() => supabaseAdmin.from('courses').select('id', { count: 'exact', head: true })),
+            safeQuery(() => supabaseAdmin.from('courses').select('id, title, category, price, is_live, created_at').order('created_at', { ascending: false }).limit(30)),
             safeQuery(() => supabaseAdmin.from('enrollments').select('id', { count: 'exact', head: true })),
 
             // tasks
-            safeQuery(() => supabaseAdmin.from('tasks').select('status')),
+            safeQuery(() => supabaseAdmin.from('tasks').select('id, title, employee_id, deadline, priority, status').order('deadline', { ascending: true })),
 
             // applications
-            safeQuery(() => supabaseAdmin.from('applications').select('status')),
+            safeQuery(() => supabaseAdmin.from('applications').select('id, applicant_name, applicant_email, job_title, status, submitted_at').order('submitted_at', { ascending: false }).limit(30)),
 
             // marketing
             safeQuery(() => supabaseAdmin.from('marketing_contacts').select('id', { count: 'exact', head: true })),
@@ -130,8 +141,11 @@ export async function GET(request) {
             safeQuery(() => supabaseAdmin.from('issued_documents').select('id', { count: 'exact', head: true }).eq('requires_signature', true).eq('is_signed', false)),
 
             // attendance & leaves
-            safeQuery(() => supabaseAdmin.from('attendance').select('id', { count: 'exact', head: true }).eq('date', todayDateStr)),
-            safeQuery(() => supabaseAdmin.from('leaves').select('id', { count: 'exact', head: true }).eq('status', 'approved').lte('start_date', todayDateStr).gte('end_date', todayDateStr)),
+            safeQuery(() => supabaseAdmin.from('attendance').select('id, employee_id, date, status, check_in_time').in('date', [todayUtcStr, istDateStr])),
+            safeQuery(() => supabaseAdmin.from('leaves').select('id, employee_id, start_date, end_date, reason, status').ilike('status', 'approved').lte('start_date', istDateStr).gte('end_date', istDateStr)),
+
+            // client profiles for users list
+            safeQuery(() => supabaseAdmin.from('client_profiles').select('id, full_name, company_name, work_email, phone, plan, is_business_client, created_at').order('created_at', { ascending: false }).limit(30))
         ]);
 
         // Process data
@@ -143,6 +157,13 @@ export async function GET(request) {
         const avgOrder = transactionsCount > 0 ? totalPayments / transactionsCount : 0;
 
         const saasRevenue = subscriptions?.data?.reduce((sum, s) => sum + (Number(s.amount_paid) || 0), 0) || 0;
+
+        // Employees map for fast lookup
+        const empMap = {};
+        (employeesListResult?.data || []).forEach(emp => {
+            if (emp.employee_id) empMap[emp.employee_id] = emp;
+            if (emp.id) empMap[emp.id] = emp;
+        });
 
         let pendingTasks = 0, completedTasks = 0, inProgressTasks = 0;
         if (tasksResult?.data) {
@@ -170,8 +191,120 @@ export async function GET(request) {
         const sentCampaigns = emailCampaigns?.data?.filter(c => c.status?.toLowerCase() === 'sent').length || 0;
 
         const totalActiveEmployees = employeesActive?.count || 0;
-        const presentTodayCount = attendanceToday?.count || 0;
+        const presentTodayCount = (attendanceToday?.data || []).length;
         const attendanceRate = totalActiveEmployees > 0 ? (presentTodayCount / totalActiveEmployees) * 100 : 0;
+
+        // Construct Detailed Lists for Interactivity
+        const presentList = (attendanceToday?.data || []).map(att => {
+            const emp = empMap[att.employee_id] || {};
+            return {
+                id: att.employee_id,
+                employee_id: att.employee_id,
+                name: emp.full_name || att.employee_id,
+                role: emp.role || 'employee',
+                department: emp.department || 'General',
+                designation: emp.designation || 'Staff',
+                email: emp.email || '',
+                check_in_time: att.check_in_time || 'Checked In',
+                status: att.status || 'Present'
+            };
+        });
+
+        const leaveList = (leavesToday?.data || []).map(l => {
+            const emp = empMap[l.employee_id] || {};
+            return {
+                id: l.employee_id,
+                employee_id: l.employee_id,
+                name: emp.full_name || l.employee_id,
+                role: emp.role || 'employee',
+                department: emp.department || 'General',
+                designation: emp.designation || '',
+                reason: l.reason || 'Approved Leave',
+                start_date: l.start_date,
+                end_date: l.end_date,
+                status: 'On Leave'
+            };
+        });
+
+        const employeesList = (employeesListResult?.data || []).map(emp => ({
+            id: emp.employee_id || emp.id,
+            employee_id: emp.employee_id || '—',
+            name: emp.full_name || 'Unnamed',
+            role: emp.role || 'employee',
+            department: emp.department || 'General',
+            designation: emp.designation || 'Staff',
+            email: emp.email || '',
+            is_active: emp.is_active
+        }));
+
+        const executivesList = (executivesListResult?.data || []).map(ex => ({
+            id: ex.id,
+            name: ex.name || 'Executive',
+            email: ex.email || '',
+            role: ex.role || 'Executive',
+            phone: ex.phone || '—',
+            is_active: ex.is_active
+        }));
+
+        const trainersList = (trainersListResult?.data || []).map(tr => ({
+            id: tr.id,
+            name: tr.full_name || 'Trainer',
+            email: tr.email || '',
+            specialization: tr.specialization || 'Course Instructor',
+            is_active: tr.is_active
+        }));
+
+        const tasksList = (tasksResult?.data || []).map(t => {
+            const emp = empMap[t.employee_id] || {};
+            return {
+                id: t.id,
+                title: t.title,
+                employee_id: t.employee_id || '—',
+                name: emp.full_name || t.employee_id || 'Assigned',
+                deadline: t.deadline,
+                priority: t.priority || 'Medium',
+                status: t.status || 'Pending'
+            };
+        });
+
+        const usersList = (clientProfilesResult?.data || []).map(u => ({
+            id: u.id,
+            name: u.full_name || u.company_name || 'User',
+            email: u.work_email || '',
+            company: u.company_name || '—',
+            phone: u.phone || '—',
+            plan: u.plan || 'Free',
+            is_business: u.is_business_client,
+            created_at: u.created_at
+        }));
+
+        const revenueList = (paymentsListResult?.data || []).map(p => ({
+            id: p.id,
+            title: p.course_title || 'Payment Transaction',
+            email: p.user_email || 'Customer',
+            amount: p.amount,
+            currency: p.currency || 'INR',
+            status: p.status || 'paid',
+            paid_at: p.paid_at
+        }));
+
+        const applicationsList = (applicationsResult?.data || []).map(a => ({
+            id: a.id,
+            name: a.applicant_name || 'Applicant',
+            email: a.applicant_email || '',
+            role_applied: a.job_title || 'Position',
+            status: a.status || 'new',
+            created_at: a.submitted_at
+        }));
+
+        const coursesList = (coursesListResult?.data || []).map(c => ({
+            id: c.id,
+            title: c.title,
+            category: c.category || 'General',
+            price: c.price,
+            is_live: c.is_live,
+            created_at: c.created_at
+        }));
 
         return NextResponse.json({
             success: true,
@@ -188,8 +321,8 @@ export async function GET(request) {
                     active: totalActiveEmployees,
                     inactive: (employeesTotal?.count || 0) - totalActiveEmployees,
                     present_today: presentTodayCount,
-                    absent_today: Math.max(0, totalActiveEmployees - presentTodayCount - (leavesToday?.count || 0)),
-                    on_leave: leavesToday?.count || 0
+                    absent_today: Math.max(0, totalActiveEmployees - presentTodayCount - (leavesToday?.data?.length || 0)),
+                    on_leave: leavesToday?.data?.length || 0
                 },
                 executives: {
                     total: executivesTotal?.count || 0,
@@ -236,6 +369,18 @@ export async function GET(request) {
                     total_issued: documentsTotal?.count || 0,
                     pending_signatures: documentsPending?.count || 0
                 }
+            },
+            details: {
+                present: presentList,
+                leave: leaveList,
+                employees: employeesList,
+                executives: executivesList,
+                trainers: trainersList,
+                tasks: tasksList,
+                users: usersList,
+                revenue: revenueList,
+                applications: applicationsList,
+                courses: coursesList
             }
         });
     } catch (error) {

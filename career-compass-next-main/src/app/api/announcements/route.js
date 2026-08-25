@@ -24,7 +24,15 @@ export async function GET(request) {
         const manager_id = searchParams.get('manager_id');
         const employee_id = searchParams.get('employee_id');
 
-        let query = supabaseAdmin.from('team_announcements').select('*');
+        // Enforce 7-day retention limit: auto-cleanup expired announcements
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        try {
+            await supabaseAdmin.from('team_announcements').delete().lt('created_at', sevenDaysAgo);
+        } catch (cleanErr) {
+            console.warn('Auto-cleanup announcements error:', cleanErr.message);
+        }
+
+        let query = supabaseAdmin.from('team_announcements').select('*').gte('created_at', sevenDaysAgo);
 
         if (employee_id) {
             const { data: em } = await supabaseAdmin.from('employee_managers').select('manager_id').eq('employee_id', employee_id).maybeSingle();
@@ -43,7 +51,7 @@ export async function GET(request) {
         const { data, error: queryErr } = await query;
         if (queryErr) throw queryErr;
 
-        return NextResponse.json({ success: true, announcements: data });
+        return NextResponse.json({ success: true, announcements: data || [] });
     } catch (err) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
@@ -65,15 +73,39 @@ export async function POST(request) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { title, message, posted_by, posted_by_role, scope, manager_id } = await request.json();
+        const body = await request.json();
+        const { title, message, scope, manager_id } = body;
+        let { posted_by, posted_by_role } = body;
 
         if (!title || !message) {
             return NextResponse.json({ success: false, error: 'Missing title or message' }, { status: 400 });
         }
 
+        // Clean up announcements older than 7 days
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        try {
+            await supabaseAdmin.from('team_announcements').delete().lt('created_at', sevenDaysAgo);
+        } catch (cleanErr) {
+            console.warn('Auto-cleanup announcements error:', cleanErr.message);
+        }
+
+        // Fallback for posted_by and posted_by_role if missing
+        if (!posted_by) {
+            const auth = await verifyExecutiveSession(request).catch(() => ({ ok: false }));
+            if (auth.ok && auth.executive?.name) {
+                posted_by = auth.executive.name;
+                posted_by_role = posted_by_role || auth.executive.role;
+            } else if (manager_id) {
+                const { data: mgr } = await supabaseAdmin.from('managers').select('name').eq('id', manager_id).maybeSingle();
+                if (mgr?.name) posted_by = mgr.name;
+            }
+        }
+        if (!posted_by) posted_by = (posted_by_role === 'hr' || adminKey === 'hrms-admin-access') ? 'HR Admin' : 'Manager';
+        if (!posted_by_role) posted_by_role = 'manager';
+
         const { data: announcement, error: insertErr } = await supabaseAdmin
             .from('team_announcements')
-            .insert([{ title, message, posted_by, posted_by_role: posted_by_role || 'manager', scope: scope || 'team', manager_id }])
+            .insert([{ title, message, posted_by, posted_by_role, scope: scope || 'team', manager_id: manager_id || null }])
             .select()
             .single();
 
@@ -94,30 +126,54 @@ export async function POST(request) {
             }
         }
 
+        // Create unified notifications for Admin, CEO, and Employees
+        const notificationsToInsert = [
+            {
+                recipient_role: 'admin',
+                type: 'announcement',
+                title: title,
+                message: `📢 New Announcement from ${posted_by}: "${title}"`,
+                is_read: false
+            },
+            {
+                recipient_role: 'ceo',
+                type: 'announcement',
+                title: title,
+                message: `📢 Announcement posted by ${posted_by}: "${title}"`,
+                is_read: false
+            }
+        ];
+
         if (targetEmployeeIds.length > 0) {
             const { data: employeesData } = await supabaseAdmin.from('employees').select('employee_id, email').in('employee_id', targetEmployeeIds);
 
             if (employeesData) {
                 targetEmails = employeesData.filter(e => e.email).map(e => e.email);
 
-                // Insert notifications
-                const notifications = targetEmployeeIds.map(empId => ({
-                    recipient_id: empId,
-                    type: 'announcement',
-                    title: title,
-                    message: message.substring(0, 100) + '...',
-                    is_read: false
-                }));
-
-                await supabaseAdmin.from('notifications').insert(notifications);
+                targetEmployeeIds.forEach(empId => {
+                    notificationsToInsert.push({
+                        recipient_role: 'employee',
+                        recipient_id: empId,
+                        type: 'announcement',
+                        title: title,
+                        message: `📢 ${title}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+                        is_read: false
+                    });
+                });
             }
         }
 
-        // Send Emails
+        try {
+            await supabaseAdmin.from('notifications').insert(notificationsToInsert);
+        } catch (notifErr) {
+            console.error('Failed to insert announcement notifications:', notifErr.message);
+        }
+
+        // Send Emails in background
         if (targetEmails.length > 0) {
-            const transporter = getTransporter();
             try {
-                await transporter.sendMail({
+                const transporter = getTransporter();
+                transporter.sendMail({
                     from: process.env.SMTP_USER || 'hr@diverseloopers.com',
                     to: targetEmails,
                     subject: `Announcement: ${title}`,
@@ -127,9 +183,11 @@ export async function POST(request) {
                         <hr />
                         <div>${message.replace(/\n/g, '<br/>')}</div>
                     `
+                }).catch(emailErr => {
+                    console.error('Failed to send announcement emails in background:', emailErr.message);
                 });
-            } catch (emailErr) {
-                console.error('Failed to send announcement emails:', emailErr);
+            } catch (emailInitErr) {
+                console.error('Failed to initialize transporter for announcement emails:', emailInitErr.message);
             }
         }
 

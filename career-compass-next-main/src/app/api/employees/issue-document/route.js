@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { verifyHRMSSecurityPassword } from '@/lib/hrms-security';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -68,7 +69,13 @@ export async function GET(request) {
 }
 
 async function handleTemplateDocument(request) {
-    const { employee_id, template_id, join_date, email_subject, email_body } = await request.json();
+    const { employee_id, template_id, join_date, email_subject, email_body, auth_password } = await request.json();
+
+    // Verify HRMS Security Authorization Password
+    const authCheck = await verifyHRMSSecurityPassword(auth_password);
+    if (!authCheck.valid) {
+        return NextResponse.json({ success: false, error: authCheck.error || 'HRMS Security Authorization Password is required.' }, { status: 403 });
+    }
 
     if (!employee_id || !template_id) {
         return NextResponse.json({ success: false, error: 'employee_id and template_id required' }, { status: 400 });
@@ -193,6 +200,13 @@ async function handleCustomDocument(request) {
     const title = formData.get('title');
     const emailSubject = formData.get('email_subject');
     const emailBody = formData.get('email_body');
+    const authPassword = formData.get('auth_password');
+
+    // Verify HRMS Security Authorization Password
+    const authCheck = await verifyHRMSSecurityPassword(authPassword);
+    if (!authCheck.valid) {
+        return NextResponse.json({ success: false, error: authCheck.error || 'HRMS Security Authorization Password is required.' }, { status: 403 });
+    }
 
     if (!file || !employee_id || !title) {
         return NextResponse.json({ success: false, error: 'file, employee_id, and title required' }, { status: 400 });

@@ -38,3 +38,21 @@ input[type='range'] { -webkit-appearance: none; height: 6px; background: #e2e8f0
     #sidebar { transform: translateX(-100%); }
     #sidebar.open { transform: translateX(0); }
 }
+
+/* Ensure all form inputs and textareas have dark readable text and white background */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='date'],
+input[type='month'],
+select,
+textarea {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #94a3b8 !important;
+}
+

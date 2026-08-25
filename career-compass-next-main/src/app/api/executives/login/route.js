@@ -18,50 +18,53 @@ export async function POST(req) {
       );
     }
 
-    // Look up executive
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Look up executive by email (case-insensitive)
     const { data: exec, error } = await supabase
       .from('executives')
       .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .eq('is_active', true)
+      .ilike('email', cleanEmail)
       .maybeSingle();
 
     if (error || !exec) {
-      // Generic error — don't reveal whether email exists
+      console.warn('Executive lookup failed for:', cleanEmail, error?.message);
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    // Support both legacy plain-text passwords and new hashed passwords.
-    // A valid SHA-256 hex digest is exactly 64 hex characters.
-    // If stored password doesn't match that pattern, treat it as plain text
-    // and auto-migrate to hashed on first successful login.
-    const isValidHash = /^[a-f0-9]{64}$/i.test(exec.password);
-    let passwordValid = false;
-
-    if (!isValidHash) {
-      // Legacy plain-text comparison (or corrupted hash)
-      passwordValid = exec.password === password;
-      if (passwordValid) {
-        // Auto-migrate to hashed password
-        const hashed = hashPassword(password);
-        await supabase
-          .from('executives')
-          .update({ password: hashed })
-          .eq('id', exec.id);
-      }
-    } else {
-      // Hashed password comparison
-      passwordValid = verifyPassword(password, exec.password);
+    // Check if account is explicitly deactivated
+    if (exec.is_active === false) {
+      return NextResponse.json(
+        { success: false, error: 'This executive account is deactivated. Please contact administrator.' },
+        { status: 403 }
+      );
     }
+
+    // Verify password with multi-salt and plain-text fallback
+    const passwordValid = verifyPassword(password, exec.password);
 
     if (!passwordValid) {
+      console.warn('Password verification failed for executive:', cleanEmail);
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
       );
+    }
+
+    // Auto-upgrade to current standard salted hash if stored format differs
+    const standardHash = hashPassword(password);
+    if (exec.password !== standardHash) {
+      try {
+        await supabase
+          .from('executives')
+          .update({ password: standardHash })
+          .eq('id', exec.id);
+      } catch (updErr) {
+        console.warn('Note: updating executive password hash:', updErr.message);
+      }
     }
 
     // Create a signed session token

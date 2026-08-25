@@ -48,6 +48,19 @@ export default function DashboardPage() {
     }, 100);
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Sign out notice:', e);
+    }
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {}
+    window.location.href = '/';
+  };
+
   const handleShowMyCourses = async () => {
     setShowMyCourses(true);
     setCoursesLoading(true);
@@ -189,7 +202,7 @@ export default function DashboardPage() {
           })}
         </nav>
         <div className="pf-sidebar-footer">
-          <button id="logout-button" className="pf-logout-btn">
+          <button id="logout-button" onClick={handleLogout} className="pf-logout-btn">
             <SvgIcon d={<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>} size={16} />
             Logout
           </button>
@@ -234,7 +247,7 @@ export default function DashboardPage() {
             <SvgIcon d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" size={14} color="#fff" /> Analysis
           </button>
           <a href="/settings" className="pf-btn pf-btn-outline" style={{ padding: '6px 16px', fontSize: 12 }}>Settings</a>
-          <button id="logout-button-desktop" style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: 24, cursor: 'pointer' }}>Logout</button>
+          <button id="logout-button-desktop" onClick={handleLogout} style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700, color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: 24, cursor: 'pointer' }}>Logout</button>
         </div>
         </div>
       </nav>
