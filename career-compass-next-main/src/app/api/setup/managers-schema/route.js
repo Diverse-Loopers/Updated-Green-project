@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS projects (
     status text DEFAULT 'active',
     created_at timestamptz DEFAULT now()
 );
+
+-- hrms_security_settings table
+CREATE TABLE IF NOT EXISTS hrms_security_settings (
+    id text PRIMARY KEY DEFAULT 'global',
+    password_hash text NOT NULL,
+    updated_by text DEFAULT 'CEO',
+    updated_at timestamptz DEFAULT now()
+);
   `;
 
   return NextResponse.json({

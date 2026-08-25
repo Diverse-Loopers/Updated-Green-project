@@ -284,8 +284,30 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="section-header">
-              <h2>Employee Management</h2>
+            <div className="section-header" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h2>Employee Management</h2>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                  <button
+                    id="emp-tab-active"
+                    type="button"
+                    onClick={() => window.switchEmployeeTab && window.switchEmployeeTab('active')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #6C5CE7', background: '#6C5CE7', color: '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                  >
+                    <span>👥 Active Employees</span>
+                    <span id="active-emp-count" style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>0</span>
+                  </button>
+                  <button
+                    id="emp-tab-past"
+                    type="button"
+                    onClick={() => window.switchEmployeeTab && window.switchEmployeeTab('past')}
+                    style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                  >
+                    <span>📋 Past Employees</span>
+                    <span id="past-emp-count" style={{ background: '#e2e8f0', color: '#475569', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>0</span>
+                  </button>
+                </div>
+              </div>
               <button className="btn-primary" onClick={() => window.openAddEmployeeModal && window.openAddEmployeeModal()}>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 Add Employee
@@ -294,7 +316,7 @@ export default function AdminDashboard() {
 
             <div className="table-container">
               <table id="employees-table">
-                <thead>
+                <thead id="employees-thead">
                   <tr>
                     <th>Employee ID</th>
                     <th>Name</th>
@@ -1055,6 +1077,35 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          <div className="input-group" style={{ margin: '1rem 1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b', fontWeight: 700, fontSize: '0.82rem' }}>
+              🔒 HRMS Security Password <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '0.2rem 0 0.5rem' }}>
+              Required by CEO authorization policy to issue official documents.
+            </p>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                id="issue-doc-auth-pass"
+                placeholder="Enter CEO authorization password..."
+                style={{ width: '100%', padding: '8px 12px', paddingRight: '36px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('issue-doc-auth-pass');
+                  if (input) input.type = input.type === 'password' ? 'text' : 'password';
+                }}
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                title="Show/Hide password"
+              >
+                👁️
+              </button>
+            </div>
+          </div>
+
           <div className="modal-actions">
             <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('issue-doc-modal')}>Cancel</button>
             <button type="button" className="btn-primary" id="issue-doc-submit-btn" onClick={() => window.handleIssueDocument && window.handleIssueDocument()}>Issue Document</button>
@@ -1089,11 +1140,96 @@ export default function AdminDashboard() {
               <label style={{ fontSize: '0.85rem' }}>Type <strong style={{ color: '#dc2626' }} id="end-emp-confirm-text">{'"end employment of Employee Name"'}</strong> to confirm</label>
               <input type="text" id="end-emp-confirmation" placeholder="Type confirmation text..." style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }} />
             </div>
+
+            <div className="input-group" style={{ marginTop: '1.25rem', padding: '1rem', background: '#fef2f2', borderRadius: '10px', border: '1px solid #fecaca' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#991b1b', fontWeight: 700, fontSize: '0.82rem' }}>
+                🔒 HRMS Security Password <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <p style={{ fontSize: '0.72rem', color: '#b91c1c', margin: '0.2rem 0 0.5rem' }}>
+                Required by CEO authorization policy to terminate employment.
+              </p>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  id="end-emp-auth-pass"
+                  placeholder="Enter CEO authorization password..."
+                  style={{ width: '100%', padding: '8px 12px', paddingRight: '36px', borderRadius: '8px', border: '1px solid #fca5a5' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('end-emp-auth-pass');
+                    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+                  }}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}
+                  title="Show/Hide password"
+                >
+                  👁️
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="modal-actions">
             <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('end-employment-modal')}>Cancel</button>
             <button type="button" style={{ padding: '0.5rem 1.5rem', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700 }} onClick={() => window.handleEndEmployment && window.handleEndEmployment()}>End Employment</button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL: DELETE EMPLOYEE (SECURED) */}
+      <div id="delete-employee-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'delete-employee-modal') window.closeModal && window.closeModal('delete-employee-modal'); }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '500px' }}>
+          <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('delete-employee-modal')}>✕</button>
+          <div className="modal-header" style={{ background: 'linear-gradient(135deg, #dc2626, #991b1b)', margin: '-1.5rem -1.5rem 1.5rem', padding: '1.5rem', borderRadius: '12px 12px 0 0' }}>
+            <h2 style={{ color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>🗑️ Delete Employee Record</h2>
+            <p style={{ color: '#fecaca', margin: '0.25rem 0 0', fontSize: '0.85rem' }} id="delete-emp-info">Employee</p>
+          </div>
+          <input type="hidden" id="delete-emp-uuid" />
+
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <div style={{ background: '#fef2f2', borderLeft: '4px solid #dc2626', padding: '12px 16px', borderRadius: '0 8px 8px 0', marginBottom: '1.25rem' }}>
+              <p style={{ margin: 0, color: '#991b1b', fontSize: '0.82rem', lineHeight: '1.5' }}>
+                <strong>⚠️ Warning:</strong> This will permanently erase the employee profile, auth login credentials, facial data, assignments, tasks, attendance records, and ratings. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="input-group" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b', fontWeight: 700, fontSize: '0.82rem' }}>
+                🔒 HRMS Security Password <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '0.2rem 0 0.5rem' }}>
+                Enter the CEO-authorized password to confirm deletion.
+              </p>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  id="delete-emp-auth-pass"
+                  placeholder="Enter CEO authorization password..."
+                  style={{ width: '100%', padding: '8px 12px', paddingRight: '36px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('delete-emp-auth-pass');
+                    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+                  }}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                  title="Show/Hide password"
+                >
+                  👁️
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-text" onClick={() => window.closeModal && window.closeModal('delete-employee-modal')}>Cancel</button>
+            <button type="button" id="delete-emp-confirm-btn" style={{ padding: '0.55rem 1.5rem', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => window.confirmDeleteEmployee && window.confirmDeleteEmployee()}>
+              Confirm &amp; Delete
+            </button>
           </div>
         </div>
       </div>
@@ -1204,15 +1340,15 @@ export default function AdminDashboard() {
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="input-group">
               <label>Title <span style={{ color: '#dc2626' }}>*</span></label>
-              <input type="text" id="ann-title" placeholder="Announcement title" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              <input type="text" id="ann-title" placeholder="Announcement title" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a' }} />
             </div>
             <div className="input-group">
               <label>Message <span style={{ color: '#dc2626' }}>*</span></label>
-              <textarea id="ann-message" rows={5} placeholder="Write your announcement..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical' }}></textarea>
+              <textarea id="ann-message" rows={5} placeholder="Write your announcement..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical', background: '#fff', color: '#0f172a' }}></textarea>
             </div>
             <div className="input-group">
               <label>Scope</label>
-              <select id="ann-scope" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <select id="ann-scope" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a' }}>
                 <option value="all">All Employees (Organization-wide)</option>
               </select>
             </div>

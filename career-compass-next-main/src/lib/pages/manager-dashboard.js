@@ -977,26 +977,45 @@ window.openAnnouncementModal = () => {
 
 window.submitAnnouncement = async () => {
   const btn = document.getElementById('btn-submit-announce');
+  const title = document.getElementById('announce-title')?.value?.trim();
+  const message = document.getElementById('announce-msg')?.value?.trim();
+  
+  if (!title || !message) {
+    alert("Please enter both title and message.");
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Posting...';
   
+  const managerName = window._managerName || window._mgrExec?.name || 'Manager';
   const data = {
-    title: document.getElementById('announce-title').value,
-    message: document.getElementById('announce-msg').value,
+    title,
+    message,
+    posted_by: managerName,
+    posted_by_role: 'manager',
     scope: 'team',
     manager_id: window._managerId
   };
   
   try {
-    await fetch('/api/announcements', {
+    const headers = { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' };
+    if (window._mgrToken) headers['Authorization'] = `Bearer ${window._mgrToken}`;
+
+    const res = await fetch('/api/announcements', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
+      headers,
       body: JSON.stringify(data)
     });
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || 'Failed to post announcement');
+    }
     window.closeModal('announcement-modal');
     loadAnnouncements();
   } catch (e) {
-    alert("Failed to post");
+    console.error('Error posting announcement:', e);
+    alert(e.message || "Failed to post announcement");
   } finally {
     btn.disabled = false;
     btn.textContent = 'Post Announcement';

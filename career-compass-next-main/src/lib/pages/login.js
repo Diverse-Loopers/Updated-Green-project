@@ -48,14 +48,33 @@ export async function handleRegister(e) {
 
 export async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    const email = document.getElementById('login-email').value?.trim();
+    const password = document.getElementById('login-password').value?.trim();
 
+    if (!email || !password) {
+        showMessage('Please enter email and password', true);
+        return;
+    }
+
+    // 1. Try standard Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-        showMessage(error.message, true);
-    } else {
+    if (!error && data?.user) {
+        // Check if student has a Placement Program enrollment
+        try {
+            const placementCheck = await fetch(`/api/placement-program/student-portal?email=${encodeURIComponent(email)}`);
+            const pData = await placementCheck.json();
+            if (pData.success && pData.student) {
+                sessionStorage.setItem('placement_student', JSON.stringify(pData.student));
+                sessionStorage.setItem('placement_student_id', pData.student.id);
+                showMessage('Welcome back! Redirecting to your Placement Dashboard...');
+                setTimeout(() => window.location.href = '/placement-dashboard', 1200);
+                return;
+            }
+        } catch (pErr) {
+            console.warn('Placement check error:', pErr);
+        }
+
         // Check if this is a business user — redirect them to business dashboard
         const isBusiness = data?.user?.user_metadata?.is_business === true;
         if (isBusiness) {
@@ -65,7 +84,34 @@ export async function handleLogin(e) {
             showMessage('Welcome back!');
             setTimeout(() => window.location.href = '/', 1500);
         }
+        return;
     }
+
+    // 2. Fallback: Check if this is an enrolled Placement Program student with portal credentials
+    try {
+        const studentAuthRes = await fetch('/api/placement-program/student-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const studentAuthData = await studentAuthRes.json();
+
+        if (studentAuthData.success && studentAuthData.student) {
+            sessionStorage.setItem('placement_student', JSON.stringify(studentAuthData.student));
+            sessionStorage.setItem('placement_student_id', studentAuthData.student.id);
+            if (studentAuthData.token) {
+                sessionStorage.setItem('placement_token', studentAuthData.token);
+            }
+            showMessage(studentAuthData.message || 'Welcome to your Placement Dashboard!');
+            setTimeout(() => window.location.href = '/placement-dashboard', 1200);
+            return;
+        }
+    } catch (authErr) {
+        console.warn('Student auth fallback error:', authErr);
+    }
+
+    // If both failed, display error
+    showMessage(error ? error.message : 'Invalid email or password', true);
 }
 
 export async function handleGoogleLogin(e) {

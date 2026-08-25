@@ -40,9 +40,11 @@ export function showSection(sectionId) {
     loadAdminStats();
     fetchNotifications();
 
-    // Poll for notifications every 30 seconds (set once)
+    // Poll for notifications and announcements every 10 seconds for live updates without refresh
     if (!notificationIntervalId) {
-        notificationIntervalId = setInterval(fetchNotifications, 30000);
+        notificationIntervalId = setInterval(() => {
+            fetchNotifications();
+        }, 10000);
     }
 }
 
@@ -251,68 +253,169 @@ export async function loadFaceModels() {
     }
 }
 
+let currentEmployeeTab = 'active';
+
+export function switchEmployeeTab(tab) {
+    currentEmployeeTab = tab;
+
+    const activeBtn = document.getElementById('emp-tab-active');
+    const pastBtn = document.getElementById('emp-tab-past');
+
+    if (tab === 'active') {
+        if (activeBtn) {
+            activeBtn.style.background = '#6C5CE7';
+            activeBtn.style.borderColor = '#6C5CE7';
+            activeBtn.style.color = '#fff';
+        }
+        if (pastBtn) {
+            pastBtn.style.background = '#f8fafc';
+            pastBtn.style.borderColor = '#cbd5e1';
+            pastBtn.style.color = '#64748b';
+        }
+    } else {
+        if (activeBtn) {
+            activeBtn.style.background = '#f8fafc';
+            activeBtn.style.borderColor = '#cbd5e1';
+            activeBtn.style.color = '#64748b';
+        }
+        if (pastBtn) {
+            pastBtn.style.background = '#dc2626';
+            pastBtn.style.borderColor = '#dc2626';
+            pastBtn.style.color = '#fff';
+        }
+    }
+
+    renderEmployeesTable();
+}
+
 /* ==========================
    EMPLOYEES
 ========================== */
+let employeeDocsCacheMap = {};
+
 async function loadEmployees() {
     const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
     if (error) return showToast('Error loading employees', 'error');
     employeesCache = data || [];
 
     // Fetch document counts for all employees
-    let docCountsMap = {};
+    employeeDocsCacheMap = {};
     try {
         const { data: allDocs } = await supabase.from('employee_documents').select('employee_id, doc_type');
         if (allDocs) {
             allDocs.forEach(d => {
-                if (!docCountsMap[d.employee_id]) docCountsMap[d.employee_id] = new Set();
-                docCountsMap[d.employee_id].add(d.doc_type);
+                if (!employeeDocsCacheMap[d.employee_id]) employeeDocsCacheMap[d.employee_id] = new Set();
+                employeeDocsCacheMap[d.employee_id].add(d.doc_type);
             });
         }
     } catch(e) { console.error('Error fetching doc counts:', e); }
 
+    renderEmployeesTable();
+
+    // Populate task assignment dropdown with only active employees
+    const taskSelect = document.getElementById('task-assign-to');
+    if (taskSelect) {
+        taskSelect.innerHTML = '';
+        employeesCache.filter(e => e.role !== 'admin' && e.is_active !== false).forEach(emp => {
+            const opt = document.createElement('option');
+            opt.value = emp.employee_id;
+            opt.textContent = emp.employee_id + ' - ' + emp.full_name;
+            taskSelect.appendChild(opt);
+        });
+    }
+}
+
+function renderEmployeesTable() {
+    const thead = document.getElementById('employees-thead');
     const tbody = document.querySelector('#employees-table tbody');
+
+    const activeList = employeesCache.filter(e => e.is_active !== false);
+    const pastList = employeesCache.filter(e => e.is_active === false);
+
+    const activeCountEl = document.getElementById('active-emp-count');
+    const pastCountEl = document.getElementById('past-emp-count');
+    if (activeCountEl) activeCountEl.textContent = activeList.length;
+    if (pastCountEl) pastCountEl.textContent = pastList.length;
+
+    const listToRender = currentEmployeeTab === 'active' ? activeList : pastList;
+
+    if (thead) {
+        if (currentEmployeeTab === 'active') {
+            thead.innerHTML = `
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Documents</th>
+                    <th>Actions</th>
+                </tr>`;
+        } else {
+            thead.innerHTML = `
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Department / Role</th>
+                    <th>End Date</th>
+                    <th>Reason / Status</th>
+                    <th>Documents</th>
+                    <th>Actions</th>
+                </tr>`;
+        }
+    }
+
     if (tbody) {
         tbody.innerHTML = '';
-        employeesCache.forEach(emp => {
-            const docCount = docCountsMap[emp.employee_id] ? docCountsMap[emp.employee_id].size : 0;
+        if (listToRender.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:#94a3b8">No ${currentEmployeeTab === 'active' ? 'active' : 'past'} employees found.</td></tr>`;
+            return;
+        }
+
+        listToRender.forEach(emp => {
+            const docCount = employeeDocsCacheMap[emp.employee_id] ? employeeDocsCacheMap[emp.employee_id].size : 0;
             const docTotal = 4;
             let docBadge = '';
             if (docCount === docTotal) {
                 docBadge = '<span style="background:#d1fae5;color:#059669;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">✅ ' + docCount + '/' + docTotal + '</span>';
             } else if (docCount > 0) {
-                docBadge = '<span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">⚠️ ' + docCount + '/' + docTotal + '</span> ' +
-                    '<button onclick="window.uploadMissingDocs(\'' + emp.employee_id + '\', \'' + (emp.full_name || '') + '\')" style="padding:2px 8px;border-radius:5px;border:1px solid #d97706;background:#fffbeb;color:#d97706;cursor:pointer;font-size:10px;font-weight:600;margin-left:4px">Upload</button>';
+                docBadge = '<span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">⚠️ ' + docCount + '/' + docTotal + '</span>';
             } else {
-                docBadge = '<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">❌ 0/' + docTotal + '</span> ' +
-                    '<button onclick="window.uploadMissingDocs(\'' + emp.employee_id + '\', \'' + (emp.full_name || '') + '\')" style="padding:2px 8px;border-radius:5px;border:1px solid #dc2626;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:10px;font-weight:600;margin-left:4px">Upload</button>';
+                docBadge = '<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">❌ 0/' + docTotal + '</span>';
             }
 
             const row = document.createElement('tr');
-            row.innerHTML =
-                '<td>' + emp.employee_id + '</td>' +
-                '<td><a href="#" onclick="event.preventDefault();window.viewEmployeeDetail(\'' + emp.employee_id + '\')" style="color:#6C5CE7;font-weight:600;text-decoration:none;cursor:pointer">' + (emp.full_name || '-') + '</a></td>' +
-                '<td>' + (emp.role || 'employee') + '</td>' +
-                '<td>' + (emp.email || '-') + '</td>' +
-                '<td>' + docBadge + '</td>' +
-                '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
-                    '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#6C5CE7" onclick="window.viewEmployeeDetail(\'' + emp.employee_id + '\')">View</button>' +
-                    '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#f59e0b" onclick="window.openResetPassword(\'' + emp.id + '\')">Reset Pass</button>' +
-                    '<button class="btn-secondary" style="font-size:0.75rem;padding:0.2rem 0.5rem" onclick="window.deleteEmployee(\'' + emp.id + '\')">Delete</button>' +
-                '</td>';
-            tbody.appendChild(row);
-        });
-    }
 
-    // Populate task assignment dropdown
-    const taskSelect = document.getElementById('task-assign-to');
-    if (taskSelect) {
-        taskSelect.innerHTML = '';
-        employeesCache.filter(e => e.role !== 'admin').forEach(emp => {
-            const opt = document.createElement('option');
-            opt.value = emp.employee_id;
-            opt.textContent = emp.employee_id + ' - ' + emp.full_name;
-            taskSelect.appendChild(opt);
+            if (currentEmployeeTab === 'active') {
+                row.innerHTML =
+                    '<td>' + emp.employee_id + '</td>' +
+                    '<td><a href="#" onclick="event.preventDefault();window.viewEmployeeDetail(\'' + emp.employee_id + '\')" style="color:#6C5CE7;font-weight:600;text-decoration:none;cursor:pointer">' + (emp.full_name || '-') + '</a></td>' +
+                    '<td>' + (emp.role || 'employee') + '</td>' +
+                    '<td>' + (emp.email || '-') + '</td>' +
+                    '<td>' + docBadge + '</td>' +
+                    '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+                        '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#6C5CE7" onclick="window.viewEmployeeDetail(\'' + emp.employee_id + '\')">View</button>' +
+                        '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.5rem;background:#f59e0b" onclick="window.openResetPassword(\'' + emp.id + '\')">Reset Pass</button>' +
+                        '<button class="btn-secondary" style="font-size:0.75rem;padding:0.2rem 0.5rem" onclick="window.deleteEmployee(\'' + emp.id + '\')">Delete</button>' +
+                    '</td>';
+            } else {
+                const endDate = emp.employment_ended_at
+                    ? new Date(emp.employment_ended_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '-';
+                const reason = emp.employment_end_reason || 'Employment Ended';
+
+                row.innerHTML =
+                    '<td><span style="font-family:monospace;font-weight:700;color:#64748b">' + emp.employee_id + '</span></td>' +
+                    '<td><a href="#" onclick="event.preventDefault();window.viewEmployeeDetail(\'' + emp.employee_id + '\')" style="color:#dc2626;font-weight:700;text-decoration:none;cursor:pointer">' + (emp.full_name || '-') + '</a></td>' +
+                    '<td>' + (emp.department || '-') + ' / ' + (emp.designation || emp.role || '-') + '</td>' +
+                    '<td><span style="font-size:0.78rem;color:#64748b">' + endDate + '</span></td>' +
+                    '<td><span style="background:#fee2e2;color:#991b1b;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;display:inline-block;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + reason + '">🚫 ' + reason + '</span></td>' +
+                    '<td>' + docBadge + '</td>' +
+                    '<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+                        '<button class="btn-primary" style="font-size:0.75rem;padding:0.2rem 0.6rem;background:#475569" onclick="window.viewEmployeeDetail(\'' + emp.employee_id + '\')">View Record</button>' +
+                    '</td>';
+            }
+
+            tbody.appendChild(row);
         });
     }
 }
@@ -441,12 +544,59 @@ export async function handleAddEmployee(e) {
     }
 }
 
-export async function deleteEmployee(uuid) {
-    if (!confirm('Are you sure? This will delete the employee record.')) return;
+export function deleteEmployee(uuid) {
+    const emp = employeesCache.find(e => e.id === uuid);
+    const empIdInput = document.getElementById('delete-emp-uuid');
+    const empInfoEl = document.getElementById('delete-emp-info');
+    const passInput = document.getElementById('delete-emp-auth-pass');
 
-    const { error } = await supabase.from('employees').delete().eq('id', uuid);
-    if (error) showToast(error.message, 'error');
-    else loadEmployees();
+    if (empIdInput) empIdInput.value = uuid;
+    if (empInfoEl) empInfoEl.textContent = (emp?.full_name || 'Employee') + (emp?.employee_id ? ` (${emp.employee_id})` : '');
+    if (passInput) passInput.value = '';
+
+    document.getElementById('delete-employee-modal')?.classList.remove('hidden');
+}
+
+export async function confirmDeleteEmployee() {
+    const uuid = document.getElementById('delete-emp-uuid')?.value;
+    const authPassword = document.getElementById('delete-emp-auth-pass')?.value;
+    const btn = document.getElementById('delete-emp-confirm-btn');
+
+    if (!uuid) return showToast('No employee selected for deletion.', 'error');
+    if (!authPassword) return showToast('Please enter the HRMS Security Password to authorize deletion.', 'error');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Verifying & Deleting...';
+    }
+
+    try {
+        const res = await fetch('/api/employees/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-key': 'hrms-admin-access'
+            },
+            body: JSON.stringify({ id: uuid, auth_password: authPassword })
+        });
+        const result = await res.json();
+
+        if (!res.ok || !result.success) {
+            throw new Error(result.error || 'Failed to delete employee');
+        }
+
+        showToast(result.message || 'Employee deleted successfully', 'success');
+        closeModal('delete-employee-modal');
+        loadEmployees();
+    } catch (err) {
+        console.error('Delete employee error:', err);
+        showToast(err.message || 'Error deleting employee', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Confirm & Delete';
+        }
+    }
 }
 
 let currentResetUserId = null;
@@ -466,12 +616,15 @@ export async function handleResetPassword(e) {
     try {
         const res = await fetch('/api/employees/reset-password', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-key': 'hrms-admin-access'
+            },
             body: JSON.stringify({ user_id: currentResetUserId, new_password: newPass })
         });
         const result = await res.json();
 
-        if (!result.success) throw new Error(result.error);
+        if (!res.ok || !result.success) throw new Error(result.error || 'Failed to reset password');
 
         showToast(result.message || 'Password reset successful!', 'success');
         closeModal('reset-password-modal');
@@ -1665,6 +1818,8 @@ function openIssueDocModal() {
     document.getElementById('issue-custom-email-body').value = '';
     const fileInput = document.getElementById('issue-custom-file');
     if (fileInput) fileInput.value = '';
+    const passInput = document.getElementById('issue-doc-auth-pass');
+    if (passInput) passInput.value = '';
 
     // Load templates into dropdown
     const select = document.getElementById('issue-doc-template-select');
@@ -1697,6 +1852,11 @@ async function handleIssueDocument() {
     const employeeId = document.getElementById('issue-doc-emp-id')?.value;
     if (!employeeId) return showToast('No employee selected', 'error');
 
+    const authPassword = document.getElementById('issue-doc-auth-pass')?.value;
+    if (!authPassword) {
+        return showToast('Please enter the HRMS Security Password to authorize issuing documents.', 'error');
+    }
+
     const tab = window._currentIssueTab || 'template';
     const btn = document.getElementById('issue-doc-submit-btn');
     btn.disabled = true;
@@ -1717,7 +1877,8 @@ async function handleIssueDocument() {
                     template_id: templateId,
                     join_date: new Date(joinDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
                     email_subject: document.getElementById('issue-tpl-email-subject')?.value || '',
-                    email_body: document.getElementById('issue-tpl-email-body')?.value || ''
+                    email_body: document.getElementById('issue-tpl-email-body')?.value || '',
+                    auth_password: authPassword
                 })
             });
             const result = await res.json();
@@ -1740,6 +1901,7 @@ async function handleIssueDocument() {
             fd.append('title', title);
             fd.append('email_subject', subject);
             fd.append('email_body', body);
+            fd.append('auth_password', authPassword);
 
             const res = await fetch('/api/employees/issue-document', { method: 'POST', body: fd });
             const result = await res.json();
@@ -1772,6 +1934,8 @@ async function openEndEmploymentModal() {
     document.getElementById('end-emp-confirm-text').textContent = '"end employment of ' + emp.full_name + '"';
     document.getElementById('end-emp-reason').value = '';
     document.getElementById('end-emp-confirmation').value = '';
+    const passInput = document.getElementById('end-emp-auth-pass');
+    if (passInput) passInput.value = '';
 
     // Fetch issued documents
     const docsList = document.getElementById('end-emp-docs-list');
@@ -1803,10 +1967,12 @@ async function handleEndEmployment() {
     const employeeId = document.getElementById('end-emp-id')?.value;
     const reason = document.getElementById('end-emp-reason')?.value;
     const confirmation = document.getElementById('end-emp-confirmation')?.value;
+    const authPassword = document.getElementById('end-emp-auth-pass')?.value;
     const emp = window._currentDetailEmployee;
 
     if (!reason) return showToast('Please enter a reason', 'error');
     if (!confirmation) return showToast('Please type the confirmation text', 'error');
+    if (!authPassword) return showToast('Please enter the HRMS Security Password to authorize termination.', 'error');
 
     const expected = 'end employment of ' + (emp ? emp.full_name : '');
     if (confirmation.toLowerCase().trim() !== expected.toLowerCase()) {
@@ -1818,7 +1984,7 @@ async function handleEndEmployment() {
         const res = await fetch('/api/employees/end-employment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employee_id: employeeId, reason, confirmation_text: confirmation })
+            body: JSON.stringify({ employee_id: employeeId, reason, confirmation_text: confirmation, auth_password: authPassword })
         });
         const result = await res.json();
 
@@ -2386,6 +2552,7 @@ async function postAnnouncement() {
             showToast('Announcement posted!', 'success');
             closeModal('announcement-modal');
             loadHRAnnouncements();
+            fetchNotifications(); // Instant bell icon update without page refresh!
         } else showToast(data.error || 'Failed', 'error');
     } catch (e) { showToast('Error posting', 'error'); }
 }
@@ -2394,11 +2561,13 @@ async function postAnnouncement() {
             window.showSection = showSection;
             window.toggleNotifications = toggleNotifications;
             window.markAllRead = markAllRead;
+            window.switchEmployeeTab = switchEmployeeTab;
             window.openAddEmployeeModal = openAddEmployeeModal;
             window.handleAddEmployee = handleAddEmployee;
             window.openResetPassword = openResetPassword;
             window.handleResetPassword = handleResetPassword;
             window.deleteEmployee = deleteEmployee;
+            window.confirmDeleteEmployee = confirmDeleteEmployee;
             window.closeModal = closeModal;
             window.logoutAdmin = logoutAdmin;
             window.loadAttendance = loadAttendance;

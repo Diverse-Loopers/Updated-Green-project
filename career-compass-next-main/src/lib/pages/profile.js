@@ -680,13 +680,22 @@ export async function initDashboard() {
     }
 
     // Setup logout
-    const logoutBtn = document.getElementById('logout-button');
-    if (logoutBtn) {
-        logoutBtn.onclick = async () => {
+    const handleSignOut = async () => {
+        try {
             await supabase.auth.signOut();
-            window.location.href = '/';
-        };
-    }
+        } catch (e) {}
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        } catch (e) {}
+        window.location.href = '/';
+    };
+
+    const logoutBtn = document.getElementById('logout-button');
+    if (logoutBtn) logoutBtn.onclick = handleSignOut;
+
+    const logoutBtnDesktop = document.getElementById('logout-button-desktop');
+    if (logoutBtnDesktop) logoutBtnDesktop.onclick = handleSignOut;
 
     // Initialize components
     initSidebar();

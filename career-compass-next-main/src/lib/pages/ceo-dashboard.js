@@ -59,6 +59,7 @@ export async function initCEODashboard() {
     window.ceToggleExec = toggleExecStatus;
     window.ceChangePass = changeExecPass;
     window.ceDeleteExec = deleteExec;
+    window.ceUpdateHRMSPassword = handleUpdateHRMSSecurityPassword;
     window._ceoToken = freshToken;
     window._ceoExecutive = executive;
 
@@ -69,8 +70,8 @@ export async function initCEODashboard() {
     // Re-init lucide icons
     if (window.lucide) window.lucide.createIcons();
 
-    // Poll notifications every 60 seconds
-    setInterval(loadUnifiedNotifications, 60000);
+    // Poll notifications every 12 seconds for live updates
+    setInterval(loadUnifiedNotifications, 12000);
 }
 
 /* ==========================
@@ -93,7 +94,8 @@ function showSection(sectionId) {
         'hrms-admin': 'HRMS Admin Panel',
         'sales': 'Sales & Revenue Panel',
         'cmo': 'Marketing (CMO) Panel',
-        'executives': 'Executive Management'
+        'executives': 'Executive Management',
+        'security': 'HRMS Security Authorization PIN'
     };
     const titleEl = document.getElementById('topbar-title');
     if (titleEl) titleEl.textContent = titles[sectionId] || 'Dashboard';
@@ -102,6 +104,8 @@ function showSection(sectionId) {
     document.getElementById('ceo-home-section').style.display = 'none';
     document.getElementById('ceo-panel-section').style.display = 'none';
     document.getElementById('ceo-executives-section').style.display = 'none';
+    const secSection = document.getElementById('ceo-security-section');
+    if (secSection) secSection.style.display = 'none';
 
     if (sectionId === 'home') {
         document.getElementById('ceo-home-section').style.display = '';
@@ -109,9 +113,103 @@ function showSection(sectionId) {
     } else if (sectionId === 'executives') {
         document.getElementById('ceo-executives-section').style.display = '';
         loadExecutives();
+    } else if (sectionId === 'security') {
+        if (secSection) secSection.style.display = '';
+        loadHRMSSecurityMeta();
     } else {
         document.getElementById('ceo-panel-section').style.display = '';
         loadPanel(sectionId);
+    }
+}
+
+/* ==========================
+   HRMS SECURITY PIN (CEO)
+   ========================== */
+async function loadHRMSSecurityMeta() {
+    const updatedEl = document.getElementById('ceo-sec-updated-at');
+    const byEl = document.getElementById('ceo-sec-updated-by');
+
+    try {
+        const token = sessionStorage.getItem('executive_token') || window._ceoToken;
+        const res = await fetch('/api/hrms/security-auth', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-admin-key': 'hrms-admin-access'
+            }
+        });
+        const data = await res.json();
+
+        if (data.success && data.meta) {
+            if (updatedEl) {
+                updatedEl.textContent = data.meta.updated_at
+                    ? new Date(data.meta.updated_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                    : 'Default System PIN';
+            }
+            if (byEl) {
+                byEl.textContent = data.meta.updated_by || 'Default (System)';
+            }
+        }
+    } catch (err) {
+        console.error('Error loading security meta:', err);
+    }
+}
+
+async function handleUpdateHRMSSecurityPassword() {
+    const newPass = document.getElementById('ceo-new-sec-pass')?.value;
+    const confirmPass = document.getElementById('ceo-confirm-sec-pass')?.value;
+    const saveBtn = document.getElementById('ceo-sec-save-btn');
+    const feedbackEl = document.getElementById('ceo-sec-feedback');
+
+    if (!newPass || newPass.trim().length < 4) {
+        alert('Password must be at least 4 characters long.');
+        return;
+    }
+
+    if (newPass !== confirmPass) {
+        alert('New Password and Confirm Password do not match. Please re-enter.');
+        return;
+    }
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Updating...';
+    }
+
+    try {
+        const token = sessionStorage.getItem('executive_token') || window._ceoToken;
+        const res = await fetch('/api/hrms/security-auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-admin-key': 'hrms-admin-access'
+            },
+            body: JSON.stringify({ action: 'update', new_password: newPass.trim() })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            if (feedbackEl) {
+                feedbackEl.textContent = '✓ HRMS Authorization Password updated successfully!';
+                feedbackEl.classList.remove('hidden');
+                setTimeout(() => feedbackEl.classList.add('hidden'), 5000);
+            }
+            document.getElementById('ceo-new-sec-pass').value = '';
+            document.getElementById('ceo-confirm-sec-pass').value = '';
+            loadHRMSSecurityMeta();
+            alert('HRMS Action Authorization Password updated successfully! HRMS Admin must now use this new password for document issuing, employee deletion, and ending employment.');
+        } else {
+            alert(data.error || 'Failed to update password.');
+        }
+    } catch (err) {
+        console.error('Error updating security password:', err);
+        alert('Error: ' + err.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Update Security Password';
+            if (window.lucide) window.lucide.createIcons();
+        }
     }
 }
 
@@ -398,6 +496,9 @@ async function loadCEOStats() {
         setText('pc-attendance', Math.round(attRate) + '%');
         setText('pc-att-sub', `${s.attendance?.present_today || 0} present today`);
 
+        // Save detailed data for interactive card click inspector
+        window._ceoStatDetails = data.details || {};
+
         // Marketing & Documents
         setText('mk-contacts', s.marketing?.total_contacts || 0);
         setText('mk-campaigns', s.marketing?.total_campaigns || 0);
@@ -412,39 +513,342 @@ async function loadCEOStats() {
 }
 
 /* ==========================
+   CEO STAT CARD DETAIL INSPECTOR
+   ========================== */
+let currentDetailType = null;
+
+if (typeof window !== 'undefined') {
+    window.showCeoStatDetail = (type) => {
+        const panel = document.getElementById('ceo-stat-detail-panel');
+    const titleEl = document.getElementById('ceo-stat-detail-title');
+    const countEl = document.getElementById('ceo-stat-detail-count');
+    const subEl = document.getElementById('ceo-stat-detail-subtitle');
+    const searchInput = document.getElementById('ceo-stat-search');
+    if (!panel || !window._ceoStatDetails) return;
+
+    currentDetailType = type;
+    if (searchInput) searchInput.value = '';
+
+    const titles = {
+        present: 'Present Today (Attendance)',
+        leave: 'On Leave Today',
+        employees: 'Active Employees Directory',
+        executives: 'Leadership & Executives Team',
+        trainers: 'Trainers & Instructors',
+        tasks: 'Assigned Tasks Overview',
+        users: 'Registered Users (Students & Business)',
+        revenue: 'Recent Revenue & Transactions',
+        courses: 'Courses Catalog',
+        applications: 'Job Applications'
+    };
+
+    const subtitles = {
+        present: 'List of employees marked present today with check-in time and role',
+        leave: 'List of employees on approved leave today with reason and duration',
+        employees: 'Complete active employee directory with department and designation',
+        executives: 'Leadership team with assigned operational roles and contact info',
+        trainers: 'Course trainers and instructors with subject specializations',
+        tasks: 'All delegated tasks with deadlines, assigned employees, and statuses',
+        users: 'Latest student and business clients registered on the platform',
+        revenue: 'Recent payment transactions and subscription receipts',
+        courses: 'All published courses with pricing and live class statuses',
+        applications: 'Recent candidate job applications with screening statuses'
+    };
+
+    if (titleEl) titleEl.textContent = titles[type] || 'Details';
+    if (subEl) subEl.textContent = subtitles[type] || 'Showing live breakdown';
+
+    const items = window._ceoStatDetails[type] || [];
+    if (countEl) countEl.textContent = items.length;
+
+    window.renderCeoStatDetailList(type, items);
+
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+window.filterCeoStatDetail = (query) => {
+    if (!currentDetailType || !window._ceoStatDetails) return;
+    const allItems = window._ceoStatDetails[currentDetailType] || [];
+    const q = (query || '').toLowerCase().trim();
+
+    if (!q) {
+        window.renderCeoStatDetailList(currentDetailType, allItems);
+        const countEl = document.getElementById('ceo-stat-detail-count');
+        if (countEl) countEl.textContent = allItems.length;
+        return;
+    }
+
+    const filtered = allItems.filter(item => {
+        return (
+            (item.name && item.name.toLowerCase().includes(q)) ||
+            (item.employee_id && item.employee_id.toLowerCase().includes(q)) ||
+            (item.id && String(item.id).toLowerCase().includes(q)) ||
+            (item.email && item.email.toLowerCase().includes(q)) ||
+            (item.department && item.department.toLowerCase().includes(q)) ||
+            (item.role && item.role.toLowerCase().includes(q)) ||
+            (item.title && item.title.toLowerCase().includes(q)) ||
+            (item.designation && item.designation.toLowerCase().includes(q)) ||
+            (item.reason && item.reason.toLowerCase().includes(q))
+        );
+    });
+
+    const countEl = document.getElementById('ceo-stat-detail-count');
+    if (countEl) countEl.textContent = `${filtered.length} / ${allItems.length}`;
+
+    window.renderCeoStatDetailList(currentDetailType, filtered);
+};
+
+window.renderCeoStatDetailList = (type, items) => {
+    const container = document.getElementById('ceo-stat-detail-content');
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div class="py-12 text-center">
+                <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3 text-lg font-bold">∅</div>
+                <p class="text-sm font-semibold text-slate-600">No records found</p>
+                <p class="text-xs text-slate-400 mt-1">There is currently no data to display for this category.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+
+    if (type === 'present') {
+        html = items.map(e => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(e.name || 'E').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${e.name}</p>
+                            <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">${e.employee_id || e.id}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">${e.department || 'General'} · <span class="text-slate-600 font-medium">${e.designation || e.role}</span></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 text-right">
+                    <span class="text-xs text-slate-500 font-medium hidden sm:inline-block">${e.check_in_time ? `Checked in: ${e.check_in_time}` : 'Present'}</span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Present
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'leave') {
+        html = items.map(e => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(e.name || 'L').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${e.name}</p>
+                            <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">${e.employee_id || e.id}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">${e.department || 'General'} · <span class="text-rose-600 font-medium">${e.reason || 'On Leave'}</span></p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        On Leave
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'employees') {
+        html = items.map(e => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(e.name || 'E').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${e.name}</p>
+                            <span class="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-md border border-blue-100">${e.employee_id || e.id}</span>
+                            <span class="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-md uppercase">${e.role}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">${e.department || 'General'} · ${e.designation || e.role} · <span class="text-slate-400">${e.email}</span></p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${e.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${e.is_active ? 'bg-emerald-500' : 'bg-slate-400'}"></span> ${e.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'executives') {
+        html = items.map(e => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(e.name || 'X').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${e.name}</p>
+                            <span class="text-[10px] bg-purple-50 text-purple-700 font-bold px-2 py-0.5 rounded-md border border-purple-200 uppercase">${e.role}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">${e.email} ${e.phone && e.phone !== '—' ? `· Phone: ${e.phone}` : ''}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                        Executive
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'trainers') {
+        html = items.map(tr => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(tr.name || 'T').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm text-slate-900">${tr.name}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">${tr.specialization || 'Trainer'} · <span class="text-slate-400">${tr.email}</span></p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        Trainer
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'tasks') {
+        html = items.map(t => {
+            const isDone = t.status?.toLowerCase() === 'completed';
+            const isSub = t.status?.toLowerCase() === 'submitted';
+            return `
+                <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${t.title}</p>
+                            <span class="text-[10px] ${t.priority === 'High' ? 'bg-rose-100 text-rose-700' : t.priority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'} font-bold px-2 py-0.5 rounded-md">${t.priority || 'Normal'}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">Assigned to: <span class="font-medium text-slate-700">${t.name}</span> (${t.employee_id}) · Due: ${t.deadline ? new Date(t.deadline).toLocaleDateString('en-IN') : 'No date'}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${isDone ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : isSub ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-blue-100 text-blue-800 border border-blue-200'}">
+                            ${t.status || 'Pending'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else if (type === 'revenue') {
+        html = items.map(p => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base shadow-sm">
+                        ₹
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm text-slate-900">${p.title}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Customer: ${p.email} · ${p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-extrabold text-sm text-emerald-600">₹${Number(p.amount || 0).toLocaleString('en-IN')}</p>
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">${p.status || 'Paid'}</span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'users') {
+        html = items.map(u => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(u.name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-sm text-slate-900">${u.name}</p>
+                            <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-md">${u.is_business ? 'Business' : 'Student'}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">${u.email} ${u.company && u.company !== '—' ? `· ${u.company}` : ''} · Joined: ${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : 'Recent'}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Plan: ${u.plan || 'Free'}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'courses') {
+        html = items.map(c => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        📚
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm text-slate-900">${c.title}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Category: ${c.category} · Price: ₹${c.price || 0}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${c.is_live ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">
+                        ${c.is_live ? 'Live Classes' : 'Course'}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } else if (type === 'applications') {
+        html = items.map(a => `
+            <div class="flex items-center justify-between py-3.5 px-2 hover:bg-slate-50/80 rounded-xl transition">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">
+                        ${(a.name || 'A').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm text-slate-900">${a.name}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Role: <span class="font-medium text-slate-700">${a.role_applied}</span> · ${a.email}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${a.status === 'shortlisted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : a.status === 'rejected' ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-blue-100 text-blue-800 border border-blue-200'}">
+                        ${a.status?.toUpperCase() || 'NEW'}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    container.innerHTML = html;
+};
+}
+
+/* ==========================
    UNIFIED NOTIFICATIONS
    ========================== */
 async function loadUnifiedNotifications() {
     try {
-        const token = window._ceoToken;
+        const token = sessionStorage.getItem('executive_token') || window._ceoToken;
         const exec = window._ceoExecutive;
-        const res = await fetch('/api/ceo/stats', {
+
+        const res = await fetch('/api/ceo/notifications', {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'x-ceo-id': exec?.id || ''
+                'x-ceo-id': exec?.id || '',
+                'x-admin-key': 'hrms-admin-access'
             }
         });
         const data = await res.json();
         if (!data.success) return;
 
-        const s = data.stats;
-        const notifs = [];
-
-        if ((s.applications?.new_count || 0) > 0) {
-            notifs.push({ icon: '📋', text: `${s.applications.new_count} new job application(s)`, color: '#4f46e5' });
-        }
-        if ((s.employees?.on_leave || 0) > 0) {
-            notifs.push({ icon: '🏖️', text: `${s.employees.on_leave} employee(s) on leave today`, color: '#f59e0b' });
-        }
-        if ((s.documents?.pending_signatures || 0) > 0) {
-            notifs.push({ icon: '✍️', text: `${s.documents.pending_signatures} document(s) pending signature`, color: '#f59e0b' });
-        }
-        if ((s.tasks?.pending || 0) > 0) {
-            notifs.push({ icon: '⏳', text: `${s.tasks.pending} task(s) pending completion`, color: '#3b82f6' });
-        }
-        if ((s.users?.new_today || 0) > 0) {
-            notifs.push({ icon: '🆕', text: `${s.users.new_today} new user(s) signed up today`, color: '#10b981' });
-        }
+        const notifs = data.notifications || [];
 
         // Update badge
         const badge = document.getElementById('notif-badge');
@@ -463,12 +867,19 @@ async function loadUnifiedNotifications() {
             if (notifs.length === 0) {
                 list.innerHTML = '<p class="text-center text-slate-400 py-6 text-sm">All clear! No notifications.</p>';
             } else {
-                list.innerHTML = notifs.map(n =>
-                    `<div class="notif-item">
-                        <div style="width:8px;height:8px;border-radius:50%;background:${n.color};margin-top:6px;flex-shrink:0"></div>
-                        <span class="text-sm">${n.icon} ${n.text}</span>
-                    </div>`
-                ).join('');
+                list.innerHTML = notifs.map(n => {
+                    const timeStr = n.created_at
+                        ? new Date(n.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                        : '';
+                    return `
+                    <div class="notif-item" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;">
+                        <span style="font-size:1.1rem;line-height:1.2;">${n.icon || '🔔'}</span>
+                        <div style="flex:1;min-width:0;">
+                            <p style="margin:0;font-size:0.82rem;font-weight:600;color:#1e293b;word-break:break-word;">${n.message}</p>
+                            ${timeStr ? `<span style="font-size:0.7rem;color:#94a3b8;margin-top:2px;display:block;">${timeStr}</span>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
             }
         }
     } catch (err) {
@@ -482,14 +893,29 @@ function toggleNotifications() {
     dropdown.style.display = dropdown.style.display === 'none' ? '' : 'none';
 }
 
-function markAllRead() {
+async function markAllRead() {
     const badge = document.getElementById('notif-badge');
     if (badge) badge.style.display = 'none';
     const list = document.getElementById('notif-list');
     if (list) list.innerHTML = '<p class="text-center text-slate-400 py-6 text-sm">All clear! No notifications.</p>';
-    // Hide dropdown after marking
-    const dropdown = document.getElementById('notif-dropdown');
-    if (dropdown) dropdown.style.display = 'none';
+
+    try {
+        const token = sessionStorage.getItem('executive_token') || window._ceoToken;
+        const exec = window._ceoExecutive;
+
+        await fetch('/api/ceo/notifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'x-ceo-id': exec?.id || '',
+                'x-admin-key': 'hrms-admin-access'
+            },
+            body: JSON.stringify({ action: 'mark_all_read' })
+        });
+    } catch (err) {
+        console.error('Error marking notifications as read:', err);
+    }
 }
 
 /* ==========================

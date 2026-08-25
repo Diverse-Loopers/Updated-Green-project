@@ -429,8 +429,14 @@ td strong { color: var(--text-main); font-weight: 600; }
     font-size: 0.9rem;
     font-family: 'Inter', sans-serif;
     transition: border-color 0.2s, box-shadow 0.2s;
-    background: #fff;
-    color: var(--text-main);
+    background: #ffffff !important;
+    color: #1e1e2f !important;
+}
+
+.input-group input::placeholder,
+.input-group textarea::placeholder,
+.form-input::placeholder {
+    color: #94a3b8 !important;
 }
 
 .input-group input:focus,
@@ -449,6 +455,8 @@ td strong { color: var(--text-main); font-weight: 600; }
     font-size: 0.9rem;
     font-family: 'Inter', sans-serif;
     transition: border-color 0.2s;
+    background: #ffffff !important;
+    color: #1e1e2f !important;
 }
 
 .form-input:focus {

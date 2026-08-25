@@ -481,26 +481,26 @@ export default function ManagerDashboard() {
         <form id="assign-task-form" onSubmit={(e) => { e.preventDefault(); window.submitAssignTask(); }} className="p-6 space-y-4">
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Assign To</label>
-             <select id="task-assignee" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+             <select id="task-assignee" required className="w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
                 <option value="">Select Employee</option>
              </select>
            </div>
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Task Title</label>
-             <input type="text" id="task-title" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Enter task title" />
+             <input type="text" id="task-title" required className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Enter task title" />
            </div>
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Description</label>
-             <textarea id="task-desc" rows="3" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Task details..."></textarea>
+             <textarea id="task-desc" rows="3" className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Task details..."></textarea>
            </div>
            <div className="grid grid-cols-2 gap-4">
              <div>
                <label className="block text-sm font-semibold text-slate-700 mb-1">Deadline</label>
-               <input type="date" id="task-deadline" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
+               <input type="date" id="task-deadline" required className="w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
              </div>
              <div>
                <label className="block text-sm font-semibold text-slate-700 mb-1">Priority</label>
-               <select id="task-priority" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary">
+               <select id="task-priority" required className="w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary">
                  <option value="Low">Low</option>
                  <option value="Medium">Medium</option>
                  <option value="High">High</option>
@@ -525,11 +525,11 @@ export default function ManagerDashboard() {
         <form id="announcement-form" onSubmit={(e) => { e.preventDefault(); window.submitAnnouncement(); }} className="p-6 space-y-4">
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Title</label>
-             <input type="text" id="announce-title" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Announcement title" />
+             <input type="text" id="announce-title" required className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Announcement title" />
            </div>
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Message</label>
-             <textarea id="announce-msg" required rows="4" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Type your message here..."></textarea>
+             <textarea id="announce-msg" required rows="4" className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Type your message here..."></textarea>
            </div>
            <div className="pt-4 flex gap-3">
              <button type="button" onClick={() => window.closeModal('announcement-modal')} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-colors">Cancel</button>
@@ -549,20 +549,20 @@ export default function ManagerDashboard() {
         <form id="project-form" onSubmit={(e) => { e.preventDefault(); window.submitProject(); }} className="p-6 space-y-4">
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Project Name</label>
-             <input type="text" id="project-name" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Q3 Marketing Site" />
+             <input type="text" id="project-name" required className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Q3 Marketing Site" />
            </div>
            <div>
              <label className="block text-sm font-semibold text-slate-700 mb-1">Description</label>
-             <textarea id="project-desc" rows="2" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"></textarea>
+             <textarea id="project-desc" rows="2" className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Project description..."></textarea>
            </div>
            <div className="grid grid-cols-2 gap-4">
              <div>
                <label className="block text-sm font-semibold text-slate-700 mb-1">Start Date</label>
-               <input type="date" id="project-start" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
+               <input type="date" id="project-start" required className="w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
              </div>
              <div>
                <label className="block text-sm font-semibold text-slate-700 mb-1">End Date</label>
-               <input type="date" id="project-end" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
+               <input type="date" id="project-end" required className="w-full bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
              </div>
            </div>
            <div className="pt-4 flex gap-3">

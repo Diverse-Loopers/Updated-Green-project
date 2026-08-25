@@ -91,6 +91,12 @@ export default function CEODashboardPage() {
               <i data-lucide="shield-check" className="w-5 h-5"></i> Executives
             </button>
 
+            <button onClick={() => window.ceShowSection && window.ceShowSection('security')}
+              id="nav-ceo-security"
+              className="sidebar-link w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-semibold">
+              <i data-lucide="key-round" className="w-5 h-5"></i> HRMS Security PIN
+            </button>
+
             <p className="px-4 pt-4 pb-1 text-xs font-bold text-slate-400 uppercase tracking-widest">Settings</p>
 
             <button onClick={() => window.ceToggleTheme && window.ceToggleTheme()}
@@ -152,41 +158,95 @@ export default function CEODashboardPage() {
 
             {/* KPI ROW */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" id="kpi-grid">
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-indigo-50 text-primary rounded-xl flex items-center justify-center mb-3"><i data-lucide="users" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-indigo-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('users')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-primary rounded-xl flex items-center justify-center"><i data-lucide="users" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-indigo-50 text-primary font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-total-users">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Total Users</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-users-breakdown">Students: — | Business: —</p>
               </div>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-3"><i data-lucide="indian-rupee" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-emerald-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('revenue')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><i data-lucide="indian-rupee" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-total-revenue">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Total Revenue</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-revenue-breakdown">Courses: — | SaaS: —</p>
               </div>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-3"><i data-lucide="building-2" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-blue-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('employees')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><i data-lucide="building-2" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-employees">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Employees</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-emp-detail">Present: — | Leave: —</p>
               </div>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center mb-3"><i data-lucide="book-open" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-orange-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('courses')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><i data-lucide="book-open" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-orange-50 text-orange-600 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-courses">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Courses</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-enrollments">Enrollments: —</p>
               </div>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-3"><i data-lucide="check-circle" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-amber-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('tasks')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center"><i data-lucide="check-circle" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-amber-50 text-amber-600 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-tasks">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Tasks</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-tasks-detail">Done: — | Pending: —</p>
               </div>
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
-                <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center mb-3"><i data-lucide="clipboard-list" className="w-5 h-5"></i></div>
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-pink-300 cursor-pointer transition-all active:scale-[0.98] group" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('applications')}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center"><i data-lucide="clipboard-list" className="w-5 h-5"></i></div>
+                  <span className="text-[10px] bg-pink-50 text-pink-600 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">View List</span>
+                </div>
                 <p className="text-2xl font-extrabold text-slate-900" id="kpi-applications">—</p>
                 <p className="text-xs font-semibold text-slate-400 mt-1">Applications</p>
                 <p className="text-[11px] text-slate-400 mt-1" id="kpi-apps-detail">New: — | Shortlisted: —</p>
+              </div>
+            </div>
+
+            {/* DETAIL BREAKDOWN PANEL (Toggled on card click) */}
+            <div id="ceo-stat-detail-panel" className="hidden bg-white rounded-2xl border border-slate-200 p-6 transition-all shadow-md">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div id="ceo-stat-detail-icon" className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <i data-lucide="list" className="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-slate-900" id="ceo-stat-detail-title">Details</h3>
+                      <span id="ceo-stat-detail-count" className="text-xs bg-slate-100 text-slate-700 font-bold px-2.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5" id="ceo-stat-detail-subtitle">Showing live data breakdown</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    id="ceo-stat-search"
+                    placeholder="Search in list..."
+                    onInput={(e) => window.filterCeoStatDetail && window.filterCeoStatDetail(e.target.value)}
+                    className="w-full sm:w-64 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-primary focus:bg-white transition"
+                  />
+                  <button
+                    onClick={() => { document.getElementById('ceo-stat-detail-panel')?.classList.add('hidden'); }}
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                    title="Close">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div id="ceo-stat-detail-content" className="max-h-96 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+                {/* Dynamically populated */}
               </div>
             </div>
 
@@ -194,29 +254,29 @@ export default function CEODashboardPage() {
             <div>
               <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="users-round" className="w-5 h-5 text-primary"></i> People Overview</h2>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center hover:shadow-lg hover:border-blue-300 cursor-pointer transition-all active:scale-[0.98]" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('employees')}>
                   <div className="text-3xl mb-2">👨‍💼</div>
                   <p className="text-2xl font-extrabold text-slate-900" id="pc-employees">0</p>
                   <p className="text-xs font-semibold text-slate-400 mt-1">Active Employees</p>
                   <p className="text-[11px] text-slate-400 mt-1" id="pc-emp-sub">0 inactive</p>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center hover:shadow-lg hover:border-indigo-300 cursor-pointer transition-all active:scale-[0.98]" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('executives')}>
                   <div className="text-3xl mb-2">🏛️</div>
                   <p className="text-2xl font-extrabold text-slate-900" id="pc-executives">0</p>
                   <p className="text-xs font-semibold text-slate-400 mt-1">Executives</p>
                   <p className="text-[11px] text-slate-400 mt-1" id="pc-exec-sub">0 active</p>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center hover:shadow-lg hover:border-emerald-300 cursor-pointer transition-all active:scale-[0.98]" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('trainers')}>
                   <div className="text-3xl mb-2">🎓</div>
                   <p className="text-2xl font-extrabold text-slate-900" id="pc-trainers">0</p>
                   <p className="text-xs font-semibold text-slate-400 mt-1">Trainers</p>
                   <p className="text-[11px] text-slate-400 mt-1" id="pc-trainers-sub">0 active</p>
                 </div>
-                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 text-center hover:shadow-lg hover:border-green-300 cursor-pointer transition-all active:scale-[0.98]" onClick={() => window.showCeoStatDetail && window.showCeoStatDetail('present')}>
                   <div className="text-3xl mb-2">📊</div>
                   <p className="text-2xl font-extrabold text-slate-900" id="pc-attendance">0%</p>
                   <p className="text-xs font-semibold text-slate-400 mt-1">Attendance Rate</p>
-                  <p className="text-[11px] text-slate-400 mt-1" id="pc-att-sub">0 present today</p>
+                  <p className="text-[11px] text-green-600 font-bold mt-1" id="pc-att-sub">0 present today</p>
                 </div>
               </div>
             </div>
@@ -342,6 +402,134 @@ export default function CEODashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* HRMS SECURITY AUTHORIZATION SECTION */}
+          <section id="ceo-security-section" className="p-8 space-y-6" style={{ display: 'none' }}>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <i data-lucide="shield-alert" className="w-5 h-5 text-primary"></i> HRMS Action Authorization Password
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Protect sensitive actions in HRMS Admin (issuing official documents, deleting employee records, and terminating employment).
+                </p>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Left Status & Policy Card */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center font-bold text-xl">
+                    🔒
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">Protection Status</h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold mt-1">
+                      ● Active &amp; Enforced
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2 text-xs text-slate-600 border-t border-slate-100">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Last Modified:</span>
+                    <span className="font-bold text-slate-800" id="ceo-sec-updated-at">Checking...</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Configured By:</span>
+                    <span className="font-bold text-slate-800" id="ceo-sec-updated-by">Checking...</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-2">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <i data-lucide="info" className="w-4 h-4 text-amber-700"></i> Protected HRMS Actions:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-amber-800">
+                    <li>Issuing Official &amp; Custom Documents</li>
+                    <li>Deleting Employee Records &amp; Logins</li>
+                    <li>Terminating / Ending Employment</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Right Password Update Form Card */}
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="key" className="w-5 h-5 text-primary"></i> Change Security Authorization Password
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Enter a new password below. Once updated, the HRMS Admin must use this new password to authorize any sensitive action.
+                  </p>
+                </div>
+
+                <form onSubmit={(e) => { e.preventDefault(); window.ceUpdateHRMSPassword && window.ceUpdateHRMSPassword(); }} className="space-y-4 max-w-lg">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      New Security Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        id="ceo-new-sec-pass"
+                        placeholder="Enter minimum 4 characters..."
+                        required
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById('ceo-new-sec-pass');
+                          if (el) el.type = el.type === 'password' ? 'text' : 'password';
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        👁️
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Confirm New Security Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        id="ceo-confirm-sec-pass"
+                        placeholder="Re-type new password..."
+                        required
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById('ceo-confirm-sec-pass');
+                          if (el) el.type = el.type === 'password' ? 'text' : 'password';
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        👁️
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center gap-3">
+                    <button
+                      type="submit"
+                      id="ceo-sec-save-btn"
+                      className="px-6 py-3 bg-primary hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-primary/25 transition flex items-center gap-2 cursor-pointer"
+                    >
+                      <i data-lucide="check" className="w-4 h-4"></i> Update Security Password
+                    </button>
+                    <span id="ceo-sec-feedback" className="text-xs font-bold text-green-600 hidden"></span>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>
 
           {/* PANEL IFRAME */}
           <section id="ceo-panel-section" style={{ display: 'none' }} className="flex-1 relative">
