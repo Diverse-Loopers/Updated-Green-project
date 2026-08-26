@@ -11,22 +11,40 @@ const supabaseAdmin = createClient(
 
 const CC_RECIPIENTS = 'ashish.cmgo@diverseloopers.com, ceo@diverseloopers.com, hr@diverseloopers.com';
 
+function cleanEnv(val) {
+    if (!val) return '';
+    let str = String(val).trim();
+    if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+        str = str.slice(1, -1).trim();
+    }
+    return str;
+}
+
 function getTransporter() {
-    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
+    const host = cleanEnv(process.env.SMTP_HOST) || 'smtp.titan.email';
+    const smtpPort = parseInt(cleanEnv(process.env.SMTP_PORT) || '465', 10);
+    const user = cleanEnv(process.env.SMTP_USER);
+    const pass = cleanEnv(process.env.SMTP_PASS);
+
     return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.titan.email',
+        host,
         port: smtpPort,
         secure: smtpPort === 465,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        auth: { user, pass },
         tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
     });
 }
 
 function fillTemplate(html, data) {
     let result = html;
     for (const [key, value] of Object.entries(data)) {
-        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
+        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), value ?? '');
     }
+    // Clean up any unreplaced {{...}} placeholders so raw tags never leak into the document
+    result = result.replace(/\{\{[a-zA-Z0-9_-]+\}\}/g, '');
     return result;
 }
 
@@ -69,7 +87,7 @@ export async function GET(request) {
 }
 
 async function handleTemplateDocument(request) {
-    const { employee_id, template_id, join_date, email_subject, email_body, auth_password } = await request.json();
+    const { employee_id, template_id, join_date, email_subject, email_body, auth_password, custom_values } = await request.json();
 
     // Verify HRMS Security Authorization Password
     const authCheck = await verifyHRMSSecurityPassword(auth_password);
@@ -119,6 +137,15 @@ async function handleTemplateDocument(request) {
         }
     }
 
+    // Normalize any dynamic custom values
+    const normalizedCustom = {};
+    if (custom_values && typeof custom_values === 'object') {
+        for (const [k, v] of Object.entries(custom_values)) {
+            normalizedCustom[k] = v;
+            normalizedCustom[k.toLowerCase()] = v;
+        }
+    }
+
     // Fill template placeholders
     const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const templateData = {
@@ -133,10 +160,17 @@ async function handleTemplateDocument(request) {
         qr_code: tpl.has_qr ? `<img src="${qrUrl}" alt="QR Verification" style="width:120px;height:120px;" />` : '',
         verification_url: verifyUrl,
         verification_code: verificationCode,
-        reporting_manager: managerName,
-        manager_designation: managerDesignation,
+        company_logo: `<img src="${baseUrl}/images/logo.png" alt="Diverse Loopers" style="max-height:65px;object-fit:contain;" />`,
+        company_logo_url: `${baseUrl}/images/logo.png`,
+        reporting_manager: managerName || 'Mr. Shivansh Mishra',
+        manager_name: managerName || 'Mr. Shivansh Mishra',
+        manager_designation: managerDesignation || 'Director & CEO',
         manager_signature: managerSignatureUrl ? `<img src="${managerSignatureUrl}" alt="Manager Signature" style="max-height:60px;" />` : '',
-        project_name: projectName,
+        manager_signature_url: managerSignatureUrl || '',
+        project_name: projectName || '',
+        salary: emp.salary || '₹10,000',
+        monthly_salary: emp.salary || '₹10,000',
+        ...normalizedCustom,
     };
 
     const filledHtml = fillTemplate(tpl.html_content, templateData);
@@ -169,19 +203,36 @@ async function handleTemplateDocument(request) {
     const subject = email_subject || `${tpl.name} — Diverse Loopers`;
     const body = email_body || `Dear ${emp.full_name},\n\nPlease find your ${tpl.name} attached below.\n\n${tpl.requires_signature ? '⚠️ This document requires your signature. Please download, sign, and upload the signed copy from your Employee Dashboard.\n\n' : ''}You can view and download this document anytime from your Employee Dashboard.\n\nBest regards,\nHR Team\nDiverse Loopers`;
 
-    try {
-        const senderEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'hr@diverseloopers.com';
-        const transporter = getTransporter();
-        const viewUrl = `${baseUrl}/view-document/${issuedDoc.id}`;
-        await transporter.sendMail({
-            from: `"Diverse Loopers HR" <${senderEmail}>`,
-            to: emp.email,
-            cc: CC_RECIPIENTS,
-            subject,
-            html: `<div style="font-family:Arial,sans-serif;line-height:1.8;color:#333;">${body.replace(/\n/g, '<br>')}<br><br><a href="${viewUrl}" style="display:inline-block;padding:10px 24px;background:#6C5CE7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">📄 View Document</a></div>`,
-        });
-    } catch (emailErr) {
-        console.error('Email failed:', emailErr.message);
+    let emailSent = false;
+    let emailError = null;
+
+    if (emp.email) {
+        try {
+            const senderEmail = (process.env.SMTP_FROM || process.env.SMTP_USER || 'hr@diverseloopers.com').trim();
+            const transporter = getTransporter();
+            const viewUrl = `${baseUrl}/view-document/${issuedDoc.id}`;
+            const mailPayload = {
+                from: `"Diverse Loopers HR" <${senderEmail}>`,
+                to: emp.email.trim(),
+                subject,
+                html: `<div style="font-family:Arial,sans-serif;line-height:1.8;color:#333;">${body.replace(/\n/g, '<br>')}<br><br><a href="${viewUrl}" style="display:inline-block;padding:10px 24px;background:#6C5CE7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">📄 View Document</a></div>`,
+            };
+
+            // Attempt with CC first; if CC fails, fallback to direct employee email
+            try {
+                await transporter.sendMail({ ...mailPayload, cc: CC_RECIPIENTS });
+                emailSent = true;
+            } catch (ccErr) {
+                console.warn('Sending with CC failed, retrying without CC:', ccErr.message);
+                await transporter.sendMail(mailPayload);
+                emailSent = true;
+            }
+        } catch (emailErr) {
+            console.error('Email failed:', emailErr.message);
+            emailError = emailErr.message;
+        }
+    } else {
+        emailError = 'Employee record does not have an email address.';
     }
 
     // Notifications
@@ -190,7 +241,13 @@ async function handleTemplateDocument(request) {
         { recipient_role: 'admin', type: 'document_issued', message: `${tpl.name} issued to ${emp.full_name} (${employee_id})`, is_read: false }
     ]);
 
-    return NextResponse.json({ success: true, document: issuedDoc, file_url: fileUrl });
+    return NextResponse.json({
+        success: true,
+        document: issuedDoc,
+        file_url: fileUrl,
+        email_sent: emailSent,
+        email_error: emailError
+    });
 }
 
 async function handleCustomDocument(request) {
@@ -240,18 +297,34 @@ async function handleCustomDocument(request) {
     if (dbErr) return NextResponse.json({ success: false, error: dbErr.message }, { status: 500 });
 
     // Send email
-    try {
-        const senderEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'hr@diverseloopers.com';
-        const transporter = getTransporter();
-        await transporter.sendMail({
-            from: `"Diverse Loopers HR" <${senderEmail}>`,
-            to: emp.email,
-            cc: CC_RECIPIENTS,
-            subject: emailSubject || `Document: ${title} — Diverse Loopers`,
-            html: `<div style="font-family:Arial,sans-serif;line-height:1.8;color:#333;">${(emailBody || `Dear ${emp.full_name},\n\nPlease find the attached document: ${title}.\n\nBest regards,\nHR Team\nDiverse Loopers`).replace(/\n/g, '<br>')}<br><br><a href="${fileUrl}" style="display:inline-block;padding:10px 24px;background:#6C5CE7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">📄 View Document</a></div>`,
-        });
-    } catch (emailErr) {
-        console.error('Email failed:', emailErr.message);
+    let emailSent = false;
+    let emailError = null;
+
+    if (emp.email) {
+        try {
+            const senderEmail = (process.env.SMTP_FROM || process.env.SMTP_USER || 'hr@diverseloopers.com').trim();
+            const transporter = getTransporter();
+            const mailPayload = {
+                from: `"Diverse Loopers HR" <${senderEmail}>`,
+                to: emp.email.trim(),
+                subject: emailSubject || `Document: ${title} — Diverse Loopers`,
+                html: `<div style="font-family:Arial,sans-serif;line-height:1.8;color:#333;">${(emailBody || `Dear ${emp.full_name},\n\nPlease find the attached document: ${title}.\n\nBest regards,\nHR Team\nDiverse Loopers`).replace(/\n/g, '<br>')}<br><br><a href="${fileUrl}" style="display:inline-block;padding:10px 24px;background:#6C5CE7;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">📄 View Document</a></div>`,
+            };
+
+            try {
+                await transporter.sendMail({ ...mailPayload, cc: CC_RECIPIENTS });
+                emailSent = true;
+            } catch (ccErr) {
+                console.warn('Sending with CC failed, retrying without CC:', ccErr.message);
+                await transporter.sendMail(mailPayload);
+                emailSent = true;
+            }
+        } catch (emailErr) {
+            console.error('Email failed:', emailErr.message);
+            emailError = emailErr.message;
+        }
+    } else {
+        emailError = 'Employee record does not have an email address.';
     }
 
     // Notifications
@@ -260,5 +333,11 @@ async function handleCustomDocument(request) {
         { recipient_role: 'admin', type: 'document_issued', message: `${title} issued to ${emp.full_name} (${employee_id})`, is_read: false }
     ]);
 
-    return NextResponse.json({ success: true, document: issuedDoc, file_url: fileUrl });
+    return NextResponse.json({
+        success: true,
+        document: issuedDoc,
+        file_url: fileUrl,
+        email_sent: emailSent,
+        email_error: emailError
+    });
 }

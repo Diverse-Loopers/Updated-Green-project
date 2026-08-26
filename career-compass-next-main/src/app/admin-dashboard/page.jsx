@@ -1047,6 +1047,7 @@ export default function AdminDashboard() {
               <label>Joining Date <span style={{ color: '#dc2626' }}>*</span></label>
               <input type="date" id="issue-doc-join-date" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
             </div>
+            <div id="issue-doc-dynamic-fields"></div>
             <div className="input-group" style={{ marginTop: '1rem' }}>
               <label>Email Subject <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: '0.75rem' }}>(Optional — auto-generated if empty)</span></label>
               <input type="text" id="issue-tpl-email-subject" placeholder="Leave empty for default" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />

@@ -1802,6 +1802,121 @@ async function loadDocumentTemplates() {
     } catch(e) { console.error('Error loading templates:', e); }
 }
 
+/* ==========================
+   DYNAMIC TEMPLATE VARIABLES
+========================== */
+const SYSTEM_PLACEHOLDERS = new Set([
+    'name', 'employee_name', 'employee_id', 'designation', 'department',
+    'email', 'join_date', 'date', 'today', 'company', 'company_logo',
+    'company_logo_url', 'qr_code', 'verification_url', 'verification_code',
+    'reporting_manager', 'manager_name', 'manager_designation',
+    'manager_signature', 'manager_signature_url', 'project_name'
+]);
+
+function extractCustomPlaceholders(html) {
+    if (!html) return [];
+    const matches = html.match(/\{\{([a-zA-Z0-9_-]+)\}\}/g) || [];
+    const unique = new Set();
+    matches.forEach(m => {
+        const key = m.replace(/[{}]/g, '').trim().toLowerCase();
+        if (!SYSTEM_PLACEHOLDERS.has(key)) {
+            unique.add(key);
+        }
+    });
+    return Array.from(unique);
+}
+
+function formatPlaceholderLabel(key) {
+    const commonLabels = {
+        salary: 'Monthly Salary / Compensation',
+        monthly_salary: 'Monthly Fixed Salary',
+        stipend: 'Monthly Stipend',
+        annual_ctc: 'Annual CTC',
+        work_mode: 'Work Mode (e.g. Remote / On-site)',
+        working_hours: 'Working Hours (e.g. 7:30 PM – 4:30 AM)',
+        working_days: 'Working Days (e.g. Monday to Friday)',
+        location: 'Job Location / Office Branch',
+        probation_period: 'Probation Period (e.g. 3 Months)',
+        notice_period: 'Notice Period (e.g. 30 Days)',
+        bond_period: 'Service Agreement / Bond Duration',
+        bonus: 'Performance Bonus / Incentive',
+        allowance: 'Special Allowance',
+        terms: 'Special Terms / Conditions',
+        custom_note: 'Custom Note / Remarks',
+        cin_number: 'Company CIN Number',
+        tenure: 'Employment / Internship Duration',
+    };
+    if (commonLabels[key]) return commonLabels[key];
+    return key.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getDefaultPlaceholderValue(key, emp) {
+    const defaults = {
+        salary: emp?.salary || '₹10,000',
+        monthly_salary: emp?.salary || '₹10,000',
+        stipend: '₹10,000',
+        work_mode: 'Remote',
+        working_hours: '7:30 PM – 4:30 AM',
+        working_days: 'Monday to Friday',
+        probation_period: '3 Months',
+        notice_period: '30 Days',
+        location: 'Remote / Virtual',
+    };
+    return defaults[key] || '';
+}
+
+function renderDynamicTemplateFields() {
+    const container = document.getElementById('issue-doc-dynamic-fields');
+    if (!container) return;
+
+    const select = document.getElementById('issue-doc-template-select');
+    const templateId = select?.value;
+    if (!templateId) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const tpl = templatesCache.find(t => t.id === templateId);
+    if (!tpl || !tpl.html_content) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const customKeys = extractCustomPlaceholders(tpl.html_content);
+    if (customKeys.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const emp = window._currentDetailEmployee;
+
+    container.innerHTML = `
+        <div style="background:#f8f7ff;border:1px solid #ddd8ff;border-radius:10px;padding:1rem;margin-top:1rem;">
+            <div style="font-size:0.82rem;font-weight:700;color:#6C5CE7;margin-bottom:0.75rem;display:flex;align-items:center;gap:6px;">
+                <span>✨</span> Template-Specific Fields (${customKeys.length} detected)
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                ${customKeys.map(key => `
+                    <div class="input-group" style="margin:0;">
+                        <label style="font-size:0.78rem;font-weight:600;color:#334155;margin-bottom:4px;display:block;">
+                            ${formatPlaceholderLabel(key)} <span style="color:#dc2626">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            class="issue-doc-custom-input"
+                            data-key="${key}"
+                            value="${getDefaultPlaceholderValue(key, emp)}"
+                            placeholder="Enter ${formatPlaceholderLabel(key)}..."
+                            style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.85rem;background:#fff;"
+                            required
+                        />
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function openIssueDocModal() {
     const emp = window._currentDetailEmployee;
     if (!emp) return showToast('No employee selected', 'error');
@@ -1831,8 +1946,10 @@ function openIssueDocModal() {
                 '<option value="' + t.id + '">' + t.name + (t.requires_signature ? ' (Requires Signature)' : '') + '</option>'
             ).join('');
         }
+        select.onchange = renderDynamicTemplateFields;
     }
 
+    renderDynamicTemplateFields();
     switchIssueTab('template');
     document.getElementById('issue-doc-modal')?.classList.remove('hidden');
 }
@@ -1869,6 +1986,22 @@ async function handleIssueDocument() {
             if (!templateId) { showToast('Please select a template', 'error'); return; }
             if (!joinDate) { showToast('Please enter joining date', 'error'); return; }
 
+            // Collect all dynamic custom placeholder values
+            const customValues = {};
+            const customInputs = document.querySelectorAll('.issue-doc-custom-input');
+            for (const input of customInputs) {
+                const key = input.getAttribute('data-key');
+                const val = input.value.trim();
+                if (!val) {
+                    showToast(`Please enter a value for: ${formatPlaceholderLabel(key)}`, 'error');
+                    input.focus();
+                    btn.disabled = false;
+                    btn.textContent = 'Issue Document';
+                    return;
+                }
+                customValues[key] = val;
+            }
+
             const res = await fetch('/api/employees/issue-document', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1878,7 +2011,8 @@ async function handleIssueDocument() {
                     join_date: new Date(joinDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
                     email_subject: document.getElementById('issue-tpl-email-subject')?.value || '',
                     email_body: document.getElementById('issue-tpl-email-body')?.value || '',
-                    auth_password: authPassword
+                    auth_password: authPassword,
+                    custom_values: customValues
                 })
             });
             const result = await res.json();
@@ -2586,6 +2720,7 @@ async function postAnnouncement() {
             window.openIssueDocModal = openIssueDocModal;
             window.switchIssueTab = switchIssueTab;
             window.handleIssueDocument = handleIssueDocument;
+            window.renderDynamicTemplateFields = renderDynamicTemplateFields;
             window.openEndEmploymentModal = openEndEmploymentModal;
             window.handleEndEmployment = handleEndEmployment;
             window.openTemplateEditor = openTemplateEditor;
