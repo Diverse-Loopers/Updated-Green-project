@@ -30,12 +30,18 @@ export const supabase = new Proxy({}, {
     const client = getSupabase();
     if (!client) {
       if (prop === 'auth') {
-        return {
+        const defaultAuth = {
           getUser: async () => ({ data: { user: null }, error: null }),
           getSession: async () => ({ data: { session: null }, error: null }),
           onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
           signOut: async () => ({ error: null }),
         };
+        return new Proxy(defaultAuth, {
+          get(target, authProp) {
+            if (authProp in target) return target[authProp];
+            return async () => ({ data: null, error: { message: 'Supabase not configured' } });
+          }
+        });
       }
       return () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } });
     }

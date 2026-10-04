@@ -2,12 +2,21 @@
 
 import { useEffect } from "react";
 import "./login.css";
-import { togglePanel, initAuthListeners } from "@/lib/pages/login";
+import { togglePanel, initAuthListeners, handleGoogleLogin, showMessage } from "@/lib/pages/login";
 import Footer from "@/components/ui/Footer";
 
 export default function LoginPage() {
   useEffect(() => {
     initAuthListeners();
+
+    // Check if redirected with an error from OAuth callback
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error_description') || params.get('error');
+    if (err) {
+      setTimeout(() => {
+        showMessage(decodeURIComponent(err).replace(/_/g, ' '), true);
+      }, 300);
+    }
   }, []);
 
   const handleShowRegister = () => {
@@ -61,7 +70,12 @@ export default function LoginPage() {
             <div className="flex items-center my-4 before:flex-1 before:border-t before:border-slate-300 before:mr-3 after:flex-1 after:border-t after:border-slate-300 after:ml-3">
               <span className="text-slate-400 text-xs font-bold uppercase">Or</span>
             </div>
-            <button type="button" id="google-login-btn" className="w-full flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors py-3 rounded-[30px] font-bold mt-2 shadow-sm">
+            <button
+              type="button"
+              id="google-login-btn"
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors py-3 rounded-[30px] font-bold mt-2 shadow-sm cursor-pointer"
+            >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -95,7 +109,12 @@ export default function LoginPage() {
             <div className="flex items-center my-4 before:flex-1 before:border-t before:border-slate-300 before:mr-3 after:flex-1 after:border-t after:border-slate-300 after:ml-3">
               <span className="text-slate-400 text-xs font-bold uppercase">Or</span>
             </div>
-            <button type="button" id="google-register-btn" className="w-full flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors py-3 rounded-[30px] font-bold mt-2 shadow-sm">
+            <button
+              type="button"
+              id="google-register-btn"
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors py-3 rounded-[30px] font-bold mt-2 shadow-sm cursor-pointer"
+            >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

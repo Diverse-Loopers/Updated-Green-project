@@ -20,10 +20,13 @@ let tempEmailForOtp = '';
 export default function BusinessLoginPage() {
     const [studentWarning, setStudentWarning] = useState(false);
     useEffect(() => {
-        // Show error from middleware redirect
+        // Show error from middleware or callback redirect
         const params = new URLSearchParams(window.location.search);
-        if (params.get('error') === 'business_only') {
+        const errParam = params.get('error_description') || params.get('error');
+        if (errParam === 'business_only') {
             setTimeout(() => showMessage('This area is for business accounts only. Students should use the student login at /login', true), 300);
+        } else if (errParam) {
+            setTimeout(() => showMessage(decodeURIComponent(errParam).replace(/_/g, ' '), true), 300);
         }
 
         // Check if already logged in
@@ -88,7 +91,29 @@ export default function BusinessLoginPage() {
                 options: { data: { username, company, is_business: true } }
             });
 
-            if (error) { showMessage(error.message, true); }
+            if (error) {
+                if (error.message.includes('confirmation email') || error.status === 500) {
+                    try {
+                        const fallbackRes = await fetch('/api/auth/register', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password, username, company, is_business: true })
+                        });
+                        const fbData = await fallbackRes.json();
+                        if (fbData.success) {
+                            const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+                            if (!signInErr) {
+                                showMessage('Account created! Redirecting...', false);
+                                setTimeout(() => window.location.href = '/products/dashboard', 1200);
+                                return;
+                            }
+                        }
+                    } catch (fbErr) {
+                        console.warn('Fallback error:', fbErr);
+                    }
+                }
+                showMessage(error.message, true);
+            }
             else if (data?.user?.identities?.length === 0) {
                 // Email already exists (likely a student account) — try to upgrade to dual-role
                 showMessage('Account exists. Verifying credentials to enable business access...', false);
@@ -164,14 +189,45 @@ export default function BusinessLoginPage() {
 
         const handleGoogleLogin = async (e) => {
             if (e) e.preventDefault();
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    // Send parameter to callback so it can set is_business=true
-                    redirectTo: window.location.origin + '/auth/callback?is_business=true'
+            const clickedBtn = (e && e.currentTarget) || document.getElementById('google-login-btn') || document.getElementById('google-register-btn');
+            const originalText = clickedBtn ? clickedBtn.innerHTML : '';
+            if (clickedBtn) {
+                clickedBtn.disabled = true;
+                clickedBtn.style.opacity = '0.7';
+            }
+
+            try {
+                const redirect = params.get('redirect') || '/products/dashboard';
+                const callbackUrl = new URL('/auth/callback', window.location.origin);
+                callbackUrl.searchParams.set('is_business', 'true');
+                if (redirect) {
+                    callbackUrl.searchParams.set('next', redirect);
                 }
-            });
-            if (error) showMessage(error.message, true);
+
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: callbackUrl.toString()
+                    }
+                });
+
+                if (error) {
+                    showMessage(error.message, true);
+                    if (clickedBtn) {
+                        clickedBtn.disabled = false;
+                        clickedBtn.style.opacity = '1';
+                        clickedBtn.innerHTML = originalText;
+                    }
+                }
+            } catch (err) {
+                console.error('Business Google login error:', err);
+                showMessage(err.message || 'Failed to initialize Google login', true);
+                if (clickedBtn) {
+                    clickedBtn.disabled = false;
+                    clickedBtn.style.opacity = '1';
+                    clickedBtn.innerHTML = originalText;
+                }
+            }
         };
 
         const googleLoginBtn = document.getElementById('google-login-btn');
