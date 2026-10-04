@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 export default function Footer() {
-  return (                                                                                                      
+  return (
 <footer className="bg-slate-900 text-white pt-20 pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-8 mb-16">
@@ -48,24 +48,20 @@ export default function Footer() {
               <ul className="space-y-4 text-slate-400 text-sm">
                 <li><a href="/about" className="hover:text-white transition">About Us</a></li>
                 <li>
-                  <button 
-                    onClick={() => {
-                      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'privacy-policy' } }))
-                    }}
-                    className="hover:text-white transition cursor-pointer text-left"
+                  <a
+                    href="/privacy-policy"
+                    className="hover:text-white transition cursor-pointer text-left inline-block"
                   >
                     Privacy Policy
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button 
-                    onClick={() => {
-                      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'terms-and-conditions' } }))
-                    }}
-                    className="hover:text-white transition cursor-pointer text-left"
+                  <a
+                    href="/terms"
+                    className="hover:text-white transition cursor-pointer text-left inline-block"
                   >
                     Terms of Service
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -117,7 +113,7 @@ export default function Footer() {
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-medium">
             <p>&copy; 2025 Diverse Loopers. All Rights Reserved.</p>
             <div className="flex gap-8">
-              <button 
+              <button
                 onClick={() => {
                   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'privacy-policy' } }))
                 }}
@@ -125,7 +121,7 @@ export default function Footer() {
               >
                 Privacy Policy
               </button>
-              <button 
+              <button
                 onClick={() => {
                   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('open-legal-modal', { detail: { slug: 'terms-and-conditions' } }))
                 }}
@@ -138,5 +134,5 @@ export default function Footer() {
           </div>
         </div>
       </footer>
-    );  
+    );
 }

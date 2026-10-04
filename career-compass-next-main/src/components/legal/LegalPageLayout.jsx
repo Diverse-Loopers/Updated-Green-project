@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Footer from '@/components/ui/Footer'
 import Link from 'next/link'
 
-export default function LegalPageLayout({ slug, defaultTitle }) {
+export default function LegalPageLayout({ slug, defaultTitle, fallbackContent }) {
   const [doc, setDoc] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -70,7 +70,7 @@ export default function LegalPageLayout({ slug, defaultTitle }) {
                 prose-a:text-emerald-600 dark:prose-a:text-emerald-400 hover:prose-a:text-emerald-500
                 prose-strong:text-slate-900 dark:prose-strong:text-white
                 prose-li:marker:text-emerald-500"
-              dangerouslySetInnerHTML={{ __html: doc?.content || '<p>Content is being updated. Please check back soon.</p>' }}
+              dangerouslySetInnerHTML={{ __html: doc?.content || fallbackContent || '<p>Content is being updated. Please check back soon.</p>' }}
             />
           </article>
         )}

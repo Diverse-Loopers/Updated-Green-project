@@ -20,29 +20,73 @@ export function showMessage(msg, isError = false) {
 
 export async function handleRegister(e) {
     e.preventDefault();
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    const username = document.getElementById('register-username').value;
+    const email = document.getElementById('register-email')?.value?.trim();
+    const password = document.getElementById('register-password')?.value;
+    const username = document.getElementById('register-username')?.value?.trim();
 
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { username } }
-    });
+    if (!email || !password) {
+        showMessage('Please enter email and password', true);
+        return;
+    }
 
-    if (error) {
-        showMessage(error.message, true);
-    } else if (data?.user?.identities?.length === 0) {
-        showMessage('Already have account try login', true);
-    } else if (data && data.session) {
-        // If email confirmation is disabled, session is returned immediately.
-        showMessage('Account created successfully!');
-        setTimeout(() => window.location.href = '/settings', 1500);
-    } else {
-        showMessage('Check your email for the code!');
+    if (password.length < 6) {
+        showMessage('Password must be at least 6 characters long', true);
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]') || document.querySelector('#register-form button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending OTP...';
+    }
+
+    try {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { username } }
+        });
+
+        if (error) {
+            if (error.message?.toLowerCase().includes('rate limit')) {
+                showMessage('Email rate limit reached. Please configure Custom SMTP in Supabase or try again shortly.', true);
+            } else {
+                showMessage(error.message, true);
+            }
+            return;
+        }
+
+        if (data?.user?.identities?.length === 0) {
+            showMessage('An account with this email already exists. Please Sign In.', true);
+            return;
+        }
+
+        if (data && data.session) {
+            // If email confirmation is disabled in Supabase
+            showMessage('Account created successfully!');
+            setTimeout(() => window.location.href = '/settings', 1200);
+            return;
+        }
+
+        // Email confirmation is enabled — OTP code sent!
+        showMessage('Verification code sent! Please check your email inbox.');
         tempEmailForOtp = email;
         const otpOverlay = document.getElementById('otp-overlay');
-        if (otpOverlay) otpOverlay.style.display = 'flex';
+        if (otpOverlay) {
+            otpOverlay.style.display = 'flex';
+            const tokenInput = document.getElementById('otp-token');
+            if (tokenInput) {
+                tokenInput.value = '';
+                tokenInput.focus();
+            }
+        }
+    } catch (err) {
+        showMessage(err.message || 'Registration failed', true);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign Up';
+        }
     }
 }
 
@@ -116,16 +160,46 @@ export async function handleLogin(e) {
 
 export async function handleGoogleLogin(e) {
     if (e) e.preventDefault();
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: window.location.origin + '/auth/callback'
-        }
-    });
 
-    if (error) {
-        showMessage(error.message, true);
+    const clickedBtn = (e && e.currentTarget) || document.getElementById('google-login-btn') || document.getElementById('google-register-btn');
+    const originalText = clickedBtn ? clickedBtn.innerHTML : '';
+
+    if (clickedBtn) {
+        clickedBtn.disabled = true;
+        clickedBtn.style.opacity = '0.7';
+    }
+
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const next = urlParams.get('next') || urlParams.get('redirect');
+        const callbackUrl = new URL('/auth/callback', window.location.origin);
+        if (next) {
+            callbackUrl.searchParams.set('next', next);
+        }
+
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: callbackUrl.toString()
+            }
+        });
+
+        if (error) {
+            showMessage(error.message, true);
+            if (clickedBtn) {
+                clickedBtn.disabled = false;
+                clickedBtn.style.opacity = '1';
+                clickedBtn.innerHTML = originalText;
+            }
+        }
+    } catch (err) {
+        console.error('Google login error:', err);
+        showMessage(err.message || 'Failed to initialize Google login', true);
+        if (clickedBtn) {
+            clickedBtn.disabled = false;
+            clickedBtn.style.opacity = '1';
+            clickedBtn.innerHTML = originalText;
+        }
     }
 }
 
@@ -146,19 +220,39 @@ export async function handleForgotPassword(e) {
 
 export async function handleOtpVerify(e) {
     e.preventDefault();
-    const token = document.getElementById('otp-token').value;
+    const token = document.getElementById('otp-token')?.value?.trim();
 
-    const { error } = await supabase.auth.verifyOtp({
-        email: tempEmailForOtp,
-        token,
-        type: 'signup'
-    });
+    if (!token) {
+        showMessage('Please enter the 6-digit verification code', true);
+        return;
+    }
 
-    if (error) {
-        showMessage(error.message, true);
-    } else {
-        showMessage('Verified!');
-        setTimeout(() => window.location.href = '/settings', 1500);
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+    }
+
+    try {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email: tempEmailForOtp,
+            token,
+            type: 'signup'
+        });
+
+        if (error) {
+            showMessage(error.message, true);
+        } else {
+            showMessage('Email verified successfully! Redirecting...');
+            setTimeout(() => window.location.href = '/settings', 1200);
+        }
+    } catch (err) {
+        showMessage(err.message || 'Verification failed', true);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Verify';
+        }
     }
 }
 
@@ -173,7 +267,7 @@ export function initAuthListeners() {
     const loginForm = document.getElementById('login-form');
     const forgotForm = document.getElementById('forgot-form');
     const otpForm = document.getElementById('otp-form');
-    
+
     const googleLoginBtn = document.getElementById('google-login-btn');
     const googleRegisterBtn = document.getElementById('google-register-btn');
 
@@ -182,7 +276,7 @@ export function initAuthListeners() {
     if (loginForm) loginForm.onsubmit = handleLogin;
     if (forgotForm) forgotForm.onsubmit = handleForgotPassword;
     if (otpForm) otpForm.onsubmit = handleOtpVerify;
-    
+
     if (googleLoginBtn) googleLoginBtn.onclick = handleGoogleLogin;
     if (googleRegisterBtn) googleRegisterBtn.onclick = handleGoogleLogin;
 }
