@@ -38,12 +38,42 @@ function AuthCallbackInner() {
                 // 2. PKCE code exchange (Standard flow for Supabase OAuth)
                 if (code) {
                     if (!isCancelled) setMessage("Exchanging authorization code...");
-                    const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-                    if (exchangeErr) {
-                        console.error("PKCE exchange error:", exchangeErr);
-                        throw exchangeErr;
+                    try {
+                        const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+                        if (exchangeErr) {
+                            throw exchangeErr;
+                        }
+                        session = data?.session;
+                    } catch (codeErr) {
+                        const isPkceMissing = codeErr?.message?.includes('PKCE code verifier not found') ||
+                                              codeErr?.code === 'pkce_code_verifier_not_found';
+
+                        // If verifier was stored on the other subdomain (www vs non-www), automatically try the sibling domain once
+                        if (isPkceMissing && typeof window !== 'undefined' && window.location.hostname.includes('diverseloopers.com')) {
+                            const currentUrl = new URL(window.location.href);
+                            const hasRetried = currentUrl.searchParams.get('pkce_retry') === '1';
+
+                            if (!hasRetried) {
+                                currentUrl.searchParams.set('pkce_retry', '1');
+
+                                const currentHost = window.location.hostname;
+                                const targetHost = currentHost.startsWith('www.')
+                                    ? currentHost.replace(/^www\./, '')
+                                    : `www.${currentHost}`;
+
+                                currentUrl.hostname = targetHost;
+
+                                if (!isCancelled) {
+                                    setMessage("Completing authentication on primary domain...");
+                                }
+
+                                window.location.href = currentUrl.toString();
+                                return;
+                            }
+                        }
+                        console.error("PKCE exchange error:", codeErr);
+                        throw codeErr;
                     }
-                    session = data?.session;
                 }
 
                 // 3. Fallback: Check hash fragment if implicit flow was used

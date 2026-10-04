@@ -9,6 +9,15 @@ import { createBrowserClient } from '@supabase/ssr';
 // 3. Works for both students and business users
 let supabaseInstance = null;
 
+function getCookieDomain() {
+  if (typeof window === 'undefined') return undefined;
+  const hostname = window.location.hostname;
+  if (hostname.includes('diverseloopers.com')) {
+    return '.diverseloopers.com';
+  }
+  return undefined;
+}
+
 export function getSupabase() {
   if (supabaseInstance) return supabaseInstance;
 
@@ -20,7 +29,16 @@ export function getSupabase() {
     return null;
   }
 
-  supabaseInstance = createBrowserClient(supabaseUrl, supabaseKey);
+  const domain = getCookieDomain();
+
+  supabaseInstance = createBrowserClient(supabaseUrl, supabaseKey, {
+    cookieOptions: {
+      domain,
+      path: '/',
+      sameSite: 'lax',
+      secure: typeof window !== 'undefined' ? window.location.protocol === 'https:' : true,
+    },
+  });
   return supabaseInstance;
 }
 
