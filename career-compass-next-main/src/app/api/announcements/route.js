@@ -37,12 +37,12 @@ export async function GET(request) {
         if (employee_id) {
             const { data: em } = await supabaseAdmin.from('employee_managers').select('manager_id').eq('employee_id', employee_id).maybeSingle();
             if (em && em.manager_id) {
-                query = query.or(`scope.eq.all,and(scope.eq.team,manager_id.eq.${em.manager_id})`);
+                query = query.or(`scope.eq.all,and(scope.eq.team,manager_id.eq.${em.manager_id}),scope.ilike.*${employee_id}*`);
             } else {
-                query = query.eq('scope', 'all');
+                query = query.or(`scope.eq.all,scope.ilike.*${employee_id}*`);
             }
         } else {
-            if (scope) query = query.eq('scope', scope);
+            if (scope && scope !== 'all') query = query.eq('scope', scope);
             if (manager_id) query = query.eq('manager_id', manager_id);
         }
 
@@ -74,7 +74,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const { title, message, scope, manager_id } = body;
+        const { title, message, scope, manager_id, target_employee_ids } = body;
         let { posted_by, posted_by_role } = body;
 
         if (!title || !message) {
@@ -103,28 +103,42 @@ export async function POST(request) {
         if (!posted_by) posted_by = (posted_by_role === 'hr' || adminKey === 'hrms-admin-access') ? 'HR Admin' : 'Manager';
         if (!posted_by_role) posted_by_role = 'manager';
 
+        let targetEmployeeIds = [];
+        let finalScope = scope || 'all';
+
+        if (scope === 'specific' && Array.isArray(target_employee_ids) && target_employee_ids.length > 0) {
+            targetEmployeeIds = target_employee_ids;
+            finalScope = `specific:${target_employee_ids.join(',')}`;
+        } else if (scope === 'team' && manager_id) {
+            finalScope = 'team';
+            const { data: team } = await supabaseAdmin.from('employee_managers').select('employee_id').eq('manager_id', manager_id);
+            if (team && team.length > 0) {
+                targetEmployeeIds = team.map(t => t.employee_id);
+            }
+        } else {
+            finalScope = 'all';
+            const { data: allEmps } = await supabaseAdmin.from('employees').select('employee_id').eq('is_active', true);
+            if (allEmps) {
+                targetEmployeeIds = allEmps.map(e => e.employee_id);
+            }
+        }
+
         const { data: announcement, error: insertErr } = await supabaseAdmin
             .from('team_announcements')
-            .insert([{ title, message, posted_by, posted_by_role, scope: scope || 'team', manager_id: manager_id || null }])
+            .insert([{
+                title,
+                message,
+                posted_by,
+                posted_by_role,
+                scope: finalScope,
+                manager_id: (scope === 'team' && manager_id) ? manager_id : null
+            }])
             .select()
             .single();
 
         if (insertErr) throw insertErr;
 
         let targetEmails = [];
-        let targetEmployeeIds = [];
-
-        if (scope === 'team' && manager_id) {
-            const { data: team } = await supabaseAdmin.from('employee_managers').select('employee_id').eq('manager_id', manager_id);
-            if (team && team.length > 0) {
-                targetEmployeeIds = team.map(t => t.employee_id);
-            }
-        } else if (scope === 'all') {
-            const { data: allEmps } = await supabaseAdmin.from('employees').select('employee_id').eq('is_active', true);
-            if (allEmps) {
-                targetEmployeeIds = allEmps.map(e => e.employee_id);
-            }
-        }
 
         // Create unified notifications for Admin, CEO, and Employees
         const notificationsToInsert = [

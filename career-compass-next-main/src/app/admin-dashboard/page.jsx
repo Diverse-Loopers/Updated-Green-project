@@ -1333,25 +1333,59 @@ export default function AdminDashboard() {
 
       {/* MODAL: POST ANNOUNCEMENT */}
       <div id="announcement-modal" className="modal hidden" onClick={(e) => { if (e.target.id === 'announcement-modal') window.closeModal && window.closeModal('announcement-modal'); }}>
-        <div className="modal-content premium-modal" style={{ maxWidth: '550px' }}>
+        <div className="modal-content premium-modal" style={{ maxWidth: '580px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
           <button className="modal-close-btn" onClick={() => window.closeModal && window.closeModal('announcement-modal')}>✕</button>
           <div className="modal-header">
             <h2>New Announcement</h2>
           </div>
-          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
             <div className="input-group">
               <label>Title <span style={{ color: '#dc2626' }}>*</span></label>
               <input type="text" id="ann-title" placeholder="Announcement title" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a' }} />
             </div>
             <div className="input-group">
               <label>Message <span style={{ color: '#dc2626' }}>*</span></label>
-              <textarea id="ann-message" rows={5} placeholder="Write your announcement..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical', background: '#fff', color: '#0f172a' }}></textarea>
+              <textarea id="ann-message" rows={4} placeholder="Write your announcement..." style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'vertical', background: '#fff', color: '#0f172a' }}></textarea>
             </div>
             <div className="input-group">
-              <label>Scope</label>
-              <select id="ann-scope" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a' }}>
+              <label>Target Audience / Scope</label>
+              <select id="ann-scope" onChange={() => window.handleAnnScopeChange && window.handleAnnScopeChange()} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
                 <option value="all">All Employees (Organization-wide)</option>
+                <option value="specific">Specific Employees</option>
+                <option value="team">Specific Manager's Team</option>
               </select>
+            </div>
+
+            {/* Team / Manager Dropdown */}
+            <div id="ann-team-selector" className="hidden input-group">
+              <label>Select Manager / Team <span style={{ color: '#dc2626' }}>*</span></label>
+              <select id="ann-manager-id" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a' }}>
+                <option value="">-- Choose a Manager --</option>
+              </select>
+            </div>
+
+            {/* Specific Employees Selector */}
+            <div id="ann-employee-selector" className="hidden" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', background: '#f8fafc', padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>
+                  Choose Recipients (<span id="ann-selected-count" style={{ color: '#2563eb', fontWeight: 700 }}>0</span> selected)
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button type="button" onClick={() => window.toggleAllAnnEmployees && window.toggleAllAnnEmployees(true)} style={{ fontSize: '0.75rem', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Select All</button>
+                  <span style={{ color: '#cbd5e1' }}>|</span>
+                  <button type="button" onClick={() => window.toggleAllAnnEmployees && window.toggleAllAnnEmployees(false)} style={{ fontSize: '0.75rem', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>Clear All</button>
+                </div>
+              </div>
+              <input
+                type="text"
+                id="ann-emp-search"
+                placeholder="Search by name, employee ID, or role..."
+                onInput={(e) => window.filterAnnEmployees && window.filterAnnEmployees(e.target.value)}
+                style={{ width: '100%', padding: '7px 12px', fontSize: '0.85rem', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+              <div id="ann-employees-checklist" style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', background: '#fff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <p style={{ color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center', margin: '1rem 0' }}>Loading employees...</p>
+              </div>
             </div>
           </div>
           <div className="modal-actions">

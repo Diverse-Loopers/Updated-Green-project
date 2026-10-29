@@ -46,19 +46,73 @@ export async function handleAdminLogin() {
     });
 
     if (error) {
-        console.error("Supabase Auth Error:", error);
-        alert("Login Failed: " + error.message + "\n\n(Tip: Ensure you created the user in the Supabase 'Authentication' tab, NOT just the table!)");
-        if (adminError) adminError.textContent = error.message;
-    } else {
-        // Check if role is admin in employees table
-        const { data: emp } = await supabase.from('employees').select('role').eq('email', email).single();
+        console.warn("Direct Auth error, checking server admin verification fallback...", error.message);
 
-        if (emp && emp.role === 'admin') {
+        // Server bypass fallback for rate-limited or direct admin credentials
+        try {
+            const fallbackRes = await fetch('/api/hrms/admin-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const fallbackData = await fallbackRes.json();
+
+            if (fallbackData.success && fallbackData.hashed_token) {
+                const { error: otpErr } = await supabase.auth.verifyOtp({
+                    token_hash: fallbackData.hashed_token,
+                    type: 'magiclink'
+                });
+                if (!otpErr) {
+                    window.location.href = '/admin-dashboard';
+                    return;
+                }
+            }
+        } catch (fbErr) {
+            console.error("Fallback request failed:", fbErr);
+        }
+
+        console.error("Supabase Auth Error:", error);
+        if (adminError) adminError.textContent = error.message;
+        alert("Login Failed: " + error.message);
+    } else {
+        // Check admin_list table (primary admin table)
+        let isAdmin = false;
+        try {
+            const { data: adminCheck } = await supabase
+                .from('admin_list')
+                .select('user_id, email')
+                .or(`user_id.eq.${data.user.id},email.eq.${email}`)
+                .limit(1);
+            if (adminCheck && adminCheck.length > 0) {
+                isAdmin = true;
+            }
+        } catch (e) {
+            console.warn('admin_list check error:', e);
+        }
+
+        // Fallback: Check employees table
+        if (!isAdmin) {
+            try {
+                const { data: emp } = await supabase.from('employees').select('role').eq('email', email).maybeSingle();
+                if (emp && (emp.role === 'admin' || emp.role === 'hr')) {
+                    isAdmin = true;
+                }
+            } catch (e) {
+                console.warn('employees check error:', e);
+            }
+        }
+
+        // Fallback: Check user metadata
+        if (!isAdmin && (data.user?.user_metadata?.role === 'admin' || data.user?.user_metadata?.role === 'hr')) {
+            isAdmin = true;
+        }
+
+        if (isAdmin) {
             window.location.href = '/admin-dashboard';
         } else {
-            // If they are regular employee trying to login as admin
             await supabase.auth.signOut();
             if (adminError) adminError.textContent = 'Access Denied: Not an Admin Account';
+            alert('Access Denied: Not an Admin Account');
         }
     }
 }
