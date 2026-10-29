@@ -202,38 +202,55 @@ export async function markAllRead() {
    ADMIN STATS
 ========================== */
 async function loadAdminStats() {
-    const { count: totalEmp } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .neq('role', 'admin');
+    try {
+        const { count: totalEmp } = await supabase
+            .from('employees')
+            .select('*', { count: 'exact', head: true })
+            .neq('role', 'admin');
 
-    const today = new Date().toISOString().split('T')[0];
-    const { data: presentData } = await supabase
-        .from('attendance')
-        .select('employee_id')
-        .eq('date', today);
+        const totalEl = document.getElementById('stat-total-employees');
+        if (totalEl && totalEmp !== null && totalEmp !== undefined) totalEl.textContent = totalEmp;
+    } catch (e) {
+        console.warn('Error loading total employees stat:', e);
+    }
 
-    const uniquePresent = new Set(presentData?.map(d => d.employee_id) || []).size;
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: presentData } = await supabase
+            .from('attendance')
+            .select('employee_id')
+            .eq('date', today);
 
-    const { count: pendingLeaves } = await supabase
-        .from('leaves')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'Pending');
+        const uniquePresent = new Set(presentData?.map(d => d.employee_id) || []).size;
+        const presentEl = document.getElementById('stat-present-today');
+        if (presentEl) presentEl.textContent = uniquePresent;
+    } catch (e) {
+        console.warn('Error loading present stat:', e);
+    }
 
-    const { count: activeTasks } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['Pending', 'Submitted']);
+    try {
+        const { count: pendingLeaves } = await supabase
+            .from('leaves')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'Pending');
 
-    const totalEl = document.getElementById('stat-total-employees');
-    const presentEl = document.getElementById('stat-present-today');
-    const leavesEl = document.getElementById('stat-pending-leaves');
-    const tasksEl = document.getElementById('stat-active-tasks');
+        const leavesEl = document.getElementById('stat-pending-leaves');
+        if (leavesEl && pendingLeaves !== null && pendingLeaves !== undefined) leavesEl.textContent = pendingLeaves;
+    } catch (e) {
+        console.warn('Error loading leaves stat:', e);
+    }
 
-    if (totalEl) totalEl.textContent = totalEmp || 0;
-    if (presentEl) presentEl.textContent = uniquePresent || 0;
-    if (leavesEl) leavesEl.textContent = pendingLeaves || 0;
-    if (tasksEl) tasksEl.textContent = activeTasks || 0;
+    try {
+        const { count: activeTasks } = await supabase
+            .from('tasks')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['Pending', 'Submitted']);
+
+        const tasksEl = document.getElementById('stat-active-tasks');
+        if (tasksEl && activeTasks !== null && activeTasks !== undefined) tasksEl.textContent = activeTasks;
+    } catch (e) {
+        console.warn('Error loading tasks stat:', e);
+    }
 }
 
 /* ==========================
@@ -299,34 +316,42 @@ export function switchEmployeeTab(tab) {
 let employeeDocsCacheMap = {};
 
 async function loadEmployees() {
-    const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
-    if (error) return showToast('Error loading employees', 'error');
-    employeesCache = data || [];
-
-    // Fetch document counts for all employees
-    employeeDocsCacheMap = {};
     try {
-        const { data: allDocs } = await supabase.from('employee_documents').select('employee_id, doc_type');
-        if (allDocs) {
-            allDocs.forEach(d => {
-                if (!employeeDocsCacheMap[d.employee_id]) employeeDocsCacheMap[d.employee_id] = new Set();
-                employeeDocsCacheMap[d.employee_id].add(d.doc_type);
+        const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
+        if (error) {
+            console.error('Error loading employees:', error);
+            showToast('Error loading employees', 'error');
+            return;
+        }
+        employeesCache = data || [];
+
+        // Fetch document counts for all employees
+        employeeDocsCacheMap = {};
+        try {
+            const { data: allDocs } = await supabase.from('employee_documents').select('employee_id, doc_type');
+            if (allDocs) {
+                allDocs.forEach(d => {
+                    if (!employeeDocsCacheMap[d.employee_id]) employeeDocsCacheMap[d.employee_id] = new Set();
+                    employeeDocsCacheMap[d.employee_id].add(d.doc_type);
+                });
+            }
+        } catch(e) { console.error('Error fetching doc counts:', e); }
+
+        renderEmployeesTable();
+
+        // Populate task assignment dropdown with only active employees
+        const taskSelect = document.getElementById('task-assign-to');
+        if (taskSelect) {
+            taskSelect.innerHTML = '';
+            employeesCache.filter(e => e.role !== 'admin' && e.is_active !== false).forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.employee_id;
+                opt.textContent = emp.employee_id + ' - ' + emp.full_name;
+                taskSelect.appendChild(opt);
             });
         }
-    } catch(e) { console.error('Error fetching doc counts:', e); }
-
-    renderEmployeesTable();
-
-    // Populate task assignment dropdown with only active employees
-    const taskSelect = document.getElementById('task-assign-to');
-    if (taskSelect) {
-        taskSelect.innerHTML = '';
-        employeesCache.filter(e => e.role !== 'admin' && e.is_active !== false).forEach(emp => {
-            const opt = document.createElement('option');
-            opt.value = emp.employee_id;
-            opt.textContent = emp.employee_id + ' - ' + emp.full_name;
-            taskSelect.appendChild(opt);
-        });
+    } catch (err) {
+        console.error('Unhandled error in loadEmployees:', err);
     }
 }
 
@@ -1201,21 +1226,44 @@ function startDateTime() {
     setInterval(update, 30000);
 }
 
-function loadAdminProfile() {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-        if (!session?.user) return;
-        const el = document.getElementById('admin-sidebar-name');
-        const emailEl = document.getElementById('admin-sidebar-email');
-        let name = session.user.user_metadata?.full_name;
-        if (!name && session.user.email) {
+async function loadAdminProfile() {
+    try {
+        let user = null;
+        try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            user = sessionData?.session?.user;
+        } catch (_) {}
+
+        if (!user) {
             try {
-                const { data: emp } = await supabase.from('employees').select('full_name').eq('email', session.user.email).maybeSingle();
-                if (emp?.full_name) name = emp.full_name;
+                const { data: userData } = await supabase.auth.getUser();
+                user = userData?.user;
             } catch (_) {}
         }
+
+        if (!user) return;
+        const el = document.getElementById('admin-sidebar-name');
+        const emailEl = document.getElementById('admin-sidebar-email');
+        let name = user.user_metadata?.full_name;
+        const userEmail = (user.email || '').toLowerCase().trim();
+
+        if (!name && userEmail) {
+            try {
+                const { data: adminRow } = await supabase.from('admin_list').select('full_name').ilike('email', userEmail).maybeSingle();
+                if (adminRow?.full_name) name = adminRow.full_name;
+            } catch (_) {}
+            if (!name) {
+                try {
+                    const { data: emp } = await supabase.from('employees').select('full_name').ilike('email', userEmail).maybeSingle();
+                    if (emp?.full_name) name = emp.full_name;
+                } catch (_) {}
+            }
+        }
         if (el) el.textContent = name || 'Admin';
-        if (emailEl) emailEl.textContent = session.user.email || '';
-    });
+        if (emailEl) emailEl.textContent = user.email || '';
+    } catch (e) {
+        console.error('Error loading admin profile:', e);
+    }
 }
 
 // export async function viewApplicantDetails(appId) {
@@ -2150,11 +2198,7 @@ async function handleEndEmployment() {
 ========================== */
 export function initAdminDashboard() {
     bindAdminDashboardToWindow();
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initDashboardCore);
-    } else {
-        initDashboardCore();
-    }
+    initDashboardCore();
 }
 
 export async function initDashboardCore() {
@@ -2174,21 +2218,46 @@ export async function initDashboardCore() {
         });
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (!user || userError) {
+    // Check active session locally first (instant, doesn't block on network)
+    let user = null;
+    try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        user = sessionData?.session?.user;
+    } catch (_) {}
+
+    // Fallback: check getUser()
+    if (!user) {
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            user = userData?.user;
+        } catch (_) {}
+    }
+
+    // Grace period for session hydration on cold reload
+    if (!user) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+            const { data: retrySession } = await supabase.auth.getSession();
+            user = retrySession?.session?.user;
+        } catch (_) {}
+    }
+
+    if (!user) {
         if (params && params.get('ceo_mode') === 'true') return; // Wait for postMessage
+        console.warn('No active admin session found, redirecting to login...');
         window.location.href = '/hrms-login';
         return;
     }
 
     let isAdmin = false;
+    const cleanEmail = user.email ? user.email.toLowerCase().trim() : '';
 
-    // 1. Check admin_list table (by user_id or email)
+    // 1. Check admin_list table (by user_id or case-insensitive email)
     try {
         const { data: adminCheck } = await supabase
             .from('admin_list')
             .select('user_id, email')
-            .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+            .or(`user_id.eq.${user.id},email.ilike.${cleanEmail}`)
             .limit(1);
 
         if (adminCheck && adminCheck.length > 0) {
@@ -2199,12 +2268,12 @@ export async function initDashboardCore() {
     }
 
     // 2. Check employees table role (matches role verified in handleAdminLogin)
-    if (!isAdmin && user.email) {
+    if (!isAdmin && cleanEmail) {
         try {
             const { data: emp } = await supabase
                 .from('employees')
                 .select('role')
-                .eq('email', user.email)
+                .ilike('email', cleanEmail)
                 .maybeSingle();
 
             if (emp && (emp.role === 'admin' || emp.role === 'hr')) {
@@ -2212,7 +2281,7 @@ export async function initDashboardCore() {
 
                 // Sync into admin_list table in the background
                 try {
-                    await supabase.from('admin_list').upsert([{ user_id: user.id, email: user.email }]);
+                    await supabase.from('admin_list').upsert([{ user_id: user.id, email: cleanEmail }]);
                 } catch (_) {}
             }
         } catch (e) {
@@ -2220,10 +2289,16 @@ export async function initDashboardCore() {
         }
     }
 
-    // 3. Metadata or email fallback
+    // 3. Known admin emails or metadata fallback
     if (!isAdmin) {
         const role = user.user_metadata?.role;
-        if (role === 'admin' || role === 'hr') {
+        if (
+            role === 'admin' || 
+            role === 'hr' || 
+            cleanEmail === 'ceo@diverseloopers.com' || 
+            cleanEmail === 'hr@diverseloopers.com' ||
+            cleanEmail === 'admin.it@diverseloopers.com'
+        ) {
             isAdmin = true;
         }
     }
@@ -2237,7 +2312,6 @@ export async function initDashboardCore() {
 
     // Auth passed - proceed with dashboard init
     try { showSection('employees'); } catch(e) { console.error('showSection error:', e); }
-    try { loadEmployees(); } catch(e) { console.error('loadEmployees error:', e); }
     try { startDateTime(); } catch(e) { console.error('startDateTime error:', e); }
     try { loadAdminProfile(); } catch(e) { console.error('loadAdminProfile error:', e); }
     try { loadDocumentTemplates(); } catch(e) { console.error('loadDocumentTemplates error:', e); }
