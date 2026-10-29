@@ -756,7 +756,7 @@ async function loadMyAnnouncements() {
                 </div>
                 <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">${a.message}</p>
                 <div style="margin-top:0.5rem;font-size:0.75rem;color:#94a3b8">
-                    ${a.scope === 'all' ? '🌐 Organization' : '👥 Team'} · Posted by ${a.posted_by}
+                    ${a.scope === 'all' ? '🌐 Organization' : a.scope?.startsWith('specific') ? '🎯 Direct Announcement' : '👥 Team'} · Posted by ${a.posted_by}
                 </div>
             </div>
         `).join('');

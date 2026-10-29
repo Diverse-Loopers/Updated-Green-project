@@ -21,24 +21,29 @@ export function showSection(sectionId) {
     }
 
     // Show Section
-    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'templates', 'managers', 'ratings', 'announcements'].forEach(id => {
+    ['employees', 'tasks', 'attendance', 'leaves', 'applicants', 'executives', 'templates', 'managers', 'ratings', 'announcements'].forEach(id => {
         document.getElementById(`${id}-section`)?.classList.add('hidden');
     });
     document.getElementById(`${sectionId}-section`)?.classList.remove('hidden');
 
     // Load Data
-    if (sectionId === 'employees') loadEmployees();
-    if (sectionId === 'tasks') loadTasks();
-    if (sectionId === 'attendance') loadAttendance();
-    if (sectionId === 'leaves') loadLeaves();
-    if (sectionId === 'applicants') loadJobApplicants();
-    if (sectionId === 'templates') { loadDocumentTemplates().then(() => renderTemplatesGrid()); }
-    if (sectionId === 'managers') { if (window.loadManagers) window.loadManagers(); }
-    if (sectionId === 'ratings') { if (window.loadHRRatings) window.loadHRRatings(); }
-    if (sectionId === 'announcements') { if (window.loadHRAnnouncements) window.loadHRAnnouncements(); }
+    try {
+        if (sectionId === 'employees') loadEmployees();
+        if (sectionId === 'tasks') loadTasks();
+        if (sectionId === 'attendance') loadAttendance();
+        if (sectionId === 'leaves') loadLeaves();
+        if (sectionId === 'applicants') loadJobApplicants();
+        if (sectionId === 'executives' && window._loadExecutives) window._loadExecutives();
+        if (sectionId === 'templates') { loadDocumentTemplates().then(() => renderTemplatesGrid()); }
+        if (sectionId === 'managers') { loadManagers(); }
+        if (sectionId === 'ratings') { loadHRRatings(); }
+        if (sectionId === 'announcements') { loadHRAnnouncements(); }
+    } catch (e) {
+        console.error('Error loading section data:', e);
+    }
 
-    loadAdminStats();
-    fetchNotifications();
+    try { loadAdminStats(); } catch(e) {}
+    try { fetchNotifications(); } catch(e) {}
 
     // Poll for notifications and announcements every 10 seconds for live updates without refresh
     if (!notificationIntervalId) {
@@ -837,7 +842,7 @@ export function closeModal(id) {
 
 export function logoutAdmin() {
     supabase.auth.signOut().then(() => {
-        window.location.href = '/';
+        window.location.href = '/hrms-login';
     });
 }
 
@@ -1197,11 +1202,18 @@ function startDateTime() {
 }
 
 function loadAdminProfile() {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (!session?.user) return;
         const el = document.getElementById('admin-sidebar-name');
         const emailEl = document.getElementById('admin-sidebar-email');
-        if (el) el.textContent = session.user.user_metadata?.full_name || 'Admin';
+        let name = session.user.user_metadata?.full_name;
+        if (!name && session.user.email) {
+            try {
+                const { data: emp } = await supabase.from('employees').select('full_name').eq('email', session.user.email).maybeSingle();
+                if (emp?.full_name) name = emp.full_name;
+            } catch (_) {}
+        }
+        if (el) el.textContent = name || 'Admin';
         if (emailEl) emailEl.textContent = session.user.email || '';
     });
 }
@@ -2137,6 +2149,7 @@ async function handleEndEmployment() {
    INITIALIZATION
 ========================== */
 export function initAdminDashboard() {
+    bindAdminDashboardToWindow();
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initDashboardCore);
     } else {
@@ -2144,145 +2157,132 @@ export function initAdminDashboard() {
     }
 }
 
-// function initDashboardCore() {
-//     showSection('employees');
-//     loadEmployees();
+export async function initDashboardCore() {
+    bindAdminDashboardToWindow();
 
-//     setTimeout(() => {
-//         loadFaceModels();
-//     }, 500);
-
-//     // Mobile menu
-//     const menuBtn = document.getElementById('mobile-menu-btn');
-//     const sidebar = document.getElementById('sidebar');
-//     const main = document.querySelector('.main-content');
-
-//     if (menuBtn && sidebar) {
-//         menuBtn.addEventListener('click', (e) => {
-//             e.stopPropagation();
-//             sidebar.classList.toggle('active');
-//         });
-
-//         main?.addEventListener('click', () => {
-//             if (window.innerWidth <= 768) {
-//                 sidebar.classList.remove('active');
-//             }
-//         });
-//     }
-
-//     // Close notifications on outside click
-//     document.addEventListener('click', (e) => {
-//         const dropdown = document.getElementById('notif-dropdown');
-//         if (dropdown && !dropdown.classList.contains('hidden') && !e.target.closest('.notification-wrapper')) {
-//             dropdown.classList.add('hidden');
-//         }
-//     });
-
-//     // Expose functions to window
-//     if (typeof window !== 'undefined') {
-//         window.showSection = showSection;
-//         window.toggleNotifications = toggleNotifications;
-//         window.markAllRead = markAllRead;
-//         window.openAddEmployeeModal = openAddEmployeeModal;
-//         window.handleAddEmployee = handleAddEmployee;
-//         window.openResetPassword = openResetPassword;
-//         window.handleResetPassword = handleResetPassword;
-//         window.deleteEmployee = deleteEmployee;
-//         window.closeModal = closeModal;
-//         window.logoutAdmin = logoutAdmin;
-//         window.loadAttendance = loadAttendance;
-//         window.openAssignTaskModal = openAssignTaskModal;
-//         window.handleAssignTask = handleAssignTask;
-//         window.reviewTask = reviewTask;
-//         window.updateLeave = updateLeave;
-//         window.viewApplicantDetails = viewApplicantDetails;
-//     window.deleteApplicant = deleteApplicant;
-//     }
-// }
-
-function initDashboardCore() {
-    // AUTH CHECK - must run first
-    (async () => {
-        // CEO mode: auto-login via postMessage from CEO panel iframe
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('ceo_mode') === 'true') {
-            window.addEventListener('message', async (e) => {
-                if (e.data?.type === 'ceo-auto-login' && e.data.email && e.data.password) {
-                    await supabase.auth.signInWithPassword({
-                        email: e.data.email,
-                        password: e.data.password
-                    });
-                    // Reload to bypass the auth check below
-                    window.location.href = '/admin-dashboard';
-                }
-            });
-        }
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            if (params.get('ceo_mode') === 'true') return; // Wait for postMessage
-            window.location.href = '/hrms-login';
-            return;
-        }
-
-        const { data: adminCheck } = await supabase
-            .from('admin_list')
-            .select('user_id')
-            .eq('user_id', user.id)
-            .limit(1);
-
-        if (!adminCheck || adminCheck.length === 0) {
-            await supabase.auth.signOut();
-            window.location.href = '/hrms-login';
-            return;
-        }
-
-        // Auth passed - proceed with dashboard init
-        showSection('employees');
-        loadEmployees();
-        startDateTime();
-        loadAdminProfile();
-
-        setTimeout(() => {
-            loadFaceModels();
-        }, 500);
-
-        // Mobile menu
-        const menuBtn = document.getElementById('mobile-menu-btn');
-        const sidebar = document.getElementById('sidebar');
-        const main = document.querySelector('.main-content');
-
-        if (menuBtn && sidebar) {
-            menuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                sidebar.classList.toggle('active');
-            });
-
-            main?.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
-                    sidebar.classList.remove('active');
-                }
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('notif-dropdown');
-            if (dropdown && !dropdown.classList.contains('hidden') && !e.target.closest('.notification-wrapper')) {
-                dropdown.classList.add('hidden');
+    // CEO mode: auto-login via postMessage from CEO panel iframe
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    if (params && params.get('ceo_mode') === 'true') {
+        window.addEventListener('message', async (e) => {
+            if (e.data?.type === 'ceo-auto-login' && e.data.email && e.data.password) {
+                await supabase.auth.signInWithPassword({
+                    email: e.data.email,
+                    password: e.data.password
+                });
+                window.location.href = '/admin-dashboard';
             }
         });
+    }
 
-        // Search bar
-        const searchInput = document.getElementById('dashboard-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => searchDashboard(e.target.value));
-        }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!user || userError) {
+        if (params && params.get('ceo_mode') === 'true') return; // Wait for postMessage
+        window.location.href = '/hrms-login';
+        return;
+    }
 
-        // Status filter
-        const statusFilter = document.getElementById('status-filter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', (e) => renderApplicantCards(applicantsCache, e.target.value));
+    let isAdmin = false;
+
+    // 1. Check admin_list table (by user_id or email)
+    try {
+        const { data: adminCheck } = await supabase
+            .from('admin_list')
+            .select('user_id, email')
+            .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+            .limit(1);
+
+        if (adminCheck && adminCheck.length > 0) {
+            isAdmin = true;
         }
+    } catch (e) {
+        console.warn('admin_list check notice:', e);
+    }
+
+    // 2. Check employees table role (matches role verified in handleAdminLogin)
+    if (!isAdmin && user.email) {
+        try {
+            const { data: emp } = await supabase
+                .from('employees')
+                .select('role')
+                .eq('email', user.email)
+                .maybeSingle();
+
+            if (emp && (emp.role === 'admin' || emp.role === 'hr')) {
+                isAdmin = true;
+
+                // Sync into admin_list table in the background
+                try {
+                    await supabase.from('admin_list').upsert([{ user_id: user.id, email: user.email }]);
+                } catch (_) {}
+            }
+        } catch (e) {
+            console.warn('employees table check notice:', e);
+        }
+    }
+
+    // 3. Metadata or email fallback
+    if (!isAdmin) {
+        const role = user.user_metadata?.role;
+        if (role === 'admin' || role === 'hr') {
+            isAdmin = true;
+        }
+    }
+
+    if (!isAdmin) {
+        console.error('Access Denied: Not an Admin Account');
+        await supabase.auth.signOut();
+        window.location.href = '/hrms-login';
+        return;
+    }
+
+    // Auth passed - proceed with dashboard init
+    try { showSection('employees'); } catch(e) { console.error('showSection error:', e); }
+    try { loadEmployees(); } catch(e) { console.error('loadEmployees error:', e); }
+    try { startDateTime(); } catch(e) { console.error('startDateTime error:', e); }
+    try { loadAdminProfile(); } catch(e) { console.error('loadAdminProfile error:', e); }
+    try { loadDocumentTemplates(); } catch(e) { console.error('loadDocumentTemplates error:', e); }
+
+    setTimeout(() => {
+        try { loadFaceModels(); } catch(e) {}
+    }, 500);
+
+    // Mobile menu
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main-content');
+
+    if (menuBtn && sidebar) {
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('active');
+        });
+
+        main?.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+            }
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('notif-dropdown');
+        if (dropdown && !dropdown.classList.contains('hidden') && !e.target.closest('.notification-wrapper')) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    // Search bar
+    const searchInput = document.getElementById('dashboard-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => searchDashboard(e.target.value));
+    }
+
+    // Status filter
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => renderApplicantCards(applicantsCache, e.target.value));
+    }
+}
 
 /* ==========================
    TEMPLATE LIVE PREVIEW
@@ -2640,31 +2640,134 @@ async function submitHRRatings() {
 async function loadHRAnnouncements() {
     const container = document.getElementById('announcements-list');
     if (!container) return;
-    container.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading...</p>';
+    container.innerHTML = '<p style="text-align:center;color:#94a3b8">Loading announcements...</p>';
     
     try {
-        const res = await fetch('/api/announcements?scope=all', { headers: { 'x-admin-key': 'hrms-admin-access' } });
+        const res = await fetch('/api/announcements', { headers: { 'x-admin-key': 'hrms-admin-access' } });
         const data = await res.json();
         if (!data.success || !data.announcements?.length) {
             container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:2rem">No announcements yet.</p>';
             return;
         }
-        container.innerHTML = data.announcements.map(a => `
+        container.innerHTML = data.announcements.map(a => {
+            let scopeBadge = '<span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600">🌐 All Employees</span>';
+            if (a.scope?.startsWith('specific:')) {
+                const count = a.scope.replace('specific:', '').split(',').filter(Boolean).length;
+                scopeBadge = `<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600">🎯 ${count} Specific Employee${count !== 1 ? 's' : ''}</span>`;
+            } else if (a.scope === 'team') {
+                scopeBadge = '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600">👥 Team Announcement</span>';
+            }
+
+            return `
             <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;margin-bottom:0.75rem">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-                    <h4 style="margin:0;font-size:0.95rem;font-weight:700">${a.title}</h4>
+                    <h4 style="margin:0;font-size:0.95rem;font-weight:700;color:#0f172a">${a.title}</h4>
                     <span style="font-size:0.7rem;color:#94a3b8">${new Date(a.created_at).toLocaleDateString('en-IN')}</span>
                 </div>
                 <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.6">${a.message}</p>
-                <div style="margin-top:0.5rem;font-size:0.75rem;color:#94a3b8">Posted by ${a.posted_by} (${a.posted_by_role}) · ${a.scope === 'all' ? 'All Employees' : 'Team'}</div>
-            </div>
-        `).join('');
+                <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;color:#94a3b8">
+                    <span>Posted by <strong>${a.posted_by}</strong> (${a.posted_by_role})</span>
+                    ${scopeBadge}
+                </div>
+            </div>`;
+        }).join('');
     } catch (e) { container.innerHTML = '<p style="color:#dc2626">Error loading announcements</p>'; }
 }
 
+function handleAnnScopeChange() {
+    const scope = document.getElementById('ann-scope')?.value;
+    const teamBox = document.getElementById('ann-team-selector');
+    const empBox = document.getElementById('ann-employee-selector');
+
+    if (scope === 'team') {
+        if (teamBox) teamBox.classList.remove('hidden');
+        if (empBox) empBox.classList.add('hidden');
+        populateAnnManagers();
+    } else if (scope === 'specific') {
+        if (teamBox) teamBox.classList.add('hidden');
+        if (empBox) empBox.classList.remove('hidden');
+        renderAnnEmployeesChecklist(employeesCache || []);
+    } else {
+        if (teamBox) teamBox.classList.add('hidden');
+        if (empBox) empBox.classList.add('hidden');
+    }
+}
+
+function populateAnnManagers() {
+    const mgrSelect = document.getElementById('ann-manager-id');
+    if (!mgrSelect) return;
+    mgrSelect.innerHTML = '<option value="">-- Choose a Manager --</option>';
+    (managersCache || []).forEach(m => {
+        mgrSelect.innerHTML += `<option value="${m.id}">${m.name} (${m.project_name || m.designation || 'Manager'})</option>`;
+    });
+}
+
+function renderAnnEmployeesChecklist(list) {
+    const container = document.getElementById('ann-employees-checklist');
+    if (!container) return;
+
+    const activeList = list.filter(e => e.is_active !== false && e.role !== 'admin');
+    if (!activeList.length) {
+        container.innerHTML = '<p style="color:#94a3b8;font-size:0.8rem;text-align:center;margin:1rem 0">No employees available</p>';
+        return;
+    }
+
+    container.innerHTML = activeList.map(e => `
+        <label class="ann-emp-row" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;border-bottom:1px solid #f8fafc">
+            <input type="checkbox" value="${e.employee_id}" class="ann-emp-cb" onchange="window.updateAnnSelectedCount && window.updateAnnSelectedCount()" style="width:16px;height:16px;accent-color:#2563eb;cursor:pointer" />
+            <div style="flex:1">
+                <span style="font-size:0.85rem;font-weight:600;color:#0f172a">${e.full_name}</span>
+                <span style="font-size:0.75rem;color:#64748b;margin-left:6px">(${e.employee_id})</span>
+                <div style="font-size:0.75rem;color:#94a3b8">${e.designation || e.department || 'Employee'}</div>
+            </div>
+        </label>
+    `).join('');
+
+    updateAnnSelectedCount();
+}
+
+function updateAnnSelectedCount() {
+    const checked = document.querySelectorAll('.ann-emp-cb:checked');
+    const counter = document.getElementById('ann-selected-count');
+    if (counter) counter.textContent = checked.length;
+}
+
+function toggleAllAnnEmployees(select) {
+    const rows = document.querySelectorAll('.ann-emp-row');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const cb = row.querySelector('.ann-emp-cb');
+            if (cb) cb.checked = select;
+        }
+    });
+    updateAnnSelectedCount();
+}
+
+function filterAnnEmployees(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.ann-emp-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? 'flex' : 'none';
+    });
+}
+
 function openAnnouncementForm() {
-    document.getElementById('ann-title').value = '';
-    document.getElementById('ann-message').value = '';
+    const title = document.getElementById('ann-title');
+    const msg = document.getElementById('ann-message');
+    const scope = document.getElementById('ann-scope');
+    const search = document.getElementById('ann-emp-search');
+
+    if (title) title.value = '';
+    if (msg) msg.value = '';
+    if (scope) scope.value = 'all';
+    if (search) search.value = '';
+
+    const teamBox = document.getElementById('ann-team-selector');
+    const empBox = document.getElementById('ann-employee-selector');
+    if (teamBox) teamBox.classList.add('hidden');
+    if (empBox) empBox.classList.add('hidden');
+
     document.getElementById('announcement-modal')?.classList.remove('hidden');
 }
 
@@ -2674,78 +2777,112 @@ async function postAnnouncement() {
     const scope = document.getElementById('ann-scope')?.value || 'all';
     
     if (!title || !message) { showToast('Title and message are required', 'error'); return; }
+
+    let target_employee_ids = [];
+    let manager_id = null;
+
+    if (scope === 'specific') {
+        const checked = document.querySelectorAll('.ann-emp-cb:checked');
+        target_employee_ids = Array.from(checked).map(c => c.value);
+        if (target_employee_ids.length === 0) {
+            showToast('Please select at least one employee', 'error');
+            return;
+        }
+    } else if (scope === 'team') {
+        manager_id = document.getElementById('ann-manager-id')?.value;
+        if (!manager_id) {
+            showToast('Please select a manager team', 'error');
+            return;
+        }
+    }
     
     try {
         const res = await fetch('/api/announcements', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-key': 'hrms-admin-access' },
-            body: JSON.stringify({ title, message, posted_by: 'HR Admin', posted_by_role: 'hr', scope })
+            body: JSON.stringify({
+                title,
+                message,
+                posted_by: 'HR Admin',
+                posted_by_role: 'hr',
+                scope,
+                manager_id,
+                target_employee_ids
+            })
         });
         const data = await res.json();
         if (data.success) {
-            showToast('Announcement posted!', 'success');
+            showToast('Announcement posted successfully!', 'success');
             closeModal('announcement-modal');
             loadHRAnnouncements();
             fetchNotifications(); // Instant bell icon update without page refresh!
-        } else showToast(data.error || 'Failed', 'error');
-    } catch (e) { showToast('Error posting', 'error'); }
+        } else showToast(data.error || 'Failed to post announcement', 'error');
+    } catch (e) { showToast('Error posting announcement', 'error'); }
 }
 
-        if (typeof window !== 'undefined') {
-            window.showSection = showSection;
-            window.toggleNotifications = toggleNotifications;
-            window.markAllRead = markAllRead;
-            window.switchEmployeeTab = switchEmployeeTab;
-            window.openAddEmployeeModal = openAddEmployeeModal;
-            window.handleAddEmployee = handleAddEmployee;
-            window.openResetPassword = openResetPassword;
-            window.handleResetPassword = handleResetPassword;
-            window.deleteEmployee = deleteEmployee;
-            window.confirmDeleteEmployee = confirmDeleteEmployee;
-            window.closeModal = closeModal;
-            window.logoutAdmin = logoutAdmin;
-            window.loadAttendance = loadAttendance;
-            window.openAssignTaskModal = openAssignTaskModal;
-            window.handleAssignTask = handleAssignTask;
-            window.reviewTask = reviewTask;
-            window.updateLeave = updateLeave;
-            window.viewApplicantDetails = viewApplicantDetails;
-            window.deleteApplicant = deleteApplicant;
-            window.sendEmailFromDashboard = sendEmailFromDashboard;
-            window.viewEmployeeDetail = viewEmployeeDetail;
-            window.switchDetailTab = switchDetailTab;
-            window.uploadMissingDocs = uploadMissingDocs;
-            window.handleUploadDocs = handleUploadDocs;
-            window.openEmployeeEmail = openEmployeeEmail;
-            window.openIssueDocModal = openIssueDocModal;
-            window.switchIssueTab = switchIssueTab;
-            window.handleIssueDocument = handleIssueDocument;
-            window.renderDynamicTemplateFields = renderDynamicTemplateFields;
-            window.openEndEmploymentModal = openEndEmploymentModal;
-            window.handleEndEmployment = handleEndEmployment;
-            window.openTemplateEditor = openTemplateEditor;
-            window.editTemplate = editTemplate;
-            window.saveTemplate = saveTemplate;
-            window.deleteTemplate = deleteTemplate;
+export function bindAdminDashboardToWindow() {
+    if (typeof window === 'undefined') return;
+    window.showSection = showSection;
+    window.toggleNotifications = toggleNotifications;
+    window.markAllRead = markAllRead;
+    window.switchEmployeeTab = switchEmployeeTab;
+    window.openAddEmployeeModal = openAddEmployeeModal;
+    window.handleAddEmployee = handleAddEmployee;
+    window.openResetPassword = openResetPassword;
+    window.handleResetPassword = handleResetPassword;
+    window.deleteEmployee = deleteEmployee;
+    window.confirmDeleteEmployee = confirmDeleteEmployee;
+    window.closeModal = closeModal;
+    window.logoutAdmin = logoutAdmin;
+    window.loadAttendance = loadAttendance;
+    window.openAssignTaskModal = openAssignTaskModal;
+    window.handleAssignTask = handleAssignTask;
+    window.reviewTask = reviewTask;
+    window.updateLeave = updateLeave;
+    window.viewApplicantDetails = viewApplicantDetails;
+    window.deleteApplicant = deleteApplicant;
+    window.sendEmailFromDashboard = sendEmailFromDashboard;
+    window.viewEmployeeDetail = viewEmployeeDetail;
+    window.switchDetailTab = switchDetailTab;
+    window.uploadMissingDocs = uploadMissingDocs;
+    window.handleUploadDocs = handleUploadDocs;
+    window.openEmployeeEmail = openEmployeeEmail;
+    window.openIssueDocModal = openIssueDocModal;
+    window.switchIssueTab = switchIssueTab;
+    window.handleIssueDocument = handleIssueDocument;
+    window.renderDynamicTemplateFields = renderDynamicTemplateFields;
+    window.openEndEmploymentModal = openEndEmploymentModal;
+    window.handleEndEmployment = handleEndEmployment;
+    window.openTemplateEditor = openTemplateEditor;
+    window.editTemplate = editTemplate;
+    window.saveTemplate = saveTemplate;
+    window.deleteTemplate = deleteTemplate;
 
-            // Load document templates
-            loadDocumentTemplates();
-            window.updateAppStatus = updateAppStatus;
-            window.searchDashboard = searchDashboard;
-            // Manager, Rating, Announcement functions
-            window.loadManagers = loadManagers;
-            window.openManagerModal = openManagerModal;
-            window.saveManager = saveManager;
-            window.deleteManager = deleteManager;
-            window.openAssignEmployeesModal = openAssignEmployeesModal;
-            window.saveAssignments = saveAssignments;
-            window.loadHRRatings = loadHRRatings;
-            window.openHRRatingForm = openHRRatingForm;
-            window.submitHRRatings = submitHRRatings;
-            window.loadHRAnnouncements = loadHRAnnouncements;
-            window.openAnnouncementForm = openAnnouncementForm;
-            window.postAnnouncement = postAnnouncement;
-            window.updateTemplatePreview = updateTemplatePreview;
-        }
-    })();
+    // Load document templates
+    window.loadDocumentTemplates = loadDocumentTemplates;
+    window.updateAppStatus = updateAppStatus;
+    window.searchDashboard = searchDashboard;
+    // Manager, Rating, Announcement functions
+    window.loadManagers = loadManagers;
+    window.openManagerModal = openManagerModal;
+    window.saveManager = saveManager;
+    window.deleteManager = deleteManager;
+    window.openAssignEmployeesModal = openAssignEmployeesModal;
+    window.saveAssignments = saveAssignments;
+    window.loadHRRatings = loadHRRatings;
+    window.openHRRatingForm = openHRRatingForm;
+    window.submitHRRatings = submitHRRatings;
+    window.loadHRAnnouncements = loadHRAnnouncements;
+    window.openAnnouncementForm = openAnnouncementForm;
+    window.postAnnouncement = postAnnouncement;
+    window.handleAnnScopeChange = handleAnnScopeChange;
+    window.renderAnnEmployeesChecklist = renderAnnEmployeesChecklist;
+    window.updateAnnSelectedCount = updateAnnSelectedCount;
+    window.toggleAllAnnEmployees = toggleAllAnnEmployees;
+    window.filterAnnEmployees = filterAnnEmployees;
+    window.updateTemplatePreview = updateTemplatePreview;
+}
+
+if (typeof window !== 'undefined') {
+    bindAdminDashboardToWindow();
 }
