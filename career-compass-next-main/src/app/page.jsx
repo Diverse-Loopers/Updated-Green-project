@@ -67,13 +67,15 @@ function PlacementSection() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
   const fileRef = useRef(null);
+  const resumeRef = useRef(null);
   const [idProofFile, setIdProofFile] = useState(null);
+  const [resumeFile, setResumeFile] = useState(null);
   const [form, setForm] = useState({
     full_name: '', current_location: '', citizenship: '', tech_skill_set: '',
     contact_number: '', email: '', visa_status: '', linkedin_url: '',
-    linkedin_password: '', email_password: '', date_of_birth: '',
-    sin_ssn_last4: '', skype_id: '', vendor_call_availability: '',
+    date_of_birth: '', sin_ssn_last4: '', vendor_call_availability: '',
     masters_field: '', masters_university: '', masters_dates: '', masters_gpa: '',
     bachelors_field: '', bachelors_university: '', bachelors_dates: '', bachelors_gpa: '',
     open_to_relocation: '', alternate_contact: '', personal_email: '', portfolio_url: '',
@@ -81,13 +83,55 @@ function PlacementSection() {
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  useEffect(() => {
+    const handleUrlTrigger = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      if (
+        params.get('apply') === 'placement' ||
+        params.get('apply') === 'true' ||
+        params.get('form') === 'placement' ||
+        params.get('modal') === 'placement' ||
+        hash === '#apply' ||
+        hash === '#apply-placement' ||
+        hash === '#placement' ||
+        hash === '#placement-apply'
+      ) {
+        setModalOpen(true);
+      }
+    };
+
+    handleUrlTrigger();
+    window.addEventListener('hashchange', handleUrlTrigger);
+    return () => window.removeEventListener('hashchange', handleUrlTrigger);
+  }, []);
+
+  const copyShareLink = () => {
+    if (typeof window === 'undefined') return;
+    const shareUrl = `${window.location.origin}/?apply=placement`;
+    navigator.clipboard?.writeText(shareUrl).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }).catch(() => {
+      window.prompt('Copy direct application form link:', shareUrl);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setError('');
+
+    if (!resumeFile) {
+      setError('Please upload your resume / CV (compulsory).');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      fd.append('resume_file', resumeFile);
       if (idProofFile) fd.append('id_proof_file', idProofFile);
       const res = await fetch('/api/placement', { method: 'POST', body: fd });
       const data = await res.json();
@@ -99,7 +143,25 @@ function PlacementSection() {
     setSubmitting(false);
   };
 
-  const closeModal = () => { setModalOpen(false); setTimeout(() => setSubmitted(false), 400); };
+  const closeModal = () => {
+    setModalOpen(false);
+    setTimeout(() => setSubmitted(false), 400);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      let changed = false;
+      ['apply', 'form', 'modal'].forEach(p => {
+        if (url.searchParams.has(p)) {
+          url.searchParams.delete(p);
+          changed = true;
+        }
+      });
+      if (changed || url.hash.startsWith('#apply')) {
+        const cleanHash = url.hash.startsWith('#apply') ? '' : url.hash;
+        const newUrl = url.pathname + (url.search ? url.search : '') + cleanHash;
+        window.history.replaceState(null, '', newUrl);
+      }
+    }
+  };
 
 
 
@@ -201,14 +263,46 @@ function PlacementSection() {
         <div onClick={e => { if (e.target === e.currentTarget) closeModal(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', backdropFilter: 'blur(3px)', overflowY: 'auto' }}>
           <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 800, boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', margin: 'auto', animation: 'pslideIn 0.25s ease' }}>
             <style>{`@keyframes pslideIn { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } } @keyframes pspin { to { transform:rotate(360deg); } }`}</style>
-            <div style={{ padding: '24px 32px', borderBottom: '1px solid #ebebeb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid #ebebeb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111', margin: 0 }}>Apply for Canada &amp; USA Placement Program</h2>
                 <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>Diverse Loopers Staffing &amp; Placement Support</p>
               </div>
-              <button onClick={closeModal} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={copyShareLink}
+                  title="Copy direct shareable link to this application form"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: '1.5px solid #e2e8f0',
+                    background: copiedLink ? '#f0fff6' : '#fff',
+                    color: copiedLink ? '#00c851' : '#334155',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease'
+                  }}>
+                  {copiedLink ? (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00c851" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      Link Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      Share Form
+                    </>
+                  )}
+                </button>
+                <button onClick={closeModal} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
             </div>
             {submitted ? (
               <div style={{ padding: '60px 32px', textAlign: 'center' }}>
@@ -238,8 +332,7 @@ function PlacementSection() {
                       <PlacementField label="Personal Email" name="personal_email" type="email" placeholder="personal@gmail.com"  value={form.personal_email} onChange={setField} />
                       <PlacementField label="Date of Birth (MM-DD-YYYY)" name="date_of_birth" placeholder="01-15-1999"  value={form.date_of_birth} onChange={setField} />
                       <PlacementField label="Current Location with ZIP/Postal Code" name="current_location" placeholder="Toronto, ON M5V 2T6" span2  value={form.current_location} onChange={setField} />
-                      <PlacementField label="Skype ID" name="skype_id" placeholder="john.smith"  value={form.skype_id} onChange={setField} />
-                      <PlacementField label="Availability for Vendor Calls" name="vendor_call_availability" placeholder="Weekdays 9am-5pm EST"  value={form.vendor_call_availability} onChange={setField} />
+                      <PlacementField label="Availability for Vendor Calls" name="vendor_call_availability" placeholder="Weekdays 9am-5pm EST" span2  value={form.vendor_call_availability} onChange={setField} />
                     </div>
                   </div>
 
@@ -252,8 +345,6 @@ function PlacementSection() {
                       <PlacementSelect label="Open to Relocation" name="open_to_relocation" required options={['Yes', 'No']}  value={form.open_to_relocation} onChange={setField} />
                       <PlacementField label="Last 4 Digits of SIN / SSN" name="sin_ssn_last4" placeholder="1234"  value={form.sin_ssn_last4} onChange={setField} />
                       <PlacementField label="LinkedIn Profile URL" name="linkedin_url" type="url" placeholder="https://linkedin.com/in/yourprofile" span2  value={form.linkedin_url} onChange={setField} />
-                      <PlacementField label="LinkedIn Password (if applicable)" name="linkedin_password" type="password" placeholder="Enter LinkedIn password"  value={form.linkedin_password} onChange={setField} />
-                      <PlacementField label="Separate Email / LinkedIn Password" name="email_password" type="password" placeholder="Enter password"  value={form.email_password} onChange={setField} />
                       <PlacementField label="Portfolio / GitHub / Website" name="portfolio_url" type="url" placeholder="https://github.com/yourprofile" span2  value={form.portfolio_url} onChange={setField} />
                     </div>
                   </div>
@@ -278,16 +369,99 @@ function PlacementSection() {
                     </div>
                   </div>
 
+                  {/* RESUME UPLOAD (COMPULSORY) */}
+                  <div style={{ marginBottom: 28 }}>
+                    <PlacementSectionLabel text="Resume / CV Upload" color="#0284c7" />
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Upload Your Resume / CV <span style={{ color: '#e53e3e' }}>* (Compulsory)</span>
+                    </label>
+                    <div
+                      onClick={() => resumeRef.current?.click()}
+                      style={{
+                        border: resumeFile ? '2px dashed #00c851' : '2px dashed #0284c7',
+                        borderRadius: 12,
+                        padding: '24px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        background: resumeFile ? '#f0fff6' : '#f0f9ff',
+                        transition: 'border-color 0.15s, background 0.15s'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#00c851';
+                        e.currentTarget.style.background = '#f0fff6';
+                      }}
+                      onMouseLeave={e => {
+                        if (!resumeFile) {
+                          e.currentTarget.style.borderColor = '#0284c7';
+                          e.currentTarget.style.background = '#f0f9ff';
+                        }
+                      }}>
+                      <input
+                        ref={resumeRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            setResumeFile(e.target.files[0]);
+                            setError('');
+                          }
+                        }}
+                      />
+                      {resumeFile ? (
+                        <div>
+                          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00c851" strokeWidth="2.2" style={{ marginBottom: 8 }}>
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                          <p style={{ color: '#00c851', fontWeight: 700, fontSize: 13, margin: 0 }}>{resumeFile.name}</p>
+                          <p style={{ color: '#666', fontSize: 11, marginTop: 4 }}>
+                            Resume attached ({(resumeFile.size / 1024 / 1024).toFixed(2)} MB) · Click to replace
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="1.75" style={{ marginBottom: 8 }}>
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="12" y1="18" x2="12" y2="12"/>
+                            <line x1="9" y1="15" x2="15" y2="15"/>
+                          </svg>
+                          <p style={{ color: '#0284c7', fontSize: 13, fontWeight: 700, margin: 0 }}>Click to upload Resume / CV *</p>
+                          <p style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>PDF, DOC or DOCX — Compulsory (Max 10MB)</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* IDENTITY VERIFICATION */}
                   <div style={{ marginBottom: 24 }}>
                     <PlacementSectionLabel text="Identity Verification" color="#0d9488" />
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Upload Valid Photo ID Proof</label>
                     <div onClick={() => fileRef.current?.click()}
-                      style={{ border: '2px dashed #e2e8f0', borderRadius: 12, padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#fafafa', transition: 'border-color 0.15s, background 0.15s' }}
+                      style={{
+                        border: idProofFile ? '2px dashed #00c851' : '2px dashed #e2e8f0',
+                        borderRadius: 12,
+                        padding: '24px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        background: idProofFile ? '#f0fff6' : '#fafafa',
+                        transition: 'border-color 0.15s, background 0.15s'
+                      }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = '#00c851'; e.currentTarget.style.background = '#f0fff6'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fafafa'; }}>
-                      <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => setIdProofFile(e.target.files[0])} />
+                      onMouseLeave={e => {
+                        if (!idProofFile) {
+                          e.currentTarget.style.borderColor = '#e2e8f0';
+                          e.currentTarget.style.background = '#fafafa';
+                        }
+                      }}>
+                      <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => {
+                        if (e.target.files && e.target.files[0]) setIdProofFile(e.target.files[0]);
+                      }} />
                       {idProofFile ? (
-                        <p style={{ color: '#00c851', fontWeight: 700, fontSize: 13, margin: 0 }}>{idProofFile.name}</p>
+                        <div>
+                          <p style={{ color: '#00c851', fontWeight: 700, fontSize: 13, margin: 0 }}>{idProofFile.name}</p>
+                          <p style={{ color: '#666', fontSize: 11, marginTop: 4 }}>Click to replace ID document</p>
+                        </div>
                       ) : (
                         <>
                           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="1.5" style={{ marginBottom: 8 }}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>

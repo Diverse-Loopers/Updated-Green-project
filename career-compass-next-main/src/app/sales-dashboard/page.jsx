@@ -1579,6 +1579,7 @@ export default function SalesDashboardPage() {
                       ['📅 Bachelor\'s Dates', placementDetail.bachelors_dates], ['📊 Bachelor\'s GPA', placementDetail.bachelors_gpa],
                       ['🚚 Open to Relocation', placementDetail.open_to_relocation ? 'Yes' : 'No'],
                       ['🌐 Portfolio/GitHub', placementDetail.portfolio_url],
+                      ['📄 Resume / CV', placementDetail.resume_url ? <a href={placementDetail.resume_url} target="_blank" rel="noopener noreferrer" style={{ color: '#16a34a', fontWeight: 600 }}>Download / View Resume</a> : (placementDetail.notes?.includes('Resume URL: ') ? <a href={placementDetail.notes.replace('Resume URL: ', '').trim()} target="_blank" rel="noopener noreferrer" style={{ color: '#16a34a', fontWeight: 600 }}>Download / View Resume</a> : 'Not uploaded')],
                       ['🪪 ID Proof', placementDetail.id_proof_url ? <a href={placementDetail.id_proof_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>View Document</a> : 'Not uploaded'],
                     ].map(([label, value]) => value ? (
                       <div key={label} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '8px 0', fontSize: '0.82rem', gap: 12 }}>
