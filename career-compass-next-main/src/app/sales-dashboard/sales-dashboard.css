@@ -168,7 +168,50 @@
     border-bottom: 1px solid var(--sd-border);
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 20;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.sd-layout.embedded .sd-sidebar {
+    display: none !important;
+}
+
+.sd-embedded-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 12px;
+    flex-wrap: wrap;
+}
+
+.sd-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.sd-tab-btn:hover {
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.sd-tab-btn.active {
+    background: var(--sd-primary);
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
 }
 .sd-topbar h1 {
     font-size: 1.35rem;

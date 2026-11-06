@@ -45,14 +45,19 @@ export default function CEODashboardPage() {
 
         {/* SIDEBAR */}
         <aside className="w-72 bg-white border-r border-slate-200 flex flex-col fixed lg:static inset-y-0 left-0 z-[70] transition-transform duration-300" id="ceo-sidebar">
-          <div className="p-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="/images/logo.png" className="h-10 w-auto rounded-lg" alt="Logo" />
-              <span className="font-black tracking-tight text-xl uppercase italic text-primary">
-                CEO Panel
-              </span>
+          <div className="px-5 py-5 flex items-center justify-between border-b border-slate-100">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src="/apple-touch-icon.png" className="h-9 w-9 object-contain rounded-xl shrink-0 shadow-sm" alt="Logo" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-400 leading-tight">
+                  Diverse Loopers
+                </span>
+                <span className="font-black tracking-tight text-lg uppercase italic text-primary leading-tight">
+                  CEO Panel
+                </span>
+              </div>
             </div>
-            <button onClick={() => window.ceToggleSidebar && window.ceToggleSidebar()} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition">
+            <button onClick={() => window.ceToggleSidebar && window.ceToggleSidebar()} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition shrink-0 ml-1" title="Toggle Sidebar">
               <i data-lucide="panel-left-close" className="w-5 h-5" id="sidebar-toggle-icon"></i>
             </button>
           </div>

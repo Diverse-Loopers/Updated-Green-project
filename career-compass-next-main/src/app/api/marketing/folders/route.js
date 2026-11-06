@@ -15,25 +15,33 @@ export async function GET() {
             .order('created_at', { ascending: true });
         if (error) throw error;
 
-        // Get counts per folder
-        const { data: contacts } = await supabase
+        // Get exact counts per folder in parallel (avoids PostgREST 1000 row truncation)
+        const folderCounts = await Promise.all(
+            (folders || []).map(async (f) => {
+                const { count } = await supabase
+                    .from('marketing_contacts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('folder_id', f.id)
+                    .eq('is_subscribed', true);
+                return { id: f.id, count: count || 0 };
+            })
+        );
+
+        const { count: unassigned } = await supabase
             .from('marketing_contacts')
-            .select('folder_id')
+            .select('*', { count: 'exact', head: true })
+            .is('folder_id', null)
             .eq('is_subscribed', true);
 
-        const counts = {};
-        let unassigned = 0;
-        (contacts || []).forEach(c => {
-            if (c.folder_id) counts[c.folder_id] = (counts[c.folder_id] || 0) + 1;
-            else unassigned++;
-        });
+        const countsMap = {};
+        folderCounts.forEach(fc => { countsMap[fc.id] = fc.count; });
 
         const result = (folders || []).map(f => ({
             ...f,
-            contact_count: counts[f.id] || 0
+            contact_count: countsMap[f.id] || 0
         }));
 
-        return NextResponse.json({ success: true, folders: result, unassigned });
+        return NextResponse.json({ success: true, folders: result, unassigned: unassigned || 0 });
     } catch (err) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }

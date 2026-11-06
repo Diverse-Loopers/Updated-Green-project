@@ -37,6 +37,7 @@ export default function CMODashboard() {
   const [sendToFolder, setSendToFolder] = useState('all');
   const [campaignDetail, setCampaignDetail] = useState(null);
   const [runningCampaigns, setRunningCampaigns] = useState([]);
+  const [isEmbedded, setIsEmbedded] = useState(false);
 
   useEffect(() => {
     // CEO iframe mode: inject token from URL
@@ -54,6 +55,13 @@ export default function CMODashboard() {
         }));
       } catch(e) {}
     }
+
+    const inIframe = typeof window !== 'undefined' && (
+      window.self !== window.top ||
+      params.has('ceo_token') ||
+      params.has('ceo_mode')
+    );
+    setIsEmbedded(inIframe);
 
     const s = sessionStorage.getItem('executive_session');
     if (!s) { router.push('/executive-login'); return; }
@@ -344,36 +352,58 @@ export default function CMODashboard() {
   if (!exec) return null;
 
   return (
-    <div className="cmo-dash">
-      <aside className={`cmo-sidebar ${mobileOpen?'open':''}`}>
-        <div className="cmo-sidebar-logo">
-          <img src="/images/logo.png" alt="Logo" />
-        </div>
-        <nav className="cmo-nav">
-          {NAV.map(n=>(
-            <button key={n.id} className={`cmo-nav-btn ${section===n.id?'active':''}`} onClick={()=>{setSection(n.id);setMobileOpen(false);}}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={n.d}/></svg>
-              {n.label}
+    <div className={`cmo-dash ${isEmbedded ? 'embedded' : ''}`}>
+      {!isEmbedded && (
+        <aside className={`cmo-sidebar ${mobileOpen?'open':''}`}>
+          <div className="cmo-sidebar-logo">
+            <img src="/images/logo.png" alt="Logo" />
+          </div>
+          <nav className="cmo-nav">
+            {NAV.map(n=>(
+              <button key={n.id} className={`cmo-nav-btn ${section===n.id?'active':''}`} onClick={()=>{setSection(n.id);setMobileOpen(false);}}>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={n.d}/></svg>
+                {n.label}
+              </button>
+            ))}
+            <button className="cmo-nav-btn logout" onClick={logout}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+              Logout
             </button>
-          ))}
-          <button className="cmo-nav-btn logout" onClick={logout}>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-            Logout
-          </button>
-        </nav>
-        <div className="cmo-sidebar-profile">
-          <div className="cmo-sidebar-avatar">{(exec.name||'C')[0]}</div>
-          <div className="cmo-sidebar-info"><div className="name">{exec.name}</div><div className="role">Chief Marketing Officer</div></div>
-        </div>
-      </aside>
+          </nav>
+          <div className="cmo-sidebar-profile">
+            <div className="cmo-sidebar-avatar">{(exec.name||'C')[0]}</div>
+            <div className="cmo-sidebar-info"><div className="name">{exec.name}</div><div className="role">Chief Marketing Officer</div></div>
+          </div>
+        </aside>
+      )}
 
       <main className="cmo-main">
         <div className="cmo-topbar">
           <div className="cmo-topbar-left">
-            <button className="cmo-mobile-btn" onClick={()=>setMobileOpen(!mobileOpen)}>☰</button>
-            <h1>Marketing Dashboard</h1>
-            <p>{dateStr} • Sending as contact@diverseloopers.com</p>
+            {!isEmbedded && <button className="cmo-mobile-btn" onClick={()=>setMobileOpen(!mobileOpen)}>☰</button>}
+            <div>
+              <h1>Marketing Dashboard</h1>
+              <p>{dateStr} • Sending as contact@diverseloopers.com</p>
+            </div>
           </div>
+
+          {isEmbedded && (
+            <div className="cmo-embedded-tabs">
+              {NAV.map(n => (
+                <button
+                  key={n.id}
+                  className={`cmo-tab-btn ${section === n.id ? 'active' : ''}`}
+                  onClick={() => setSection(n.id)}
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: 15, height: 15 }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={n.d} />
+                  </svg>
+                  {n.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="cmo-topbar-right">
             <div className="cmo-search-box">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>

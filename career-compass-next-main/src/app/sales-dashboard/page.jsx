@@ -69,6 +69,7 @@ export default function SalesDashboardPage() {
   const [enrollMsg, setEnrollMsg] = useState('');
   const [uploadingMou, setUploadingMou] = useState(false);
   const [uploadingCreds, setUploadingCreds] = useState(false);
+  const [isEmbedded, setIsEmbedded] = useState(false);
 
   const initialEnrollForm = {
     id: null,
@@ -255,6 +256,13 @@ export default function SalesDashboardPage() {
         }));
       } catch(e) {}
     }
+
+    const inIframe = typeof window !== 'undefined' && (
+      window.self !== window.top ||
+      params.has('ceo_token') ||
+      params.has('ceo_mode')
+    );
+    setIsEmbedded(inIframe);
 
     const session = sessionStorage.getItem('executive_session');
     if (!session) { router.push('/executive-login'); return; }
@@ -564,30 +572,32 @@ export default function SalesDashboardPage() {
   ];
 
   return (
-    <div className="sd-layout">
-      <aside className="sd-sidebar">
-        <div className="sd-sidebar-logo">
-          <img src="/Diverse Loopers Black BG (2).png" alt="Logo" />
-          <span>CSO Panel</span>
-        </div>
-        {exec && (
-          <div className="sd-user-card">
-            <div className="sd-user-avatar">{exec.name?.charAt(0).toUpperCase()}</div>
-            <div>
-              <p className="sd-user-name">{exec.name}</p>
-              <p className="sd-user-role">{ROLE_LABELS[exec.role] || exec.role}</p>
-            </div>
+    <div className={`sd-layout ${isEmbedded ? 'embedded' : ''}`}>
+      {!isEmbedded && (
+        <aside className="sd-sidebar">
+          <div className="sd-sidebar-logo">
+            <img src="/Diverse Loopers Black BG (2).png" alt="Logo" />
+            <span>CSO Panel</span>
           </div>
-        )}
-        <nav className="sd-nav">
-          {NAV_ITEMS.map(item => (
-            <button key={item.id} className={`sd-nav-btn ${activeTab === item.id ? 'active' : ''}`} onClick={() => setActiveTab(item.id)}>
-              <span style={{ fontSize: 16 }}>{item.icon}</span> {item.label}
-            </button>
-          ))}
-        </nav>
-        <button className="sd-logout-btn" onClick={handleLogout}>🚪 Logout</button>
-      </aside>
+          {exec && (
+            <div className="sd-user-card">
+              <div className="sd-user-avatar">{exec.name?.charAt(0).toUpperCase()}</div>
+              <div>
+                <p className="sd-user-name">{exec.name}</p>
+                <p className="sd-user-role">{ROLE_LABELS[exec.role] || exec.role}</p>
+              </div>
+            </div>
+          )}
+          <nav className="sd-nav">
+            {NAV_ITEMS.map(item => (
+              <button key={item.id} className={`sd-nav-btn ${activeTab === item.id ? 'active' : ''}`} onClick={() => setActiveTab(item.id)}>
+                <span style={{ fontSize: 16 }}>{item.icon}</span> {item.label}
+              </button>
+            ))}
+          </nav>
+          <button className="sd-logout-btn" onClick={handleLogout}>🚪 Logout</button>
+        </aside>
+      )}
 
       <main className="sd-main">
         <div className="sd-topbar">
@@ -595,6 +605,19 @@ export default function SalesDashboardPage() {
             <h1>{NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'}</h1>
             <p>Diverse Loopers Executive Dashboard</p>
           </div>
+          {isEmbedded && (
+            <div className="sd-embedded-tabs">
+              {NAV_ITEMS.map(item => (
+                <button
+                  key={item.id}
+                  className={`sd-tab-btn ${activeTab === item.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <span>{item.icon}</span> {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* OVERVIEW */}
