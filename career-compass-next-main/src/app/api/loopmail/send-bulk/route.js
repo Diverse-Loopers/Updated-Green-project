@@ -41,6 +41,9 @@ const runningCampaigns = new Map();
 
 async function sendInBackground(campId, userId, validContacts, skippedContacts, htmlBody, subject, from, cc, bcc, smtpConfig, attachments) {
     const transporter = nodemailer.createTransport({
+        pool: true,
+        maxConnections: 5,
+        maxMessages: Infinity,
         host: smtpConfig.host,
         port: smtpConfig.port,
         secure: smtpConfig.secure,
@@ -51,58 +54,54 @@ async function sendInBackground(campId, userId, validContacts, skippedContacts, 
     const state = { status:'sending', delivered:0, failed:skippedContacts.length, bounceCount:0, total:validContacts.length+skippedContacts.length, current:0, paused:false, pauseUntil:null, userId };
     runningCampaigns.set(campId, state);
 
-    const BATCH = 5;
-    const MAX_BOUNCES = 2;
-    const PAUSE_MS = 60*60*1000;
+    const BATCH_SIZE = 5;
 
-    for (let i = 0; i < validContacts.length; i++) {
-        const contact = validContacts[i];
-        state.current = i + 1;
+    for (let i = 0; i < validContacts.length; i += BATCH_SIZE) {
+        const batch = validContacts.slice(i, i + BATCH_SIZE);
+        const batchStartTime = Date.now();
 
-        if (state.bounceCount > 0 && state.bounceCount % MAX_BOUNCES === 0 && !state.paused) {
-            state.paused = true;
-            state.pauseUntil = new Date(Date.now() + PAUSE_MS).toISOString();
-            state.status = 'paused';
-            await supabase.from('loopmail_campaigns').update({ status:'paused' }).eq('id', campId);
-            await sleep(PAUSE_MS);
-            state.paused = false; state.pauseUntil = null; state.status = 'sending'; state.bounceCount = 0;
-            await supabase.from('loopmail_campaigns').update({ status:'sending' }).eq('id', campId);
-        }
+        await Promise.allSettled(batch.map(async (contact) => {
+            try {
+                const greeting = contact.name || 'User';
+                const body = htmlBody.replace(/\{\{name\}\}/g, greeting).replace(/\{\{email\}\}/g, contact.email);
+                const mailOpts = { from, to: contact.email, subject, html: body };
+                const ccList = (cc||'').split(',').map(e=>e.trim()).filter(Boolean);
+                const bccList = (bcc||'').split(',').map(e=>e.trim()).filter(Boolean);
+                if (ccList.length) mailOpts.cc = ccList;
+                if (bccList.length) mailOpts.bcc = bccList;
+                if (attachments && attachments.length > 0) {
+                    mailOpts.attachments = attachments.map(a => ({
+                        filename: a.filename,
+                        content: Buffer.from(a.content, 'base64'),
+                        contentType: a.contentType || 'application/octet-stream',
+                    }));
+                }
 
-        try {
-            const greeting = contact.name || 'User';
-            const body = htmlBody.replace(/\{\{name\}\}/g, greeting).replace(/\{\{email\}\}/g, contact.email);
-            const mailOpts = { from, to: contact.email, subject, html: body };
-            const ccList = (cc||'').split(',').map(e=>e.trim()).filter(Boolean);
-            const bccList = (bcc||'').split(',').map(e=>e.trim()).filter(Boolean);
-            if (ccList.length) mailOpts.cc = ccList;
-            if (bccList.length) mailOpts.bcc = bccList;
-            if (attachments && attachments.length > 0) {
-                mailOpts.attachments = attachments.map(a => ({
-                    filename: a.filename,
-                    content: Buffer.from(a.content, 'base64'),
-                    contentType: a.contentType || 'application/octet-stream',
-                }));
+                await transporter.sendMail(mailOpts);
+                state.delivered++;
+                await supabase.from('loopmail_campaign_recipients').update({ status:'sent', sent_at:new Date().toISOString() }).eq('campaign_id', campId).eq('contact_id', contact.id);
+            } catch (err) {
+                state.bounceCount++; state.failed++;
+                await supabase.from('loopmail_campaign_recipients').update({ status:'failed', error_message:err.message||'Send failed' }).eq('campaign_id', campId).eq('contact_id', contact.id);
             }
+        }));
 
-            await transporter.sendMail(mailOpts);
-            state.delivered++;
-            await supabase.from('loopmail_campaign_recipients').update({ status:'sent', sent_at:new Date().toISOString() }).eq('campaign_id', campId).eq('contact_id', contact.id);
-        } catch (err) {
-            state.bounceCount++; state.failed++;
-            await supabase.from('loopmail_campaign_recipients').update({ status:'failed', error_message:err.message||'Send failed' }).eq('campaign_id', campId).eq('contact_id', contact.id);
+        state.current = Math.min(i + batch.length, validContacts.length);
+
+        await supabase.from('loopmail_campaigns').update({ delivered_count:state.delivered, failed_count:state.failed }).eq('id', campId);
+
+        if (i + BATCH_SIZE < validContacts.length) {
+            const elapsed = Date.now() - batchStartTime;
+            const remainingDelay = Math.max(0, 1000 - elapsed);
+            if (remainingDelay > 0) {
+                await sleep(remainingDelay);
+            }
         }
-
-        if (i % 5 === 0 || i === validContacts.length - 1) {
-            await supabase.from('loopmail_campaigns').update({ delivered_count:state.delivered, failed_count:state.failed }).eq('id', campId);
-        }
-
-        if ((i+1) % BATCH === 0 && i+1 < validContacts.length) await sleep(5000);
-        else if (i+1 < validContacts.length) await sleep(1000);
     }
 
     await supabase.from('loopmail_campaigns').update({ status:'sent', delivered_count:state.delivered, failed_count:state.failed, sent_at:new Date().toISOString() }).eq('id', campId);
     state.status = 'sent';
+    try { transporter.close(); } catch {}
     setTimeout(() => runningCampaigns.delete(campId), 5*60*1000);
 }
 

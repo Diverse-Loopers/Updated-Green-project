@@ -193,13 +193,25 @@ export default function CMODashboard() {
 
   const sendBulkEmail = async () => {
     if (!compose.subject || !compose.body) return alert('Subject and body required');
-    const ids = selectedIds.length > 0 ? selectedIds : contacts.map(c=>c.id);
-    if (ids.length===0) return alert('No contacts');
-    if (!confirm(`Send to ${ids.length} contacts?`)) return;
-    setSendStatus({ msg: `Sending to ${ids.length} contacts...` });
+    const hasManualSelection = selectedIds.length > 0;
+    const folderObj = folders.find(f => f.id === sendToFolder);
+    const targetCount = hasManualSelection
+      ? selectedIds.length
+      : (sendToFolder === 'all' ? totalContacts : (folderObj?.contact_count || contacts.length));
+
+    if (targetCount === 0) return alert('No contacts in the selected list');
+    if (!confirm(`Send to ${targetCount} contacts at 5 emails per second?`)) return;
+    setSendStatus({ msg: `Starting send (${targetCount} contacts at 5/sec)...` });
+
     const fd = new FormData();
-    fd.append('contactIds', JSON.stringify(ids));
-    if (sendToFolder && sendToFolder !== 'all') fd.append('folderIds', JSON.stringify([sendToFolder]));
+    if (hasManualSelection) {
+      fd.append('contactIds', JSON.stringify(selectedIds));
+    } else if (sendToFolder && sendToFolder !== 'all') {
+      fd.append('folderIds', JSON.stringify([sendToFolder]));
+    } else {
+      fd.append('folderIds', JSON.stringify(['all']));
+    }
+
     fd.append('subject', compose.subject);
     fd.append('title', compose.title || compose.subject);
     fd.append('htmlBody', compose.body);
@@ -210,7 +222,7 @@ export default function CMODashboard() {
     const d = await r.json();
     setSendStatus(null);
     if (d.success) {
-      alert(d.message || 'Campaign started in background!');
+      alert(d.message || 'Campaign started in background! Sending to 5 persons every second.');
       setCompose({subject:'',title:'',body:'',cc:'',bcc:''}); setAttachments([]); setSelectedIds([]); fetchCampaigns();
     } else alert(d.error);
   };
@@ -448,11 +460,12 @@ export default function CMODashboard() {
               </div>
               <div style={{marginTop:'1.5rem',display:'flex',gap:'0.75rem',flexWrap:'wrap',alignItems:'center'}}>
                 <button className="cmo-btn cmo-btn-primary" onClick={sendBulkEmail} disabled={!!sendStatus} style={{padding:'0.75rem 2rem'}}>
-                  {sendStatus ? sendStatus.msg : `🚀 Send to ${selectedIds.length||totalContacts} contacts`}
+                  {sendStatus ? sendStatus.msg : `🚀 Send to ${selectedIds.length>0 ? selectedIds.length : (sendToFolder==='all'?totalContacts:(folders.find(f=>f.id===sendToFolder)?.contact_count||contacts.length))} contacts`}
                 </button>
-                <span style={{fontSize:'0.78rem',color:'var(--cmo-text-sec)'}}>
-                  {selectedIds.length>0 ? `${selectedIds.length} contacts selected` : `Sending to all ${totalContacts} subscribed contacts`}
-                </span>
+                <div style={{fontSize:'0.78rem',color:'var(--cmo-text-sec)',display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+                  <span style={{background:'#dbeafe',color:'#1d4ed8',padding:'3px 8px',borderRadius:6,fontWeight:700,fontSize:'0.72rem'}}>⚡ 5 mails / sec</span>
+                  <span>{selectedIds.length>0 ? `${selectedIds.length} contacts selected` : (sendToFolder==='all'?`Sending to all ${totalContacts} contacts`:`Sending to folder contacts`)}</span>
+                </div>
               </div>
               {compose.body&&(
                 <div style={{marginTop:'1.5rem'}}>
