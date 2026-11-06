@@ -163,17 +163,100 @@ export default function CMODashboard() {
     const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); fetchFolders();
   };
 
+  const parseCSV = (text) => {
+    const rows = [];
+    let currentRow = [];
+    let currentCell = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          currentCell += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if ((char === '\r' || char === '\n') && !inQuotes) {
+        if (char === '\r' && nextChar === '\n') i++;
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(c => c !== '')) rows.push(currentRow);
+        currentRow = [];
+        currentCell = '';
+      } else {
+        currentCell += char;
+      }
+    }
+    if (currentCell.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentCell.trim());
+      if (currentRow.some(c => c !== '')) rows.push(currentRow);
+    }
+    return rows;
+  };
+
   const handleCSVImport = async (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const text = await file.text();
-    const lines = text.split('\n').filter(l=>l.trim());
-    const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
-    const rows = lines.slice(1).map(line => { const v=line.split(',').map(x=>x.trim()); const o={}; headers.forEach((h,i)=>{o[h]=v[i]||'';}); return {email:o.email,name:o.name,phone:o.phone,company:o.company}; }).filter(r=>r.email);
-    setLoading(true);
-    const payload = { action:'bulk-import', contacts:rows };
-    if (activeFolder && activeFolder !== 'unassigned') payload.folder_id = activeFolder;
-    const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d = await r.json(); setLoading(false); alert(d.success?`Imported ${d.imported} contacts!`:d.error); fetchContacts(); fetchFolders(); e.target.value='';
+    const file = e.target.files?.[0]; if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) {
+        alert('CSV file is empty or missing data rows');
+        return;
+      }
+      const rawHeaders = rows[0].map(h => h.trim().toLowerCase());
+      const emailIdx = rawHeaders.findIndex(h => h.includes('email') || h.includes('mail'));
+      const nameIdx = rawHeaders.findIndex(h => h.includes('name') || h.includes('candidate'));
+      const phoneIdx = rawHeaders.findIndex(h => h.includes('phone') || h.includes('contact') || h.includes('mobile'));
+      const companyIdx = rawHeaders.findIndex(h => h.includes('company') || h.includes('org'));
+
+      const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+
+      const contacts = [];
+      for (const row of rows.slice(1)) {
+        let email = '';
+        if (emailIdx !== -1 && row[emailIdx]) {
+          const m = row[emailIdx].match(emailRegex);
+          if (m) email = m[0].toLowerCase().trim();
+        }
+        if (!email) {
+          for (const cell of row) {
+            const m = cell.match(emailRegex);
+            if (m) { email = m[0].toLowerCase().trim(); break; }
+          }
+        }
+        if (!email || email === 'email') continue;
+
+        let name = nameIdx !== -1 && row[nameIdx] ? row[nameIdx].split('\n')[0].replace(/^["':\s]+|["':\s]+$/g, '').trim() : '';
+        let phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx].split('\n')[0].replace(/^["':\s]+|["':\s]+$/g, '').trim() : '';
+        let company = companyIdx !== -1 && row[companyIdx] ? row[companyIdx].trim() : '';
+
+        contacts.push({ email, name, phone, company });
+      }
+
+      if (!contacts.length) {
+        alert('No valid contacts with email addresses found in CSV.');
+        return;
+      }
+
+      setLoading(true);
+      const payload = { action:'bulk-import', contacts };
+      if (activeFolder && activeFolder !== 'unassigned') payload.folder_id = activeFolder;
+      const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d = await r.json();
+      setLoading(false);
+      alert(d.success?`Imported ${d.imported} contacts!`:d.error);
+      fetchContacts();
+      fetchFolders();
+    } catch (err) {
+      setLoading(false);
+      alert('Error parsing CSV: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const toggleSelect = (id) => setSelectedIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);

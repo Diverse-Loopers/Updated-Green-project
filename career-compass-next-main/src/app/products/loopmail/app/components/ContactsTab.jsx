@@ -42,15 +42,69 @@ export default function ContactsTab({ contacts, folders, api, toast, loadAll, lo
     };
 
     const parseCSV = (text) => {
-        const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 2) return [];
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        return lines.slice(1).map(line => {
-            const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-            const obj = {};
-            headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
-            return { email: obj.email || '', name: obj.name || '', phone: obj.phone || '', company: obj.company || '' };
-        }).filter(r => r.email);
+        const rows = [];
+        let currentRow = [];
+        let currentCell = '';
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    currentCell += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                currentRow.push(currentCell.trim());
+                currentCell = '';
+            } else if ((char === '\r' || char === '\n') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') i++;
+                currentRow.push(currentCell.trim());
+                if (currentRow.some(c => c !== '')) rows.push(currentRow);
+                currentRow = [];
+                currentCell = '';
+            } else {
+                currentCell += char;
+            }
+        }
+        if (currentCell.length > 0 || currentRow.length > 0) {
+            currentRow.push(currentCell.trim());
+            if (currentRow.some(c => c !== '')) rows.push(currentRow);
+        }
+        if (rows.length < 2) return [];
+
+        const rawHeaders = rows[0].map(h => h.trim().toLowerCase());
+        const emailIdx = rawHeaders.findIndex(h => h.includes('email') || h.includes('mail'));
+        const nameIdx = rawHeaders.findIndex(h => h.includes('name') || h.includes('candidate'));
+        const phoneIdx = rawHeaders.findIndex(h => h.includes('phone') || h.includes('contact') || h.includes('mobile'));
+        const companyIdx = rawHeaders.findIndex(h => h.includes('company') || h.includes('org'));
+
+        const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+
+        const result = [];
+        for (const row of rows.slice(1)) {
+            let email = '';
+            if (emailIdx !== -1 && row[emailIdx]) {
+                const m = row[emailIdx].match(emailRegex);
+                if (m) email = m[0].toLowerCase().trim();
+            }
+            if (!email) {
+                for (const cell of row) {
+                    const m = cell.match(emailRegex);
+                    if (m) { email = m[0].toLowerCase().trim(); break; }
+                }
+            }
+            if (!email || email === 'email') continue;
+
+            let name = nameIdx !== -1 && row[nameIdx] ? row[nameIdx].split('\n')[0].replace(/^["':\s]+|["':\s]+$/g, '').trim() : '';
+            let phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx].split('\n')[0].replace(/^["':\s]+|["':\s]+$/g, '').trim() : '';
+            let company = companyIdx !== -1 && row[companyIdx] ? row[companyIdx].trim() : '';
+
+            result.push({ email, name, phone, company });
+        }
+        return result;
     };
 
     const handleFile = (e) => {

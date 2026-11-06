@@ -59,11 +59,13 @@ export async function POST(req) {
         if (action === 'bulk-import') {
             const { contacts, folder_id } = body;
             if (!contacts?.length) return NextResponse.json({ success: false, error: 'No contacts' }, { status: 400 });
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
             const formatted = contacts.map(c => ({
                 email: c.email?.toLowerCase().trim(), name: c.name || null, phone: c.phone || null,
-                company: c.company || null, source: 'import', tags: c.tags || [], is_subscribed: true,
+                company: c.company || null, source: c.source || 'import', tags: Array.isArray(c.tags) ? c.tags : [], is_subscribed: true,
                 ...(folder_id ? { folder_id } : {})
-            })).filter(c => c.email);
+            })).filter(c => c.email && emailRegex.test(c.email) && c.email.toLowerCase() !== 'email');
+            if (!formatted.length) return NextResponse.json({ success: false, error: 'No valid contacts with email found' }, { status: 400 });
             const { data, error } = await supabase.from('marketing_contacts').upsert(formatted, { onConflict: 'email', ignoreDuplicates: true }).select();
             if (error) throw error;
             return NextResponse.json({ success: true, imported: data?.length || 0 });
