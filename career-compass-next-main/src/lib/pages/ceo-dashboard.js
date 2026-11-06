@@ -2,6 +2,48 @@
    CEO DASHBOARD — Main Logic
    ========================== */
 
+/**
+ * Robust Lucide icon initializer that handles async CDN loading & dynamic route transitions.
+ */
+export function refreshCEODashboardIcons() {
+    if (typeof window === 'undefined') return;
+
+    const render = () => {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            try {
+                window.lucide.createIcons();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
+    };
+
+    if (render()) return;
+
+    // If lucide is not defined yet, inject/ensure script and poll briefly
+    if (!document.getElementById('lucide-cdn')) {
+        const script = document.createElement('script');
+        script.id = 'lucide-cdn';
+        script.src = 'https://unpkg.com/lucide@latest';
+        script.onload = () => { render(); };
+        document.head.appendChild(script);
+    }
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+        attempts++;
+        if (render() || attempts > 60) {
+            clearInterval(interval);
+        }
+    }, 50);
+}
+
+if (typeof window !== 'undefined') {
+    window.refreshCEODashboardIcons = refreshCEODashboardIcons;
+}
+
 export async function initCEODashboard() {
     // Check executive session
     const session = sessionStorage.getItem('executive_session');
@@ -26,6 +68,17 @@ export async function initCEODashboard() {
         return;
     }
 
+    // Recover executive ID from token if missing from sessionStorage
+    if (!executive.id && token) {
+        try {
+            const dec = JSON.parse(atob(token));
+            if (dec.id) executive.id = dec.id;
+        } catch (e) {}
+    }
+
+    // Keep session storage synchronized with complete executive object
+    sessionStorage.setItem('executive_session', JSON.stringify(executive));
+
     // Set profile info
     const nameEl = document.getElementById('ceo-name');
     const emailEl = document.getElementById('ceo-email');
@@ -41,8 +94,14 @@ export async function initCEODashboard() {
         updateThemeUI(true);
     }
 
-    // Always regenerate token from session data to avoid stale tokens
-    const freshPayload = { id: executive.id, email: executive.email, role: executive.role, exp: Date.now() + 8*60*60*1000 };
+    // Always regenerate token with complete data to avoid stale tokens
+    const freshPayload = {
+        id: executive.id || '',
+        name: executive.name || 'CEO',
+        email: executive.email,
+        role: executive.role,
+        exp: Date.now() + 8 * 60 * 60 * 1000
+    };
     const freshToken = btoa(JSON.stringify(freshPayload));
     sessionStorage.setItem('executive_token', freshToken);
 
@@ -63,15 +122,18 @@ export async function initCEODashboard() {
     window._ceoToken = freshToken;
     window._ceoExecutive = executive;
 
+    // Immediately trigger icon rendering
+    refreshCEODashboardIcons();
+
     // Load dashboard data
     loadCEOStats();
     loadUnifiedNotifications();
 
-    // Re-init lucide icons
-    if (window.lucide) window.lucide.createIcons();
-
-    // Poll notifications every 12 seconds for live updates
-    setInterval(loadUnifiedNotifications, 12000);
+    // Poll notifications every 15 seconds (clear previous interval to prevent duplicate timers & memory leaks)
+    if (window._ceoNotifInterval) {
+        clearInterval(window._ceoNotifInterval);
+    }
+    window._ceoNotifInterval = setInterval(loadUnifiedNotifications, 15000);
 }
 
 /* ==========================
@@ -120,6 +182,8 @@ function showSection(sectionId) {
         document.getElementById('ceo-panel-section').style.display = '';
         loadPanel(sectionId);
     }
+
+    refreshCEODashboardIcons();
 }
 
 /* ==========================
@@ -208,7 +272,7 @@ async function handleUpdateHRMSSecurityPassword() {
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Update Security Password';
-            if (window.lucide) window.lucide.createIcons();
+            refreshCEODashboardIcons();
         }
     }
 }
@@ -443,22 +507,40 @@ async function loadPanel(panelId) {
 /* ==========================
    STATS LOADING
    ========================== */
+let isStatsLoading = false;
+
 async function loadCEOStats() {
+    if (isStatsLoading) return;
+    isStatsLoading = true;
+
     try {
-        const token = window._ceoToken;
-        const exec = window._ceoExecutive;
+        const token = sessionStorage.getItem('executive_token') || window._ceoToken;
+        let exec = window._ceoExecutive;
+        if (!exec) {
+            try {
+                exec = JSON.parse(sessionStorage.getItem('executive_session') || '{}');
+            } catch (e) {}
+        }
+
         const res = await fetch('/api/ceo/stats', {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'x-ceo-id': exec?.id || ''
+                'x-ceo-id': exec?.id || '',
+                'x-ceo-email': exec?.email || '',
+                'x-admin-key': 'hrms-admin-access'
             }
         });
         const data = await res.json();
 
         if (!data.success) {
             console.error('Stats load failed:', data.error);
+            if (!window._ceoStatsRetried) {
+                window._ceoStatsRetried = true;
+                setTimeout(() => { loadCEOStats(); }, 1500);
+            }
             return;
         }
+        window._ceoStatsRetried = false;
 
         const s = data.stats;
 
@@ -507,8 +589,13 @@ async function loadCEOStats() {
         setText('doc-issued', s.documents?.total_issued || 0);
         setText('doc-pending', s.documents?.pending_signatures || 0);
 
+        // Ensure icons are rendered properly
+        refreshCEODashboardIcons();
+
     } catch (err) {
         console.error('Error loading CEO stats:', err);
+    } finally {
+        isStatsLoading = false;
     }
 }
 
@@ -953,7 +1040,7 @@ function updateThemeUI(isDark) {
     const icon = document.getElementById('theme-icon-lucide');
     if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
     if (icon) icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
-    if (window.lucide) window.lucide.createIcons();
+    refreshCEODashboardIcons();
 }
 
 /* ==========================

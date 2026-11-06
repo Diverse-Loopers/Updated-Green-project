@@ -51,12 +51,26 @@ export async function verifyExecutiveSession(request) {
       };
     }
 
-    // Verify the executive still exists in DB
-    const { data: exec, error } = await supabase
+    // Verify the executive still exists in DB (by id or fallback to email)
+    let query = supabase
       .from('executives')
-      .select('id, email, name, role, is_active')
-      .eq('id', payload.id)
-      .maybeSingle();
+      .select('id, email, name, role, is_active');
+
+    if (payload.id) {
+      query = query.eq('id', payload.id);
+    } else if (payload.email) {
+      query = query.ilike('email', payload.email);
+    } else {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { success: false, error: 'Invalid token payload.' },
+          { status: 401 }
+        ),
+      };
+    }
+
+    const { data: exec, error } = await query.maybeSingle();
 
     if (error || !exec || exec.is_active === false) {
       return {

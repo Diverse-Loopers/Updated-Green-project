@@ -16,7 +16,16 @@ export default function CEODashboardPage() {
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
       <Script src="https://cdn.tailwindcss.com" strategy="beforeInteractive" />
-      <Script src="https://unpkg.com/lucide@latest" strategy="beforeInteractive" />
+      <Script
+        id="lucide-cdn"
+        src="https://unpkg.com/lucide@latest"
+        strategy="afterInteractive"
+        onLoad={() => {
+          if (typeof window !== 'undefined' && window.refreshCEODashboardIcons) {
+            window.refreshCEODashboardIcons();
+          }
+        }}
+      />
       <Script id="tailwind-config" strategy="beforeInteractive">{`
         tailwind.config = {
           theme: {

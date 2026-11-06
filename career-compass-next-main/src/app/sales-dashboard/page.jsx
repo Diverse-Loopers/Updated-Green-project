@@ -247,7 +247,12 @@ export default function SalesDashboardPage() {
       sessionStorage.setItem('executive_token', ceoToken);
       try {
         const payload = JSON.parse(atob(ceoToken));
-        sessionStorage.setItem('executive_session', JSON.stringify({ name: 'CEO', email: payload.email, role: payload.role }));
+        sessionStorage.setItem('executive_session', JSON.stringify({
+          id: payload.id,
+          name: payload.name || 'CEO',
+          email: payload.email,
+          role: payload.role
+        }));
       } catch(e) {}
     }
 
