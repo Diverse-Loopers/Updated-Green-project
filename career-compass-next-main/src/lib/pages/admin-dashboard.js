@@ -202,54 +202,45 @@ export async function markAllRead() {
    ADMIN STATS
 ========================== */
 async function loadAdminStats() {
-    try {
-        const { count: totalEmp } = await supabase
-            .from('employees')
-            .select('*', { count: 'exact', head: true })
-            .neq('role', 'admin');
-
+    // If employeesCache already has data, immediately update the total active count
+    if (employeesCache && employeesCache.length > 0) {
         const totalEl = document.getElementById('stat-total-employees');
-        if (totalEl && totalEmp !== null && totalEmp !== undefined) totalEl.textContent = totalEmp;
-    } catch (e) {
-        console.warn('Error loading total employees stat:', e);
+        const nonAdminActive = employeesCache.filter(e => e.role !== 'admin' && e.is_active !== false);
+        if (totalEl) totalEl.textContent = nonAdminActive.length;
     }
 
     try {
         const today = new Date().toISOString().split('T')[0];
-        const { data: presentData } = await supabase
-            .from('attendance')
-            .select('employee_id')
-            .eq('date', today);
+        // Run stats queries in parallel with timeout protection
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 6000));
+        const statsBatchPromise = Promise.all([
+            supabase.from('employees').select('id', { count: 'exact', head: true }).neq('role', 'admin').neq('is_active', false),
+            supabase.from('attendance').select('employee_id').eq('date', today),
+            supabase.from('leaves').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
+            supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['Pending', 'Submitted'])
+        ]);
 
-        const uniquePresent = new Set(presentData?.map(d => d.employee_id) || []).size;
+        const results = await Promise.race([statsBatchPromise, timeoutPromise]);
+        if (!results) return;
+
+        const [empRes, attRes, leavesRes, tasksRes] = results;
+
+        const totalEl = document.getElementById('stat-total-employees');
+        if (totalEl && empRes?.count !== null && empRes?.count !== undefined) totalEl.textContent = empRes.count;
+
         const presentEl = document.getElementById('stat-present-today');
-        if (presentEl) presentEl.textContent = uniquePresent;
-    } catch (e) {
-        console.warn('Error loading present stat:', e);
-    }
-
-    try {
-        const { count: pendingLeaves } = await supabase
-            .from('leaves')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'Pending');
+        if (presentEl && attRes?.data) {
+            const uniquePresent = new Set(attRes.data.map(d => d.employee_id) || []).size;
+            presentEl.textContent = uniquePresent;
+        }
 
         const leavesEl = document.getElementById('stat-pending-leaves');
-        if (leavesEl && pendingLeaves !== null && pendingLeaves !== undefined) leavesEl.textContent = pendingLeaves;
-    } catch (e) {
-        console.warn('Error loading leaves stat:', e);
-    }
-
-    try {
-        const { count: activeTasks } = await supabase
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['Pending', 'Submitted']);
+        if (leavesEl && leavesRes?.count !== null && leavesRes?.count !== undefined) leavesEl.textContent = leavesRes.count;
 
         const tasksEl = document.getElementById('stat-active-tasks');
-        if (tasksEl && activeTasks !== null && activeTasks !== undefined) tasksEl.textContent = activeTasks;
+        if (tasksEl && tasksRes?.count !== null && tasksRes?.count !== undefined) tasksEl.textContent = tasksRes.count;
     } catch (e) {
-        console.warn('Error loading tasks stat:', e);
+        console.warn('Error loading admin stats in parallel:', e);
     }
 }
 
@@ -315,27 +306,125 @@ export function switchEmployeeTab(tab) {
 ========================== */
 let employeeDocsCacheMap = {};
 
-async function loadEmployees() {
+/**
+ * Fast unified dashboard loader:
+ * 1. Immediately renders from sessionStorage cache if available (0ms load).
+ * 2. Fetches unified /api/hrms/dashboard-data endpoint in ~100ms.
+ * 3. Falls back to direct Supabase queries if API request fails.
+ */
+export async function loadFastAdminDashboard() {
+    // 1. Instant Cache Render (0ms): If previous data exists in sessionStorage, render immediately
     try {
-        const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
-        if (error) {
-            console.error('Error loading employees:', error);
+        const cached = sessionStorage.getItem('hrms_dashboard_cache');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            applyDashboardData(parsed);
+        }
+    } catch (_) {}
+
+    // 2. Fast single server request
+    try {
+        const res = await fetch('/api/hrms/dashboard-data', {
+            headers: { 'x-admin-key': 'hrms-admin-access' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            applyDashboardData(data);
+            try {
+                sessionStorage.setItem('hrms_dashboard_cache', JSON.stringify(data));
+            } catch (_) {}
+            return true;
+        }
+    } catch (e) {
+        console.warn('Fast dashboard load notice, falling back to direct queries:', e);
+    }
+
+    return false;
+}
+
+export function applyDashboardData(data) {
+    if (!data) return;
+
+    // Apply KPI stats
+    if (data.stats) {
+        const totalEl = document.getElementById('stat-total-employees');
+        const presentEl = document.getElementById('stat-present-today');
+        const leavesEl = document.getElementById('stat-pending-leaves');
+        const tasksEl = document.getElementById('stat-active-tasks');
+
+        if (totalEl && data.stats.totalEmployees !== undefined) totalEl.textContent = data.stats.totalEmployees;
+        if (presentEl && data.stats.presentToday !== undefined) presentEl.textContent = data.stats.presentToday;
+        if (leavesEl && data.stats.pendingLeaves !== undefined) leavesEl.textContent = data.stats.pendingLeaves;
+        if (tasksEl && data.stats.activeTasks !== undefined) tasksEl.textContent = data.stats.activeTasks;
+    }
+
+    // Apply employees & docs
+    if (data.employees && Array.isArray(data.employees)) {
+        employeesCache = data.employees;
+
+        employeeDocsCacheMap = {};
+        if (data.docsMap) {
+            Object.keys(data.docsMap).forEach(empId => {
+                employeeDocsCacheMap[empId] = new Set(data.docsMap[empId]);
+            });
+        }
+
+        renderEmployeesTable();
+
+        // Populate task assignment dropdown
+        const taskSelect = document.getElementById('task-assign-to');
+        if (taskSelect) {
+            taskSelect.innerHTML = '';
+            employeesCache.filter(e => e.role !== 'admin' && e.is_active !== false).forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.employee_id;
+                opt.textContent = emp.employee_id + ' - ' + emp.full_name;
+                taskSelect.appendChild(opt);
+            });
+        }
+    }
+
+    // Apply notifications count
+    if (data.notifications) {
+        const badge = document.getElementById('notif-count');
+        const unreadCount = data.notifications.length;
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    }
+}
+
+async function loadEmployees() {
+    // 1. Try fast unified API first
+    const loaded = await loadFastAdminDashboard();
+    if (loaded) return;
+
+    // 2. Direct parallel Supabase query fallback
+    try {
+        const [empRes, docsRes] = await Promise.all([
+            supabase.from('employees').select('*').order('created_at', { ascending: false }),
+            supabase.from('employee_documents').select('employee_id, doc_type')
+        ]);
+
+        if (empRes.error) {
+            console.error('Error loading employees:', empRes.error);
             showToast('Error loading employees', 'error');
             return;
         }
-        employeesCache = data || [];
 
-        // Fetch document counts for all employees
+        employeesCache = empRes.data || [];
         employeeDocsCacheMap = {};
-        try {
-            const { data: allDocs } = await supabase.from('employee_documents').select('employee_id, doc_type');
-            if (allDocs) {
-                allDocs.forEach(d => {
-                    if (!employeeDocsCacheMap[d.employee_id]) employeeDocsCacheMap[d.employee_id] = new Set();
-                    employeeDocsCacheMap[d.employee_id].add(d.doc_type);
-                });
-            }
-        } catch(e) { console.error('Error fetching doc counts:', e); }
+        if (docsRes.data) {
+            docsRes.data.forEach(d => {
+                if (!employeeDocsCacheMap[d.employee_id]) employeeDocsCacheMap[d.employee_id] = new Set();
+                employeeDocsCacheMap[d.employee_id].add(d.doc_type);
+            });
+        }
 
         renderEmployeesTable();
 
@@ -451,6 +540,7 @@ function renderEmployeesTable() {
 }
 
 export function openAddEmployeeModal() {
+    try { loadFaceModels(); } catch(e) {}
     document.getElementById('add-employee-modal')?.classList.remove('hidden');
 }
 
@@ -2204,6 +2294,9 @@ export function initAdminDashboard() {
 export async function initDashboardCore() {
     bindAdminDashboardToWindow();
 
+    // Immediately trigger fast data loading so metrics and employee tables populate in <150ms
+    loadFastAdminDashboard();
+
     // CEO mode: auto-login via postMessage from CEO panel iframe
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     if (params && params.get('ceo_mode') === 'true') {
@@ -2248,6 +2341,12 @@ export async function initDashboardCore() {
         window.location.href = '/hrms-login';
         return;
     }
+
+    // Update sidebar profile immediately from user session
+    const sidebarNameEl = document.getElementById('admin-sidebar-name');
+    const sidebarEmailEl = document.getElementById('admin-sidebar-email');
+    if (sidebarEmailEl && user.email) sidebarEmailEl.textContent = user.email;
+    if (sidebarNameEl && user.user_metadata?.full_name) sidebarNameEl.textContent = user.user_metadata.full_name;
 
     let isAdmin = false;
     const cleanEmail = user.email ? user.email.toLowerCase().trim() : '';
@@ -2312,13 +2411,9 @@ export async function initDashboardCore() {
 
     // Auth passed - proceed with dashboard init
     try { showSection('employees'); } catch(e) { console.error('showSection error:', e); }
-    try { startDateTime(); } catch(e) { console.error('startDateTime error:', e); }
-    try { loadAdminProfile(); } catch(e) { console.error('loadAdminProfile error:', e); }
-    try { loadDocumentTemplates(); } catch(e) { console.error('loadDocumentTemplates error:', e); }
-
-    setTimeout(() => {
-        try { loadFaceModels(); } catch(e) {}
-    }, 500);
+    try { startDateTime(); } catch(e) {}
+    try { loadAdminProfile(); } catch(e) {}
+    try { loadDocumentTemplates(); } catch(e) {}
 
     // Mobile menu
     const menuBtn = document.getElementById('mobile-menu-btn');

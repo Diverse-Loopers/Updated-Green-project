@@ -252,7 +252,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="stat-info">
                   <h3>Total Employees</h3>
-                  <div className="stat-value" id="stat-total-employees">0</div>
+                  <div className="stat-value" id="stat-total-employees">—</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -261,7 +261,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="stat-info">
                   <h3>Present Today</h3>
-                  <div className="stat-value" id="stat-present-today">0</div>
+                  <div className="stat-value" id="stat-present-today">—</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -270,7 +270,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="stat-info">
                   <h3>Pending Leaves</h3>
-                  <div className="stat-value" id="stat-pending-leaves">0</div>
+                  <div className="stat-value" id="stat-pending-leaves">—</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -279,7 +279,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="stat-info">
                   <h3>Active Tasks</h3>
-                  <div className="stat-value" id="stat-active-tasks">0</div>
+                  <div className="stat-value" id="stat-active-tasks">—</div>
                 </div>
               </div>
             </div>
@@ -295,7 +295,7 @@ export default function AdminDashboard() {
                     style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #6C5CE7', background: '#6C5CE7', color: '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
                   >
                     <span>👥 Active Employees</span>
-                    <span id="active-emp-count" style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>0</span>
+                    <span id="active-emp-count" style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>—</span>
                   </button>
                   <button
                     id="emp-tab-past"
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
                     style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
                   >
                     <span>📋 Past Employees</span>
-                    <span id="past-emp-count" style={{ background: '#e2e8f0', color: '#475569', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>0</span>
+                    <span id="past-emp-count" style={{ background: '#e2e8f0', color: '#475569', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem' }}>—</span>
                   </button>
                 </div>
               </div>
@@ -326,7 +326,16 @@ export default function AdminDashboard() {
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody>
+                  <tr id="employees-loading-row">
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6C5CE7' }} className="animate-ping"></span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Loading employee directory...</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
               </table>
             </div>
           </section>
