@@ -227,6 +227,23 @@ export default function CMODashboard() {
     } else alert(d.error);
   };
 
+  const loadPlacementOfferTemplate = async () => {
+    try {
+      const res = await fetch('/email-templates/international-placement-offer.html');
+      const html = await res.text();
+      setCompose({
+        title: 'Placement Program Flash Offer — CAD $850',
+        subject: 'Tired of Job Rejections? Launch Your International Tech Career (CAD $850 Offer)',
+        body: html,
+        cc: '',
+        bcc: ''
+      });
+      alert('✨ Placement Program Promo Template loaded into editor!');
+    } catch (err) {
+      alert('Could not load template: ' + err.message);
+    }
+  };
+
   const logout = () => { sessionStorage.removeItem('executive_session'); sessionStorage.removeItem('executive_token'); router.push('/executive-login'); };
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
@@ -401,8 +418,17 @@ export default function CMODashboard() {
           {/* COMPOSE */}
           <div className={`cmo-section ${section==='compose'?'active':''}`}>
             <div className="cmo-section-header">
-              <h2>Compose Bulk Email</h2>
-              <span style={{fontSize:'0.78rem',color:'var(--cmo-primary)',fontWeight:600}}>📧 Sending as contact@diverseloopers.com</span>
+              <div>
+                <h2>Compose Bulk Email</h2>
+                <span style={{fontSize:'0.78rem',color:'var(--cmo-primary)',fontWeight:600}}>📧 Sending as contact@diverseloopers.com</span>
+              </div>
+              <button
+                type="button"
+                onClick={loadPlacementOfferTemplate}
+                className="cmo-btn cmo-btn-ghost"
+                style={{fontSize:'0.78rem',border:'1.5px solid #00c851',color:'#00c851',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px',cursor:'pointer'}}>
+                ✨ Load Placement Promo Offer Template
+              </button>
             </div>
             <div className="cmo-compose-wrap">
               <div style={{background:'#ede9fe',borderRadius:10,padding:'0.75rem 1rem',marginBottom:'1.25rem',fontSize:'0.78rem',color:'#7c3aed',fontWeight:500}}>
