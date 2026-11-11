@@ -256,7 +256,18 @@ export default function CMODashboard() {
       const r = await fetch('/api/marketing/contacts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d = await r.json();
       setLoading(false);
-      alert(d.success?`Imported ${d.imported} contacts!`:d.error);
+      if (d.success) {
+        const msg = d.new > 0 && d.updated > 0
+          ? `Done! ${d.new} new contacts added, ${d.updated} existing contacts moved to this folder.`
+          : d.new > 0
+          ? `Imported ${d.new} new contacts!`
+          : d.updated > 0
+          ? `${d.updated} contacts already existed and were moved to this folder.`
+          : `Imported ${d.imported} contacts!`;
+        alert(msg);
+      } else {
+        alert(d.error);
+      }
       fetchContacts();
       fetchFolders();
     } catch (err) {

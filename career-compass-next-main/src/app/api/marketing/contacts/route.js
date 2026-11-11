@@ -66,9 +66,26 @@ export async function POST(req) {
                 ...(folder_id ? { folder_id } : {})
             })).filter(c => c.email && emailRegex.test(c.email) && c.email.toLowerCase() !== 'email');
             if (!formatted.length) return NextResponse.json({ success: false, error: 'No valid contacts with email found' }, { status: 400 });
-            const { data, error } = await supabase.from('marketing_contacts').upsert(formatted, { onConflict: 'email', ignoreDuplicates: true }).select();
+
+            // Use ignoreDuplicates:false so existing contacts get folder_id updated too.
+            // This means upsert updates ALL columns on conflict — existing contacts get moved to this folder.
+            // We track how many rows were processed vs already existed by comparing before/after counts.
+            const emails = formatted.map(c => c.email);
+
+            // Check which emails already exist
+            const { data: existing } = await supabase
+                .from('marketing_contacts')
+                .select('email')
+                .in('email', emails);
+            const existingEmails = new Set((existing || []).map(e => e.email));
+
+            // Upsert all — updates folder_id for existing, inserts new ones
+            const { error } = await supabase
+                .from('marketing_contacts')
+                .upsert(formatted, { onConflict: 'email', ignoreDuplicates: false });
             if (error) throw error;
-            return NextResponse.json({ success: true, imported: data?.length || 0 });
+
+            return NextResponse.json({ success: true, imported: formatted.length, new: formatted.length - existingEmails.size, updated: existingEmails.size });
         }
 
         if (action === 'import-applicants') {
