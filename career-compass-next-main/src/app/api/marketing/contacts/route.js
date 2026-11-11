@@ -60,30 +60,37 @@ export async function POST(req) {
             const { contacts, folder_id } = body;
             if (!contacts?.length) return NextResponse.json({ success: false, error: 'No contacts' }, { status: 400 });
             const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-            const formatted = contacts.map(c => ({
+            const rawFormatted = contacts.map(c => ({
                 email: c.email?.toLowerCase().trim(), name: c.name || null, phone: c.phone || null,
                 company: c.company || null, source: c.source || 'import', tags: Array.isArray(c.tags) ? c.tags : [], is_subscribed: true,
                 ...(folder_id ? { folder_id } : {})
             })).filter(c => c.email && emailRegex.test(c.email) && c.email.toLowerCase() !== 'email');
+
+            // Deduplicate by email — keep the last occurrence (last row wins for same email in CSV)
+            const seen = new Map();
+            for (const c of rawFormatted) seen.set(c.email, c);
+            const formatted = Array.from(seen.values());
+
             if (!formatted.length) return NextResponse.json({ success: false, error: 'No valid contacts with email found' }, { status: 400 });
 
-            // Use ignoreDuplicates:false so existing contacts get folder_id updated too.
-            // This means upsert updates ALL columns on conflict — existing contacts get moved to this folder.
-            // We track how many rows were processed vs already existed by comparing before/after counts.
             const emails = formatted.map(c => c.email);
 
-            // Check which emails already exist
+            // Check which emails already exist so we can report new vs updated
             const { data: existing } = await supabase
                 .from('marketing_contacts')
                 .select('email')
                 .in('email', emails);
             const existingEmails = new Set((existing || []).map(e => e.email));
 
-            // Upsert all — updates folder_id for existing, inserts new ones
-            const { error } = await supabase
-                .from('marketing_contacts')
-                .upsert(formatted, { onConflict: 'email', ignoreDuplicates: false });
-            if (error) throw error;
+            // Upsert in batches of 500 to avoid request size limits
+            const BATCH = 500;
+            for (let i = 0; i < formatted.length; i += BATCH) {
+                const batch = formatted.slice(i, i + BATCH);
+                const { error } = await supabase
+                    .from('marketing_contacts')
+                    .upsert(batch, { onConflict: 'email', ignoreDuplicates: false });
+                if (error) throw error;
+            }
 
             return NextResponse.json({ success: true, imported: formatted.length, new: formatted.length - existingEmails.size, updated: existingEmails.size });
         }
